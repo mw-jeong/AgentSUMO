@@ -1,0 +1,3273 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgentSUMO - AI Traffic Simulation</title>
+
+    <!-- Mapbox GL JS -->
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+
+    <!-- Mapbox Draw removed - using custom implementation -->
+
+    <!-- Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Pretendard Font -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+
+    <style>
+        :root {
+            --primary-color: #10b981;
+            --secondary-color: #059669;
+            --success-color: #22c55e;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --background-color: #f8fafc;
+            --text-color: #1e293b;
+            --border-color: #e2e8f0;
+            --accent-light: #d1fae5;
+            --accent-medium: #a7f3d0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Left Panel - Output Files */
+        .left-panel {
+            background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            width: 280px;
+            min-width: 100px;
+            flex-shrink: 0;
+        }
+
+        .left-panel-header {
+            padding: 20px 16px;
+            background: transparent;
+            color: var(--text-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .left-panel-header i {
+            font-size: 20px;
+            color: var(--secondary-color);
+        }
+
+        .left-panel-header h2 {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0;
+            color: #475569;
+        }
+
+        .file-explorer {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+        }
+
+        .file-tree {
+            font-size: 13px;
+        }
+
+        /* Modern card-style file items */
+        .tree-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            margin-bottom: 6px;
+            background: white;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            gap: 10px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            border: 1px solid transparent;
+        }
+
+        .tree-item:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            border-color: var(--border-color);
+        }
+
+        .tree-item.active {
+            background: linear-gradient(135deg, var(--accent-light) 0%, var(--accent-medium) 100%);
+            border-color: var(--primary-color);
+        }
+
+        .tree-item i {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .tree-item .name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 500;
+            color: #334155;
+        }
+
+        .tree-item .size {
+            font-size: 11px;
+            color: #94a3b8;
+            flex-shrink: 0;
+            background: #f1f5f9;
+            padding: 3px 8px;
+            border-radius: 12px;
+        }
+
+        .tree-folder {
+            margin-left: 0;
+            margin-bottom: 8px;
+        }
+
+        .tree-folder > .tree-item {
+            font-weight: 600;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border: 1px solid var(--border-color);
+        }
+
+        .tree-folder > .tree-item:hover {
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+        }
+
+        .tree-folder-children {
+            margin-left: 8px;
+            margin-top: 6px;
+            padding-left: 12px;
+            border-left: 2px solid #e2e8f0;
+            display: none;
+        }
+
+        .tree-folder.expanded > .tree-folder-children {
+            display: block;
+        }
+
+        .tree-folder > .tree-item i.folder-icon {
+            background: linear-gradient(135deg, var(--accent-light) 0%, var(--accent-medium) 100%);
+            color: var(--secondary-color);
+        }
+
+        .tree-folder > .tree-item i.folder-icon::before {
+            content: "\f07b";
+        }
+
+        .tree-folder.expanded > .tree-item i.folder-icon::before {
+            content: "\f07c";
+        }
+
+        /* File type icon backgrounds */
+        .tree-item.type-network i { background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); color: #2563eb; }
+        .tree-item.type-route i { background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); color: #059669; }
+        .tree-item.type-simulation i { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); color: #d97706; }
+        .tree-item.type-osm i { background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%); color: #7c3aed; }
+        .tree-item.type-xml i { background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); color: #475569; }
+        .tree-item.type-file i { background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); color: #64748b; }
+        .tree-item.type-report { cursor: pointer; }
+        .tree-item.type-report::before { content: '\f15c'; font-family: 'Font Awesome 5 Free'; font-weight: 400; margin-right: 8px; color: #dc2626; }
+
+        .refresh-btn {
+            margin: 8px;
+            padding: 10px 14px;
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .refresh-btn:hover {
+            background: #f8fafc;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Panel Resizers */
+        .resizer {
+            width: 6px;
+            background: transparent;
+            cursor: col-resize;
+            position: relative;
+            z-index: 100;
+            flex-shrink: 0;
+        }
+
+        .resizer::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 4px;
+            height: 40px;
+            background: var(--border-color);
+            border-radius: 2px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .resizer:hover::after,
+        .resizer.active::after {
+            opacity: 1;
+        }
+
+        .resizer:hover,
+        .resizer.active {
+            background: rgba(37, 99, 235, 0.1);
+        }
+
+        /* Main Content (Map) */
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            position: relative;
+            flex: 1;
+            min-width: 0;
+        }
+
+        #map {
+            flex: 1;
+            width: calc(100% - 32px);
+            border-radius: 12px;
+            margin: 16px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+
+        .btn-primary { background: var(--primary-color); color: white; }
+        .btn-success { background: var(--success-color); color: white; }
+        .btn-warning { background: var(--warning-color); color: white; }
+        .btn-danger { background: var(--danger-color); color: white; }
+        .btn-secondary { background: #64748b; color: white; }
+
+        /* Network List Panel */
+        .network-panel {
+            position: absolute;
+            top: 80px;
+            left: 24px;
+            background: white;
+            padding: 16px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgb(0 0 0 / 0.15);
+            z-index: 100;
+            min-width: 250px;
+            display: none;
+        }
+
+        .network-panel.active {
+            display: block;
+        }
+
+        .network-panel h4 {
+            margin-bottom: 12px;
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        .network-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .network-item {
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 4px;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+
+        .network-item:hover {
+            background: var(--background-color);
+        }
+
+        .network-item.active {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            background: white;
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 420px;
+            min-width: 100px;
+            flex-shrink: 0;
+        }
+
+        /* Sidebar Header */
+        .sidebar-header {
+            padding: 20px 16px;
+            border-bottom: 1px solid var(--border-color);
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sidebar-header h2 {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        /* Chat Container */
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .message {
+            max-width: 95%;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .user-message {
+            align-self: flex-end;
+            background: var(--primary-color);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 16px 16px 4px 16px;
+        }
+
+        .bot-message-wrapper {
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+            align-self: flex-start;
+            max-width: 95%;
+            min-width: 0;
+        }
+
+        .bot-avatar {
+            width: 36px;
+            height: 36px;
+            object-fit: contain;
+            flex-shrink: 0;
+        }
+
+        .bot-message {
+            align-self: flex-start;
+            background: var(--background-color);
+            padding: 12px 16px;
+            border-radius: 16px 16px 16px 4px;
+            line-height: 1.6;
+            border: 1px solid var(--accent-medium);
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .bot-message pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 12px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 8px 0;
+            font-size: 13px;
+        }
+
+        .bot-message code {
+            background: rgba(0,0,0,0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .bot-message pre code {
+            background: none;
+            padding: 0;
+        }
+
+        .bot-message > *:first-child {
+            margin-top: 0;
+        }
+
+        .bot-message > *:last-child {
+            margin-bottom: 0;
+        }
+
+        .bot-message p {
+            margin: 0 0 8px 0;
+        }
+
+        .bot-message p:last-child {
+            margin-bottom: 0;
+        }
+
+        .bot-message ul,
+        .bot-message ol {
+            margin: 8px 0;
+            padding-left: 24px;
+        }
+
+        .bot-message li {
+            margin: 4px 0;
+        }
+
+        /* Simulation Options UI */
+        .sim-options {
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 12px;
+        }
+
+        .sim-options-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .sim-options-title {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sim-options-title i {
+            color: var(--primary-color);
+        }
+
+        .sim-options-tabs {
+            display: flex;
+            gap: 4px;
+            background: var(--background-color);
+            padding: 4px;
+            border-radius: 8px;
+        }
+
+        .sim-options-tab {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            font-size: 12px;
+            font-weight: 500;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .sim-options-tab:hover {
+            color: var(--text-color);
+        }
+
+        .sim-options-tab.active {
+            background: white;
+            color: var(--primary-color);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .sim-options-content {
+            display: none;
+        }
+
+        .sim-options-content.active {
+            display: block;
+        }
+
+        .sim-option-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 13px;
+            transition: border-color 0.2s;
+        }
+
+        .sim-option-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .sim-option-input::placeholder {
+            color: #94a3b8;
+        }
+
+        .sim-option-hint {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+
+        .sim-option-group {
+            margin-bottom: 16px;
+        }
+
+        .sim-option-group:last-of-type {
+            margin-bottom: 0;
+        }
+
+        .sim-option-label {
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .sim-option-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .sim-option-btn {
+            padding: 8px 16px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            background: white;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-color);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .sim-option-btn:hover {
+            border-color: var(--primary-color);
+            background: var(--accent-light);
+        }
+
+        .sim-option-btn.selected {
+            border-color: var(--primary-color);
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .sim-option-btn.area-select {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            border-style: dashed;
+        }
+
+        .sim-option-btn.area-select.selected {
+            border-style: solid;
+        }
+
+        .sim-option-btn .area-size {
+            font-size: 11px;
+            opacity: 0.8;
+        }
+
+        .sim-options-submit {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .sim-options-submit button {
+            width: 100%;
+            padding: 12px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .sim-options-submit button:hover:not(:disabled) {
+            background: var(--secondary-color);
+        }
+
+        .sim-options-submit button:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+        }
+
+        .thinking-indicator {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            color: #64748b;
+            font-size: 14px;
+            padding: 12px;
+            background: var(--background-color);
+            border-radius: 12px;
+            max-width: 280px;
+        }
+
+        .thinking-indicator .thinking-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .thinking-indicator .dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .thinking-indicator .dot {
+            width: 8px;
+            height: 8px;
+            background: var(--primary-color);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out;
+        }
+
+        .thinking-indicator .dot:nth-child(1) { animation-delay: -0.32s; }
+        .thinking-indicator .dot:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
+        /* Progress List - MCP Tool Execution */
+        .progress-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .progress-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #475569;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .progress-icon {
+            width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary-color);
+        }
+
+        .progress-icon.completed {
+            color: var(--success-color);
+        }
+
+        .progress-icon.error {
+            color: var(--danger-color);
+        }
+
+        .progress-text {
+            flex: 1;
+        }
+
+        .progress-item.completed .progress-text {
+            color: #94a3b8;
+        }
+
+        .progress-dots {
+            color: #94a3b8;
+            animation: ellipsis 1.5s infinite;
+        }
+
+        @keyframes ellipsis {
+            0% { content: '.'; }
+            33% { content: '..'; }
+            66% { content: '...'; }
+        }
+
+        .progress-status {
+            font-size: 11px;
+            color: var(--success-color);
+            font-weight: 500;
+        }
+
+        .progress-status.error {
+            color: var(--danger-color);
+        }
+
+        /* Selection Confirmation Popup */
+        .selection-confirm {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            padding: 24px;
+            z-index: 1000;
+            min-width: 320px;
+            display: none;
+        }
+
+        .selection-confirm.show {
+            display: block;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .selection-confirm h3 {
+            margin: 0 0 16px 0;
+            font-size: 18px;
+            color: var(--text-color);
+        }
+
+        .selection-confirm .area-info {
+            background: var(--background-color);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+
+        .selection-confirm .area-info .label {
+            color: #64748b;
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+
+        .selection-confirm .area-info .value {
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .selection-confirm .btn-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .selection-confirm .btn-group button {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .selection-confirm .btn-send {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .selection-confirm .btn-send:hover {
+            background: var(--secondary-color);
+        }
+
+        .selection-confirm .btn-adjust {
+            background: var(--border-color);
+            color: var(--text-color);
+        }
+
+        .selection-confirm .btn-adjust:hover {
+            background: #cbd5e1;
+        }
+
+        .selection-confirm .btn-cancel {
+            background: transparent;
+            color: #64748b;
+            flex: 0.5;
+        }
+
+        .selection-confirm .btn-cancel:hover {
+            background: var(--background-color);
+        }
+
+        .selection-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.3);
+            z-index: 999;
+            display: none;
+        }
+
+        .selection-overlay.show {
+            display: block;
+        }
+
+        /* Chat Input */
+        .chat-input {
+            display: flex;
+            gap: 8px;
+            padding: 16px;
+            background: white;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .chat-input input:focus {
+            border-color: var(--primary-color);
+        }
+
+        .chat-input button {
+            padding: 12px 20px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .chat-input button:hover {
+            background: var(--secondary-color);
+        }
+
+        .chat-input button:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 500;
+            z-index: 1000;
+            display: none;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+
+        .toast.success { background: rgba(34, 197, 94, 0.9); }
+        .toast.error { background: rgba(239, 68, 68, 0.9); }
+        .toast.info { background: rgba(37, 99, 235, 0.9); }
+
+        /* Legend */
+        .legend {
+            position: absolute;
+            bottom: 40px;
+            left: 24px;
+            background: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgb(0 0 0 / 0.1);
+            font-size: 12px;
+            display: none;
+        }
+
+        .legend.active {
+            display: block;
+        }
+
+        .legend-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 4px;
+            border-radius: 2px;
+        }
+
+        /* Heatmap Dialog */
+        .heatmap-dialog {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .heatmap-dialog-content {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            min-width: 300px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        .heatmap-dialog-content h3 {
+            margin: 0 0 16px 0;
+            font-size: 18px;
+        }
+
+        .heatmap-dialog-content select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .dialog-buttons {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin-top: 16px;
+        }
+
+        .dialog-buttons button {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .dialog-buttons button:first-child {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+        }
+
+        .dialog-buttons button:first-child:hover {
+            background: var(--secondary-color);
+        }
+
+        .dialog-buttons button:last-child {
+            background: transparent;
+            border: 1px solid var(--border-color);
+        }
+
+        .dialog-buttons button:last-child:hover {
+            background: var(--background-color);
+        }
+
+        /* Replay Controls Panel */
+        .replay-controls {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 16px 24px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            z-index: 200;
+            display: none;
+            min-width: 400px;
+        }
+
+        .replay-controls.active {
+            display: block;
+        }
+
+        .replay-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .replay-header h4 {
+            margin: 0;
+            font-size: 14px;
+            color: #475569;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .replay-header .close-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #94a3b8;
+            font-size: 16px;
+            padding: 4px;
+        }
+
+        .replay-header .close-btn:hover {
+            color: #64748b;
+        }
+
+        .replay-progress {
+            margin-bottom: 12px;
+        }
+
+        .replay-progress input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #e2e8f0;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .replay-progress input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            cursor: pointer;
+        }
+
+        .replay-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 12px;
+        }
+
+        .replay-buttons {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .replay-buttons button {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .replay-buttons .btn-play {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .replay-buttons .btn-play:hover {
+            background: var(--secondary-color);
+        }
+
+        .replay-buttons .btn-stop {
+            background: var(--danger-color);
+            color: white;
+        }
+
+        .replay-buttons .btn-stop:hover {
+            background: #dc2626;
+        }
+
+        .replay-buttons .btn-speed {
+            background: #f1f5f9;
+            color: #475569;
+            min-width: 70px;
+        }
+
+        .replay-buttons .btn-speed:hover {
+            background: #e2e8f0;
+        }
+
+        .replay-buttons .btn-speed.active {
+            background: var(--primary-color);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <!-- Left Panel - Output Files -->
+    <div class="left-panel">
+        <div class="left-panel-header">
+            <i class="fas fa-folder-open"></i>
+            <h2>Output Files</h2>
+        </div>
+        <div class="file-explorer">
+            <div class="file-tree" id="file-tree">
+                <div style="color: #64748b; padding: 16px; text-align: center;">
+                    <i class="fas fa-spinner fa-spin"></i> Loading...
+                </div>
+            </div>
+        </div>
+        <div style="padding: 8px; border-top: 1px solid var(--border-color);">
+            <button class="refresh-btn" onclick="loadFileTree()" style="margin: 0 0 8px 0; width: 100%;">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+            <button class="refresh-btn" onclick="showHeatmapSelector()" style="margin: 0 0 8px 0; width: 100%; background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); color: white; border: none;">
+                <i class="fas fa-fire"></i> View Heatmap
+            </button>
+            <button class="refresh-btn" id="clear-heatmap-btn" onclick="clearHeatmap()" style="margin: 0 0 8px 0; width: 100%; display: none;">
+                <i class="fas fa-times"></i> Clear Heatmap
+            </button>
+            <button class="refresh-btn" onclick="showReplaySelector()" style="margin: 0 0 8px 0; width: 100%; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border: none;">
+                <i class="fas fa-play"></i> Replay Simulation
+            </button>
+            <button class="refresh-btn" id="clear-replay-btn" onclick="clearReplayFromButton()" style="margin: 0; width: 100%; display: none;">
+                <i class="fas fa-times"></i> Clear Replay
+            </button>
+        </div>
+        <!-- Simulation Info Panel (shown during simulation) -->
+        <div id="simulation-info-panel" style="display: none; padding: 12px; border-top: 1px solid var(--border-color); background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                <i class="fas fa-play-circle" style="color: var(--primary-color); font-size: 16px;"></i>
+                <span style="font-weight: 600; font-size: 13px; color: #166534;">Simulation Running</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 12px; color: #64748b;"><i class="fas fa-clock"></i> Time</span>
+                    <span id="sim-time" style="font-size: 14px; font-weight: 600; color: var(--text-color);">0s</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 12px; color: #64748b;"><i class="fas fa-car"></i> Vehicles</span>
+                    <span id="sim-vehicles" style="font-size: 14px; font-weight: 600; color: var(--text-color);">0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Left Resizer -->
+    <div class="resizer" id="left-resizer"></div>
+
+    <div class="main-content">
+        <div id="map"></div>
+
+        <!-- Selection Confirmation Popup -->
+        <div class="selection-overlay" id="selection-overlay"></div>
+        <div class="selection-confirm" id="selection-confirm">
+            <h3>Area Selected</h3>
+            <div class="area-info">
+                <div class="label">Size</div>
+                <div class="value" id="confirm-size">-</div>
+            </div>
+            <div class="area-info">
+                <div class="label">Coordinates (bbox)</div>
+                <div class="value" id="confirm-bbox" style="font-size: 12px; font-family: monospace;">-</div>
+            </div>
+            <div class="btn-group">
+                <button class="btn-cancel" onclick="cancelSelection()">Cancel</button>
+                <button class="btn-adjust" onclick="adjustSelection()">Adjust</button>
+                <button class="btn-send" onclick="confirmSelection()">Send to Agent</button>
+            </div>
+        </div>
+
+
+        <!-- Legend -->
+        <div class="legend" id="legend">
+            <div class="legend-title">Density</div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #22c55e;"></div>
+                <span>Low</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #f59e0b;"></div>
+                <span>Medium</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ef4444;"></div>
+                <span>High</span>
+            </div>
+        </div>
+
+        <!-- Replay Controls -->
+        <div class="replay-controls" id="replay-controls">
+            <div class="replay-header">
+                <h4><i class="fas fa-play-circle"></i> Simulation Replay</h4>
+                <button class="close-btn" onclick="closeReplay()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="replay-progress">
+                <input type="range" id="replay-slider" min="0" max="100" value="0" oninput="seekReplay(this.value)">
+            </div>
+            <div class="replay-info">
+                <span id="replay-time">Time: 0s</span>
+                <span id="replay-step">Step: 0 / 0</span>
+                <span id="replay-vehicles">Vehicles: 0</span>
+            </div>
+            <div class="replay-buttons">
+                <button class="btn-speed" data-speed="0.5" onclick="setReplaySpeed(0.5)">0.5x</button>
+                <button class="btn-speed active" data-speed="1" onclick="setReplaySpeed(1)">1x</button>
+                <button class="btn-speed" data-speed="2" onclick="setReplaySpeed(2)">2x</button>
+                <button class="btn-speed" data-speed="4" onclick="setReplaySpeed(4)">4x</button>
+                <button class="btn-play" id="replay-play-btn" onclick="toggleReplay()">
+                    <i class="fas fa-play"></i> Play
+                </button>
+                <button class="btn-stop" onclick="stopReplay()">
+                    <i class="fas fa-stop"></i> Stop
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Resizer -->
+    <div class="resizer" id="right-resizer"></div>
+
+    <div class="sidebar">
+        <!-- Sidebar Header -->
+        <div class="sidebar-header">
+            <h2>AgentSUMO</h2>
+        </div>
+        <!-- Chat Container -->
+        <div class="chat-container">
+            <div class="chat-messages" id="chat-messages">
+                <div class="message bot-message-wrapper">
+                    <img src="/static/agentsumo_pic.png" alt="AgentSUMO" class="bot-avatar">
+                    <div class="bot-message">
+                        Welcome to AgentSUMO! I can help you with traffic simulation.
+                    </div>
+                </div>
+            </div>
+            <div class="chat-input">
+                <input type="text" id="chat-input" placeholder="Type a message..."
+                       onkeypress="handleKeyPress(event)">
+                <button onclick="sendMessage()" id="send-btn">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // ============================================
+        // Panel Resizer Functions
+        // ============================================
+        function initResizers() {
+            const leftPanel = document.querySelector('.left-panel');
+            const sidebar = document.querySelector('.sidebar');
+            const leftResizer = document.getElementById('left-resizer');
+            const rightResizer = document.getElementById('right-resizer');
+
+            let isResizing = false;
+            let currentResizer = null;
+
+            // Left resizer (for file explorer)
+            leftResizer.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                currentResizer = 'left';
+                leftResizer.classList.add('active');
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+            });
+
+            // Right resizer (for chat sidebar)
+            rightResizer.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                currentResizer = 'right';
+                rightResizer.classList.add('active');
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+
+                const resizerWidth = 12; // Both resizers combined
+                const sidebarWidth = sidebar.offsetWidth;
+                const leftPanelWidth = leftPanel.offsetWidth;
+
+                if (currentResizer === 'left') {
+                    const newWidth = e.clientX;
+                    // Max: can't overlap with right resizer (window - sidebar - resizers)
+                    const maxWidth = window.innerWidth - sidebarWidth - resizerWidth;
+                    if (newWidth >= 100 && newWidth <= maxWidth) {
+                        leftPanel.style.width = newWidth + 'px';
+                    }
+                } else if (currentResizer === 'right') {
+                    const newWidth = window.innerWidth - e.clientX;
+                    // Max: can't overlap with left panel (window - leftPanel - resizers)
+                    const maxWidth = window.innerWidth - leftPanelWidth - resizerWidth;
+                    if (newWidth >= 100 && newWidth <= maxWidth) {
+                        sidebar.style.width = newWidth + 'px';
+                    }
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isResizing) {
+                    isResizing = false;
+                    currentResizer = null;
+                    leftResizer.classList.remove('active');
+                    rightResizer.classList.remove('active');
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+
+                    // Trigger map resize after panel resize
+                    if (typeof map !== 'undefined') {
+                        map.resize();
+                    }
+                }
+            });
+        }
+
+        // Initialize resizers when DOM is ready
+        document.addEventListener('DOMContentLoaded', initResizers);
+
+        // ============================================
+        // File Explorer Functions
+        // ============================================
+        async function loadFileTree() {
+            const container = document.getElementById('file-tree');
+            container.innerHTML = '<div style="color: #64748b; padding: 16px; text-align: center;"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+
+            try {
+                const response = await fetch('/api/files');
+                const data = await response.json();
+
+                if (data.tree && data.tree.length > 0) {
+                    container.innerHTML = renderTree(data.tree);
+                } else {
+                    container.innerHTML = '<div style="color: #64748b; padding: 16px; text-align: center;"><i class="fas fa-folder-open"></i> No files yet</div>';
+                }
+            } catch (error) {
+                console.error('Failed to load file tree:', error);
+                container.innerHTML = '<div style="color: #ef4444; padding: 16px; text-align: center;"><i class="fas fa-exclamation-triangle"></i> Failed to load</div>';
+            }
+        }
+
+        function renderTree(items) {
+            return items.map(item => {
+                if (item.type === 'folder') {
+                    const expandedClass = item.expanded ? 'expanded' : '';
+                    return `
+                        <div class="tree-folder ${expandedClass}">
+                            <div class="tree-item" onclick="toggleFolder(this)">
+                                <i class="fas folder-icon"></i>
+                                <span class="name">${item.name}</span>
+                                <span class="size">${item.children.length}</span>
+                            </div>
+                            <div class="tree-folder-children">
+                                ${renderTree(item.children)}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    return `
+                        <div class="tree-item type-${item.type}" onclick="handleFileClick('${item.path}', '${item.type}')" title="${item.name}\n${item.size} · ${item.modified}">
+                            <span class="name">${item.name}</span>
+                            <span class="size">${item.size}</span>
+                        </div>
+                    `;
+                }
+            }).join('');
+        }
+
+        function toggleFolder(element) {
+            const folder = element.parentElement;
+            folder.classList.toggle('expanded');
+        }
+
+        function handleFileClick(path, type) {
+            // Remove active class from all items
+            document.querySelectorAll('.tree-item').forEach(el => el.classList.remove('active'));
+            // Add active class to clicked item
+            event.currentTarget.classList.add('active');
+
+            const fileName = path.split('/').pop();
+
+            if (type === 'network') {
+                // Load network on map
+                loadNetwork(fileName);
+                showToast(`Loading network: ${fileName}`, 'info');
+            } else if (type === 'simulation') {
+                // Find matching network and load heatmap
+                const baseName = fileName.split('_netstate_')[0];
+                const networkName = baseName.endsWith('.net') ? baseName + '.xml' : baseName + '.net.xml';
+                loadHeatmap(networkName, fileName, 'density');
+                showToast(`Loading simulation: ${fileName}`, 'info');
+            } else if (type === 'report') {
+                // Open HTML report in new tab
+                window.open(`/api/report/${path}`, '_blank');
+                showToast(`Opening report: ${fileName}`, 'info');
+            }
+        }
+
+        // Load file tree on page load
+        document.addEventListener('DOMContentLoaded', loadFileTree);
+
+        // ============================================
+        // Configuration
+        // ============================================
+        mapboxgl.accessToken = '{{ mapbox_token }}';
+
+        // Default center (Gangnam, Seoul)
+        const DEFAULT_CENTER = [127.028, 37.497];
+        const DEFAULT_ZOOM = 14;
+
+        // ============================================
+        // Initialize Map
+        // ============================================
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/light-v11',
+            center: DEFAULT_CENTER,
+            zoom: DEFAULT_ZOOM
+        });
+
+        // Add navigation controls
+        map.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
+
+        // ============================================
+        // WebSocket Connection
+        // ============================================
+        let ws = null;
+        let isThinking = false;
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws/chat`);
+
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                showToast('Connected to AgentSUMO', 'success');
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                console.log('📨 WS message:', data.type, data);
+                handleWebSocketMessage(data);
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                showToast('Disconnected. Reconnecting...', 'error');
+                setTimeout(connectWebSocket, 3000);
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+        }
+
+        let lastState = null;
+
+        function handleWebSocketMessage(data) {
+            switch (data.type) {
+                case 'state':
+                    lastState = data.data;
+                    updateStatePanel(data.data);
+                    break;
+                case 'response':
+                    hideThinking();
+                    addMessage('bot', data.data);
+                    // Check if simulation completed and auto-load heatmap
+                    checkForSimulationComplete(data.data, lastState);
+                    break;
+                case 'thinking':
+                    if (data.data) showThinking();
+                    else hideThinking();
+                    break;
+                case 'progress':
+                    // Show MCP tool execution progress
+                    console.log('📡 Progress received:', data.data);
+                    updateProgress(data.data);
+                    break;
+                case 'error':
+                    hideThinking();
+                    addMessage('bot', `Error: ${data.data}`);
+                    showToast(data.data, 'error');
+                    break;
+                case 'info':
+                    showToast(data.data, 'info');
+                    break;
+            }
+        }
+
+        // Progress tracking for MCP tools
+        let lastProgressTool = null;
+
+        function updateProgress(progressData) {
+            const { tool, status, message } = progressData;
+
+            // Get or create progress container inside thinking indicator
+            let thinking = document.getElementById('thinking');
+            if (!thinking) return;
+
+            let progressList = thinking.querySelector('.progress-list');
+            if (!progressList) {
+                progressList = document.createElement('div');
+                progressList.className = 'progress-list';
+                thinking.appendChild(progressList);
+            }
+
+            // Format tool name for display
+            const toolDisplayName = formatToolName(tool);
+
+            if (status === 'started') {
+                // Skip if same tool as last one (consecutive duplicate)
+                if (lastProgressTool === tool) {
+                    return;
+                }
+                lastProgressTool = tool;
+
+                // Add new progress item (allow same tool if not consecutive)
+                const item = document.createElement('div');
+                item.className = 'progress-item';
+                item.id = `progress-${tool}-${Date.now()}`;
+                item.dataset.tool = tool;
+                item.innerHTML = `
+                    <span class="progress-icon"><i class="fas fa-spinner fa-spin"></i></span>
+                    <span class="progress-text">${toolDisplayName}</span>
+                    <span class="progress-dots">...</span>
+                `;
+                progressList.appendChild(item);
+            } else if (status === 'completed') {
+                // Update to completed - find latest item with this tool
+                const items = progressList.querySelectorAll(`[data-tool="${tool}"]:not(.completed)`);
+                const item = items[items.length - 1];
+                if (item) {
+                    item.innerHTML = `
+                        <span class="progress-icon completed"><i class="fas fa-check"></i></span>
+                        <span class="progress-text">${toolDisplayName}</span>
+                        <span class="progress-status">Done</span>
+                    `;
+                    item.classList.add('completed');
+                }
+            } else if (status === 'error') {
+                // Update to error - find latest item with this tool
+                const items = progressList.querySelectorAll(`[data-tool="${tool}"]:not(.completed):not(.error)`);
+                const item = items[items.length - 1];
+                if (item) {
+                    item.innerHTML = `
+                        <span class="progress-icon error"><i class="fas fa-times"></i></span>
+                        <span class="progress-text">${toolDisplayName}</span>
+                        <span class="progress-status error">Error</span>
+                    `;
+                    item.classList.add('error');
+                }
+            }
+
+            // Scroll to bottom
+            const container = document.getElementById('chat-messages');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function formatToolName(toolName) {
+            // Convert tool names to readable format
+            const names = {
+                'net_generate': 'Generating network',
+                'trip_generate': 'Generating trips',
+                'sumo_runner': 'Running simulation',
+                'result_check': 'Checking results',
+                'policy_apply': 'Applying policy',
+                'query': 'Querying database',
+                'read_query': 'Reading data'
+            };
+            return names[toolName] || toolName.replace(/_/g, ' ');
+        }
+
+        // ============================================
+        // Chat Functions
+        // ============================================
+        function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+
+            if (!message || isThinking) return;
+
+            addMessage('user', message);
+            input.value = '';
+
+            // Show thinking indicator immediately (don't wait for server)
+            showThinking();
+
+            ws.send(JSON.stringify({
+                type: 'chat',
+                message: message
+            }));
+        }
+
+        // Simulation options state
+        let simOptionsState = {
+            area: null,      // bbox array
+            areaSize: null,  // "1.2km x 0.8km"
+            traffic: null,   // "light" | "normal" | "heavy"
+            duration: null   // 1800 | 3600 | 7200
+        };
+
+        function addMessage(type, text) {
+            const container = document.getElementById('chat-messages');
+
+            if (type === 'bot') {
+                // Check for [SIM_OPTIONS] marker
+                const hasSimOptions = text.includes('[SIM_OPTIONS]');
+                const cleanText = text.replace('[SIM_OPTIONS]', '').trim();
+
+                // Create wrapper with avatar for bot messages
+                const wrapper = document.createElement('div');
+                wrapper.className = 'message bot-message-wrapper';
+
+                const avatar = document.createElement('img');
+                avatar.src = '/static/agentsumo_pic.png';
+                avatar.alt = 'AgentSUMO';
+                avatar.className = 'bot-avatar';
+
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'bot-message';
+                messageDiv.innerHTML = marked.parse(cleanText);
+
+                // If [SIM_OPTIONS] marker found, append options UI
+                if (hasSimOptions) {
+                    const optionsUI = createSimOptionsUI();
+                    messageDiv.appendChild(optionsUI);
+                }
+
+                wrapper.appendChild(avatar);
+                wrapper.appendChild(messageDiv);
+                container.appendChild(wrapper);
+            } else {
+                const div = document.createElement('div');
+                div.className = `message ${type}-message`;
+                div.textContent = text;
+                container.appendChild(div);
+            }
+
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function createSimOptionsUI() {
+            // Reset state
+            simOptionsState = {
+                mode: 'random',  // 'random' or 'real'
+                area: null,
+                areaSize: null,
+                traffic: null,
+                duration: null,
+                odFile: null,
+                zoneFile: null
+            };
+
+            const optionsDiv = document.createElement('div');
+            optionsDiv.className = 'sim-options';
+            optionsDiv.id = 'sim-options-panel';
+
+            optionsDiv.innerHTML = `
+                <div class="sim-options-header">
+                    <div class="sim-options-title">
+                        <i class="fas fa-sliders-h"></i>
+                        시뮬레이션 설정
+                    </div>
+                    <!-- TODO: 실제 OD 기능 완성 후 표시
+                    <div class="sim-options-tabs">
+                        <button class="sim-options-tab active" onclick="switchSimTab(this, 'random')">랜덤 OD</button>
+                        <button class="sim-options-tab" onclick="switchSimTab(this, 'real')">실제 OD 데이터</button>
+                    </div>
+                    -->
+                </div>
+
+                <!-- Random OD Content -->
+                <div class="sim-options-content active" id="sim-content-random">
+                    <div class="sim-option-group">
+                        <div class="sim-option-label">영역 선택</div>
+                        <div class="sim-option-buttons">
+                            <button class="sim-option-btn area-select" onclick="startAreaSelection(this)">
+                                <i class="fas fa-map-marked-alt"></i>
+                                <span>지도에서 선택</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="sim-option-group">
+                        <div class="sim-option-label">교통량</div>
+                        <div class="sim-option-buttons">
+                            <button class="sim-option-btn" onclick="selectTraffic(this, 'light')">한산</button>
+                            <button class="sim-option-btn" onclick="selectTraffic(this, 'normal')">보통</button>
+                            <button class="sim-option-btn" onclick="selectTraffic(this, 'heavy')">혼잡</button>
+                        </div>
+                    </div>
+
+                    <div class="sim-option-group">
+                        <div class="sim-option-label">시뮬레이션 시간</div>
+                        <div class="sim-option-buttons">
+                            <button class="sim-option-btn" onclick="selectDuration(this, 1800)">30분</button>
+                            <button class="sim-option-btn" onclick="selectDuration(this, 3600)">1시간</button>
+                            <button class="sim-option-btn" onclick="selectDuration(this, 7200)">2시간</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Real OD Content -->
+                <div class="sim-options-content" id="sim-content-real">
+                    <div class="sim-option-group">
+                        <div class="sim-option-label">OD 데이터 파일 경로 (필수)</div>
+                        <input type="text" class="sim-option-input" id="od-file-input"
+                            placeholder="/path/to/od_data.csv"
+                            oninput="updateOdFile(this.value)">
+                        <div class="sim-option-hint">CSV 형식의 OD 데이터 파일 경로를 입력하세요</div>
+                    </div>
+
+                    <div class="sim-option-group">
+                        <div class="sim-option-label">Zone Shapefile 경로 (선택)</div>
+                        <input type="text" class="sim-option-input" id="zone-file-input"
+                            placeholder="/path/to/zones.shp"
+                            oninput="updateZoneFile(this.value)">
+                        <div class="sim-option-hint">Zone 기반 OD일 경우 shapefile 경로를 입력하세요</div>
+                    </div>
+                </div>
+
+                <div class="sim-options-submit">
+                    <button onclick="submitSimOptions()" disabled id="sim-submit-btn">
+                        모든 옵션을 선택하세요
+                    </button>
+                </div>
+            `;
+
+            return optionsDiv;
+        }
+
+        function switchSimTab(tabBtn, mode) {
+            // Update tab buttons
+            document.querySelectorAll('.sim-options-tab').forEach(tab => tab.classList.remove('active'));
+            tabBtn.classList.add('active');
+
+            // Update content panels
+            document.querySelectorAll('.sim-options-content').forEach(content => content.classList.remove('active'));
+            document.getElementById(`sim-content-${mode}`).classList.add('active');
+
+            // Update state
+            simOptionsState.mode = mode;
+            updateSimSubmitButton();
+        }
+
+        function updateOdFile(value) {
+            simOptionsState.odFile = value.trim() || null;
+            updateSimSubmitButton();
+        }
+
+        function updateZoneFile(value) {
+            simOptionsState.zoneFile = value.trim() || null;
+            updateSimSubmitButton();
+        }
+
+        function startAreaSelection(btn) {
+            // Enter draw mode for area selection
+            toggleDrawMode();
+            showToast('지도에서 영역을 선택하세요', 'info');
+
+            // Store reference to update button later
+            window.areaSelectBtn = btn;
+        }
+
+        function onAreaSelected(bbox, width, height) {
+            // Called when area selection is complete (from map click handler)
+            simOptionsState.area = bbox;
+            simOptionsState.areaSize = `${width.toFixed(1)}km x ${height.toFixed(1)}km`;
+
+            // Update button UI
+            if (window.areaSelectBtn) {
+                window.areaSelectBtn.classList.add('selected');
+                window.areaSelectBtn.innerHTML = `
+                    <i class="fas fa-check"></i>
+                    <span>선택됨</span>
+                    <span class="area-size">(${simOptionsState.areaSize})</span>
+                `;
+            }
+
+            updateSimSubmitButton();
+        }
+
+        function selectTraffic(btn, value) {
+            // Deselect siblings
+            btn.parentElement.querySelectorAll('.sim-option-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            simOptionsState.traffic = value;
+            updateSimSubmitButton();
+        }
+
+        function selectDuration(btn, value) {
+            // Deselect siblings
+            btn.parentElement.querySelectorAll('.sim-option-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            simOptionsState.duration = value;
+            updateSimSubmitButton();
+        }
+
+        function updateSimSubmitButton() {
+            const btn = document.getElementById('sim-submit-btn');
+            if (!btn) return;
+
+            if (simOptionsState.mode === 'random') {
+                // Random OD mode: need area, traffic, duration
+                const allSelected = simOptionsState.area && simOptionsState.traffic && simOptionsState.duration;
+
+                if (allSelected) {
+                    btn.disabled = false;
+                    btn.textContent = '시뮬레이션 시작';
+                } else {
+                    btn.disabled = true;
+                    const missing = [];
+                    if (!simOptionsState.area) missing.push('영역');
+                    if (!simOptionsState.traffic) missing.push('교통량');
+                    if (!simOptionsState.duration) missing.push('시간');
+                    btn.textContent = `${missing.join(', ')} 선택 필요`;
+                }
+            } else {
+                // Real OD mode: need odFile
+                if (simOptionsState.odFile) {
+                    btn.disabled = false;
+                    btn.textContent = '시뮬레이션 시작';
+                } else {
+                    btn.disabled = true;
+                    btn.textContent = 'OD 파일 경로 입력 필요';
+                }
+            }
+        }
+
+        function submitSimOptions() {
+            if (simOptionsState.mode === 'random') {
+                // Random OD mode
+                if (!simOptionsState.area || !simOptionsState.traffic || !simOptionsState.duration) {
+                    showToast('모든 옵션을 선택하세요', 'warning');
+                    return;
+                }
+
+                const trafficLabels = { light: '한산', normal: '보통', heavy: '혼잡' };
+                const durationLabels = { 1800: '30분', 3600: '1시간', 7200: '2시간' };
+
+                const message = `[시뮬레이션 설정 완료]
+- 영역: Bbox [${simOptionsState.area.map(v => v.toFixed(4)).join(', ')}] (${simOptionsState.areaSize})
+- 교통량: ${trafficLabels[simOptionsState.traffic]}
+- 시간: ${durationLabels[simOptionsState.duration]}
+- OD 유형: RandomOD
+
+이 설정으로 시뮬레이션을 실행해주세요.`;
+
+                const displayMessage = `설정 완료: ${simOptionsState.areaSize}, ${trafficLabels[simOptionsState.traffic]}, ${durationLabels[simOptionsState.duration]}`;
+                sendMessageDirectly(message, displayMessage);
+
+            } else {
+                // Real OD mode
+                if (!simOptionsState.odFile) {
+                    showToast('OD 파일 경로를 입력하세요', 'warning');
+                    return;
+                }
+
+                let message = `[시뮬레이션 설정 완료]
+- OD 유형: RealOD
+- OD 파일: ${simOptionsState.odFile}`;
+
+                if (simOptionsState.zoneFile) {
+                    message += `\n- Zone 파일: ${simOptionsState.zoneFile}`;
+                }
+
+                message += `\n\n이 설정으로 시뮬레이션을 실행해주세요.`;
+
+                const displayMessage = `실제 OD 데이터: ${simOptionsState.odFile}`;
+                sendMessageDirectly(message, displayMessage);
+            }
+
+            // Disable the options panel
+            const panel = document.getElementById('sim-options-panel');
+            if (panel) {
+                panel.style.opacity = '0.6';
+                panel.style.pointerEvents = 'none';
+            }
+        }
+
+        function showThinking() {
+            // Already showing? Don't create duplicate
+            if (document.getElementById('thinking-wrapper')) {
+                return;
+            }
+
+            isThinking = true;
+            document.getElementById('send-btn').disabled = true;
+
+            const container = document.getElementById('chat-messages');
+
+            // Create wrapper with avatar (same as bot messages)
+            const wrapper = document.createElement('div');
+            wrapper.className = 'message bot-message-wrapper';
+            wrapper.id = 'thinking-wrapper';
+
+            const avatar = document.createElement('img');
+            avatar.src = '/static/agentsumo_pic.png';
+            avatar.alt = 'AgentSUMO';
+            avatar.className = 'bot-avatar';
+
+            const div = document.createElement('div');
+            div.className = 'thinking-indicator';
+            div.id = 'thinking';
+            div.innerHTML = `
+                <div class="thinking-header">
+                    <span>Processing</span>
+                    <div class="dots">
+                        <div class="dot"></div>
+                        <div class="dot"></div>
+                        <div class="dot"></div>
+                    </div>
+                </div>
+            `;
+
+            wrapper.appendChild(avatar);
+            wrapper.appendChild(div);
+            container.appendChild(wrapper);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function hideThinking() {
+            isThinking = false;
+            lastProgressTool = null;
+            document.getElementById('send-btn').disabled = false;
+
+            // Remove the wrapper (which contains avatar + thinking indicator)
+            const wrapper = document.getElementById('thinking-wrapper');
+            if (wrapper) wrapper.remove();
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        // ============================================
+        // State Panel
+        // ============================================
+        function updateStatePanel(state) {
+            // Refresh file tree when state changes (new files may have been created)
+            loadFileTree();
+        }
+
+        // ============================================
+        // Network Panel
+        // ============================================
+        async function loadNetworks() {
+            try {
+                const response = await fetch('/api/networks');
+                const data = await response.json();
+
+                const list = document.getElementById('network-list');
+
+                if (data.networks && data.networks.length > 0) {
+                    list.innerHTML = data.networks.map(net => `
+                        <div class="network-item" onclick="loadNetwork('${net}')">
+                            <i class="fas fa-project-diagram"></i> ${net}
+                        </div>
+                    `).join('');
+                } else {
+                    list.innerHTML = '<div class="network-item">No networks found</div>';
+                }
+            } catch (error) {
+                console.error('Failed to load networks:', error);
+            }
+        }
+
+        async function loadNetwork(networkName) {
+            showToast(`Loading ${networkName}...`, 'info');
+
+            try {
+                const response = await fetch(`/api/network/${networkName}/geojson`);
+                const data = await response.json();
+
+                if (data.error) {
+                    showToast(data.error, 'error');
+                    return;
+                }
+
+                // Remove existing network layer
+                if (map.getLayer('network-layer')) {
+                    map.removeLayer('network-layer');
+                    map.removeSource('network-source');
+                }
+
+                // Remove existing bbox layer
+                if (map.getLayer('network-bbox-layer')) {
+                    map.removeLayer('network-bbox-layer');
+                    map.removeSource('network-bbox-source');
+                }
+
+                // Add new network layer
+                map.addSource('network-source', {
+                    type: 'geojson',
+                    data: data.geojson
+                });
+
+                map.addLayer({
+                    id: 'network-layer',
+                    type: 'line',
+                    source: 'network-source',
+                    paint: {
+                        'line-color': '#3b82f6',
+                        'line-width': 2,
+                        'line-opacity': 0.8
+                    }
+                });
+
+                // Calculate bbox from GeoJSON features
+                const bbox = calculateBboxFromGeoJSON(data.geojson);
+                if (bbox) {
+                    // Add bbox rectangle layer
+                    const bboxGeoJSON = {
+                        type: 'Feature',
+                        geometry: {
+                            type: 'Polygon',
+                            coordinates: [[
+                                [bbox.west, bbox.south],
+                                [bbox.east, bbox.south],
+                                [bbox.east, bbox.north],
+                                [bbox.west, bbox.north],
+                                [bbox.west, bbox.south]
+                            ]]
+                        }
+                    };
+
+                    map.addSource('network-bbox-source', {
+                        type: 'geojson',
+                        data: bboxGeoJSON
+                    });
+
+                    map.addLayer({
+                        id: 'network-bbox-layer',
+                        type: 'line',
+                        source: 'network-bbox-source',
+                        paint: {
+                            'line-color': '#000000',
+                            'line-width': 2,
+                            'line-dasharray': [3, 2]
+                        }
+                    });
+                }
+
+                // Fly to center
+                map.flyTo({
+                    center: [data.center.lon, data.center.lat],
+                    zoom: 15
+                });
+
+                // Mark as active
+                document.querySelectorAll('.network-item').forEach(item => {
+                    item.classList.remove('active');
+                    if (item.textContent.includes(networkName)) {
+                        item.classList.add('active');
+                    }
+                });
+
+                showToast(`Loaded ${data.edge_count} edges`, 'success');
+
+            } catch (error) {
+                console.error('Failed to load network:', error);
+                showToast('Failed to load network', 'error');
+            }
+        }
+
+        // Calculate bounding box from GeoJSON features
+        function calculateBboxFromGeoJSON(geojson) {
+            let minLon = Infinity, maxLon = -Infinity;
+            let minLat = Infinity, maxLat = -Infinity;
+
+            if (!geojson || !geojson.features || geojson.features.length === 0) {
+                return null;
+            }
+
+            geojson.features.forEach(feature => {
+                if (feature.geometry && feature.geometry.coordinates) {
+                    feature.geometry.coordinates.forEach(coord => {
+                        if (Array.isArray(coord[0])) {
+                            // LineString or nested array
+                            coord.forEach(c => {
+                                if (c[0] < minLon) minLon = c[0];
+                                if (c[0] > maxLon) maxLon = c[0];
+                                if (c[1] < minLat) minLat = c[1];
+                                if (c[1] > maxLat) maxLat = c[1];
+                            });
+                        } else {
+                            // Point
+                            if (coord[0] < minLon) minLon = coord[0];
+                            if (coord[0] > maxLon) maxLon = coord[0];
+                            if (coord[1] < minLat) minLat = coord[1];
+                            if (coord[1] > maxLat) maxLat = coord[1];
+                        }
+                    });
+                }
+            });
+
+            if (minLon === Infinity) return null;
+
+            return {
+                west: minLon,
+                east: maxLon,
+                south: minLat,
+                north: maxLat
+            };
+        }
+
+        // ============================================
+        // Draw Mode (Simple Box Selection)
+        // ============================================
+        let drawMode = false;
+        let drawStartPoint = null;
+        let selectedBbox = null;
+
+        function toggleDrawMode() {
+            drawMode = !drawMode;
+            const drawBtn = document.getElementById('draw-btn');
+
+            if (drawMode) {
+                showToast('Click two points to select an area', 'info');
+                map.getCanvas().style.cursor = 'crosshair';
+                if (drawBtn) {
+                    drawBtn.innerHTML = '<i class="fas fa-times"></i> Cancel';
+                    drawBtn.classList.remove('btn-primary');
+                    drawBtn.classList.add('btn-danger');
+                }
+            } else {
+                map.getCanvas().style.cursor = '';
+                if (drawBtn) {
+                    drawBtn.innerHTML = '<i class="fas fa-draw-polygon"></i> Select Area';
+                    drawBtn.classList.remove('btn-danger');
+                    drawBtn.classList.add('btn-primary');
+                }
+                // Remove selection box if exists
+                if (map.getLayer('selection-box')) {
+                    map.removeLayer('selection-box');
+                    map.removeSource('selection-box');
+                }
+                drawStartPoint = null;
+                selectedBbox = null;
+            }
+        }
+
+        // Handle map clicks for drawing
+        map.on('click', (e) => {
+            if (!drawMode) return;
+
+            if (!drawStartPoint) {
+                // First click - start point
+                drawStartPoint = [e.lngLat.lng, e.lngLat.lat];
+                showToast('Now click the opposite corner', 'info');
+            } else {
+                // Second click - end point
+                const endPoint = [e.lngLat.lng, e.lngLat.lat];
+                selectedBbox = [
+                    Math.min(drawStartPoint[0], endPoint[0]),
+                    Math.min(drawStartPoint[1], endPoint[1]),
+                    Math.max(drawStartPoint[0], endPoint[0]),
+                    Math.max(drawStartPoint[1], endPoint[1])
+                ];
+
+                // Draw the finalized selection box (black outline only, no fill)
+                drawSelectionBox(selectedBbox, true);
+
+                // Reset draw mode and button state
+                drawMode = false;
+                map.getCanvas().style.cursor = '';
+                drawStartPoint = null;
+                const drawBtn = document.getElementById('draw-btn');
+                if (drawBtn) {
+                    drawBtn.innerHTML = '<i class="fas fa-draw-polygon"></i> Select Area';
+                    drawBtn.classList.remove('btn-danger');
+                    drawBtn.classList.add('btn-primary');
+                }
+
+                // Calculate dimensions
+                const width = (selectedBbox[2] - selectedBbox[0]) * 111 * Math.cos(selectedBbox[1] * Math.PI / 180);
+                const height = (selectedBbox[3] - selectedBbox[1]) * 111;
+
+                // Check if sim options panel is active (user clicked from options UI)
+                if (window.areaSelectBtn) {
+                    // Called from sim options UI - update the options panel
+                    onAreaSelected(selectedBbox, width, height);
+                    showToast(`영역 선택 완료: ${width.toFixed(1)}km x ${height.toFixed(1)}km`, 'success');
+                } else {
+                    // Called from standalone Select Area button - show confirmation popup
+                    showSelectionConfirm();
+                }
+            }
+        });
+
+        function drawSelectionBox(bbox, finalized = false) {
+            // Remove existing selection box layers and source
+            if (map.getLayer('selection-box-outline')) {
+                map.removeLayer('selection-box-outline');
+            }
+            if (map.getLayer('selection-box')) {
+                map.removeLayer('selection-box');
+            }
+            if (map.getSource('selection-box')) {
+                map.removeSource('selection-box');
+            }
+
+            // Create polygon coordinates
+            const coordinates = [[
+                [bbox[0], bbox[1]],
+                [bbox[2], bbox[1]],
+                [bbox[2], bbox[3]],
+                [bbox[0], bbox[3]],
+                [bbox[0], bbox[1]]
+            ]];
+
+            map.addSource('selection-box', {
+                type: 'geojson',
+                data: {
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Polygon',
+                        coordinates: coordinates
+                    }
+                }
+            });
+
+            // Only show fill during selection (not finalized)
+            if (!finalized) {
+                map.addLayer({
+                    id: 'selection-box',
+                    type: 'fill',
+                    source: 'selection-box',
+                    paint: {
+                        'fill-color': '#3b82f6',
+                        'fill-opacity': 0.2
+                    }
+                });
+            }
+
+            // Outline: blue during selection, black when finalized
+            map.addLayer({
+                id: 'selection-box-outline',
+                type: 'line',
+                source: 'selection-box',
+                paint: {
+                    'line-color': finalized ? '#000000' : '#3b82f6',
+                    'line-width': 2
+                }
+            });
+        }
+
+        // Send message directly (for programmatic sending)
+        function sendMessageDirectly(message, displayMessage = null) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                showToast('Not connected to server', 'error');
+                return;
+            }
+
+            // Display message: use displayMessage if provided, otherwise use the full message
+            addMessage('user', displayMessage || message);
+
+            // Show thinking indicator immediately (don't wait for server)
+            showThinking();
+
+            // Send full message to server
+            ws.send(JSON.stringify({
+                type: 'chat',
+                message: message
+            }));
+        }
+
+        // Mouse move for draw preview (optional)
+        map.on('mousemove', (e) => {
+            if (!drawMode || !drawStartPoint) return;
+
+            // Preview selection box while moving
+            const currentPoint = [e.lngLat.lng, e.lngLat.lat];
+            const previewBbox = [
+                Math.min(drawStartPoint[0], currentPoint[0]),
+                Math.min(drawStartPoint[1], currentPoint[1]),
+                Math.max(drawStartPoint[0], currentPoint[0]),
+                Math.max(drawStartPoint[1], currentPoint[1])
+            ];
+
+            drawSelectionBox(previewBbox);
+        });
+
+        // ============================================
+        // Selection Confirmation Functions
+        // ============================================
+        function showSelectionConfirm() {
+            if (!selectedBbox) return;
+
+            // Calculate dimensions
+            const width = (selectedBbox[2] - selectedBbox[0]) * 111 * Math.cos(selectedBbox[1] * Math.PI / 180);
+            const height = (selectedBbox[3] - selectedBbox[1]) * 111;
+
+            // Update popup content
+            document.getElementById('confirm-size').textContent = `${width.toFixed(2)}km x ${height.toFixed(2)}km`;
+            document.getElementById('confirm-bbox').textContent =
+                `[${selectedBbox[0].toFixed(4)}, ${selectedBbox[1].toFixed(4)}, ${selectedBbox[2].toFixed(4)}, ${selectedBbox[3].toFixed(4)}]`;
+
+            // Show popup
+            document.getElementById('selection-overlay').classList.add('show');
+            document.getElementById('selection-confirm').classList.add('show');
+        }
+
+        function hideSelectionConfirm() {
+            document.getElementById('selection-overlay').classList.remove('show');
+            document.getElementById('selection-confirm').classList.remove('show');
+        }
+
+        function confirmSelection() {
+            if (!selectedBbox) return;
+
+            hideSelectionConfirm();
+
+            // Calculate bbox dimensions
+            const width = (selectedBbox[2] - selectedBbox[0]) * 111 * Math.cos(selectedBbox[1] * Math.PI / 180);
+            const height = (selectedBbox[3] - selectedBbox[1]) * 111;
+
+            // Send bbox info to agent
+            const agentMessage = `[사용자가 지도에서 시뮬레이션 영역을 선택했습니다]
+
+선택한 영역 정보:
+- Bbox: [${selectedBbox[0].toFixed(4)}, ${selectedBbox[1].toFixed(4)}, ${selectedBbox[2].toFixed(4)}, ${selectedBbox[3].toFixed(4)}]
+- 영역 크기: 약 ${width.toFixed(1)}km x ${height.toFixed(1)}km
+
+📋 이전 대화에서 이미 결정된 옵션이 있는지 확인하세요:
+- trip_type (RandomOD/RealOD)
+- traffic_condition (heavy/normal/light)
+- duration (시뮬레이션 시간)
+
+✅ 이미 결정된 옵션은 그대로 사용하고, 아직 결정되지 않은 옵션만 물어보세요.
+✅ 모든 옵션이 이미 결정되어 있다면 바로 시뮬레이션을 실행하세요.`;
+
+            const displayMessage = `[지도에서 영역 선택 완료: ${width.toFixed(1)}km x ${height.toFixed(1)}km]`;
+
+            sendMessageDirectly(agentMessage, displayMessage);
+            showToast('Area sent to agent!', 'success');
+        }
+
+        function adjustSelection() {
+            hideSelectionConfirm();
+            // Re-enter draw mode for adjustment
+            drawMode = true;
+            drawStartPoint = null;
+            map.getCanvas().style.cursor = 'crosshair';
+
+            const drawBtn = document.getElementById('draw-btn');
+            if (drawBtn) {
+                drawBtn.innerHTML = '<i class="fas fa-times"></i> Cancel';
+                drawBtn.classList.remove('btn-primary');
+                drawBtn.classList.add('btn-danger');
+            }
+
+            showToast('Click two points to reselect area', 'info');
+        }
+
+        function cancelSelection() {
+            hideSelectionConfirm();
+
+            // Clear selection box
+            if (map.getLayer('selection-box-outline')) {
+                map.removeLayer('selection-box-outline');
+            }
+            if (map.getLayer('selection-box')) {
+                map.removeLayer('selection-box');
+            }
+            if (map.getSource('selection-box')) {
+                map.removeSource('selection-box');
+            }
+
+            selectedBbox = null;
+            showToast('Selection cancelled', 'info');
+        }
+
+        // ============================================
+        // Heatmap Functions
+        // ============================================
+        async function loadHeatmap(networkName, simulationName, attribute = 'density') {
+            showToast(`Loading ${attribute} heatmap...`, 'info');
+
+            try {
+                const response = await fetch(`/api/heatmap/${networkName}/${simulationName}?attribute=${attribute}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    showToast(data.error, 'error');
+                    return;
+                }
+
+                // Remove existing heatmap layer
+                if (map.getLayer('heatmap-layer')) {
+                    map.removeLayer('heatmap-layer');
+                    map.removeSource('heatmap-source');
+                }
+
+                // Remove existing network layer (heatmap replaces it)
+                if (map.getLayer('network-layer')) {
+                    map.removeLayer('network-layer');
+                    map.removeSource('network-source');
+                }
+
+                // Add heatmap layer with color gradient based on normalized value
+                map.addSource('heatmap-source', {
+                    type: 'geojson',
+                    data: data.geojson
+                });
+
+                map.addLayer({
+                    id: 'heatmap-layer',
+                    type: 'line',
+                    source: 'heatmap-source',
+                    paint: {
+                        'line-color': [
+                            'interpolate',
+                            ['linear'],
+                            ['get', 'normalized'],
+                            0, '#22c55e',    // Green (low)
+                            0.5, '#f59e0b',  // Yellow (medium)
+                            1, '#ef4444'     // Red (high)
+                        ],
+                        'line-width': [
+                            'interpolate',
+                            ['linear'],
+                            ['get', 'normalized'],
+                            0, 2,
+                            1, 6
+                        ],
+                        'line-opacity': 0.85
+                    }
+                });
+
+                // Add click interaction for edge info
+                map.on('click', 'heatmap-layer', (e) => {
+                    if (e.features.length > 0) {
+                        const props = e.features[0].properties;
+                        const popup = new mapboxgl.Popup()
+                            .setLngLat(e.lngLat)
+                            .setHTML(`
+                                <strong>${props.name}</strong><br>
+                                ${props.attribute}: ${props.value.toFixed(2)}
+                            `)
+                            .addTo(map);
+                    }
+                });
+
+                // Change cursor on hover
+                map.on('mouseenter', 'heatmap-layer', () => {
+                    map.getCanvas().style.cursor = 'pointer';
+                });
+                map.on('mouseleave', 'heatmap-layer', () => {
+                    map.getCanvas().style.cursor = '';
+                });
+
+                // Update legend
+                updateLegend(attribute, data.min_value, data.max_value);
+
+                // Fly to center
+                map.flyTo({
+                    center: [data.center.lon, data.center.lat],
+                    zoom: 14
+                });
+
+                showToast(`Loaded ${attribute} heatmap (${data.edge_count} edges)`, 'success');
+
+                // Show clear heatmap button
+                document.getElementById('clear-heatmap-btn').style.display = 'block';
+
+            } catch (error) {
+                console.error('Failed to load heatmap:', error);
+                showToast('Failed to load heatmap', 'error');
+            }
+        }
+
+        function updateLegend(attribute, minVal, maxVal) {
+            const legend = document.getElementById('legend');
+            const title = legend.querySelector('.legend-title');
+
+            // Capitalize attribute name
+            const attrName = attribute.charAt(0).toUpperCase() + attribute.slice(1);
+            title.textContent = `${attrName}`;
+
+            // Update legend values
+            const items = legend.querySelectorAll('.legend-item span');
+            if (items.length >= 3) {
+                items[0].textContent = `Low (${minVal.toFixed(1)})`;
+                items[1].textContent = `Medium`;
+                items[2].textContent = `High (${maxVal.toFixed(1)})`;
+            }
+
+            legend.classList.add('active');
+        }
+
+        // Check if simulation completed and auto-load heatmap
+        function checkForSimulationComplete(text, state) {
+            // Check for simulation completion keywords
+            const simKeywords = ['simulation completed', 'simulation finished', 'sumo_runner', 'simulation duration', 'executed successfully'];
+            const hasSimKeyword = simKeywords.some(kw => text.toLowerCase().includes(kw));
+
+            // Also refresh file tree when network/simulation is generated
+            const refreshKeywords = ['network generated', 'net_generate', 'trip_generate', 'routes generated'];
+            const needsRefresh = refreshKeywords.some(kw => text.toLowerCase().includes(kw));
+            if (needsRefresh || hasSimKeyword) {
+                setTimeout(loadFileTree, 1000);  // Refresh after a short delay
+            }
+
+            if (hasSimKeyword && state && state.simulation_state) {
+                const simState = state.simulation_state;
+                const networkFile = simState.current_network;
+                const lastResults = simState.last_results;  // [tripinfo, edgedata, edgedata_emission]
+
+                if (networkFile) {
+                    const networkName = networkFile.split('/').pop();
+
+                    // Find netstate file from last_results array (index 1 is edgedata)
+                    let edgedataFile = null;
+                    if (lastResults && Array.isArray(lastResults)) {
+                        // Find the netstate file (contains '_netstate_' but not '_emission')
+                        edgedataFile = lastResults.find(f =>
+                            f && f.includes('_netstate_') && !f.includes('_emission')
+                        );
+                    }
+
+                    if (edgedataFile) {
+                        const edgedataName = edgedataFile.split('/').pop();
+                        console.log('Using netstate from last_results:', edgedataName);
+                        setTimeout(() => {
+                            loadHeatmap(networkName, edgedataName, 'density');
+                        }, 500);
+                    } else {
+                        // Fallback to searching by base name
+                        const baseName = networkName.replace('.net.xml', '');
+                        fetchLatestSimulation(networkName, baseName);
+                    }
+                }
+            }
+        }
+
+        // Fetch latest simulation for a network and load heatmap (fallback)
+        async function fetchLatestSimulation(networkName, baseName) {
+            try {
+                const response = await fetch('/api/simulations');
+                const data = await response.json();
+
+                if (data.simulations && data.simulations.length > 0) {
+                    // Find simulation matching this network's base name
+                    const matchingSim = data.simulations.find(s =>
+                        s.base_name === baseName ||
+                        s.base_name.includes(baseName.replace('.net', '')) ||
+                        baseName.includes(s.base_name.replace('.net', ''))
+                    );
+
+                    if (matchingSim) {
+                        console.log('Found matching simulation:', matchingSim);
+                        setTimeout(() => {
+                            loadHeatmap(networkName, matchingSim.netstate_file, 'density');
+                        }, 500);
+                    } else {
+                        // Use the most recent simulation
+                        const latestSim = data.simulations[0];
+                        console.log('Using latest simulation:', latestSim);
+                        setTimeout(() => {
+                            loadHeatmap(networkName, latestSim.netstate_file, 'density');
+                        }, 500);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to fetch simulations:', error);
+            }
+        }
+
+        // Manual heatmap loading - show simulation selector
+        async function showHeatmapSelector() {
+            try {
+                const [networksRes, simsRes] = await Promise.all([
+                    fetch('/api/networks'),
+                    fetch('/api/simulations')
+                ]);
+                const networksData = await networksRes.json();
+                const simsData = await simsRes.json();
+
+                if (!simsData.simulations || simsData.simulations.length === 0) {
+                    showToast('No simulations available', 'warning');
+                    return;
+                }
+
+                // Create selection dialog
+                const dialog = document.createElement('div');
+                dialog.className = 'heatmap-dialog';
+                dialog.innerHTML = `
+                    <div class="heatmap-dialog-content">
+                        <h3>Select Simulation</h3>
+                        <select id="sim-select">
+                            ${simsData.simulations.map(s =>
+                                `<option value="${s.netstate_file}" data-base="${s.base_name}">${s.name}</option>`
+                            ).join('')}
+                        </select>
+                        <select id="attr-select">
+                            <option value="density">Density</option>
+                            <option value="speed">Speed</option>
+                            <option value="waitingTime">Waiting Time</option>
+                            <option value="timeLoss">Time Loss</option>
+                        </select>
+                        <div class="dialog-buttons">
+                            <button onclick="loadSelectedHeatmap()">Load</button>
+                            <button onclick="closeHeatmapDialog()">Cancel</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(dialog);
+            } catch (error) {
+                console.error('Failed to load data:', error);
+                showToast('Failed to load simulation list', 'error');
+            }
+        }
+
+        function loadSelectedHeatmap() {
+            const simSelect = document.getElementById('sim-select');
+            const attrSelect = document.getElementById('attr-select');
+            const simFile = simSelect.value;
+            const baseName = simSelect.options[simSelect.selectedIndex].dataset.base;
+            const attribute = attrSelect.value;
+
+            // Find matching network
+            // baseName is like "selected_area.net", so we just add ".xml"
+            const networkName = baseName.endsWith('.net') ? baseName + '.xml' : baseName + '.net.xml';
+            loadHeatmap(networkName, simFile, attribute);
+            closeHeatmapDialog();
+        }
+
+        function closeHeatmapDialog() {
+            const dialog = document.querySelector('.heatmap-dialog');
+            if (dialog) dialog.remove();
+        }
+
+        // ============================================
+        // Map Utilities
+        // ============================================
+        function clearHeatmap() {
+            // Remove heatmap layer only
+            if (map.getLayer('heatmap-layer')) {
+                map.removeLayer('heatmap-layer');
+                map.removeSource('heatmap-source');
+            }
+
+            // Hide legend and clear heatmap button
+            document.getElementById('legend').classList.remove('active');
+            document.getElementById('clear-heatmap-btn').style.display = 'none';
+
+            showToast('Heatmap cleared', 'info');
+        }
+
+        function clearMap() {
+            // Remove network layer
+            if (map.getLayer('network-layer')) {
+                map.removeLayer('network-layer');
+                map.removeSource('network-source');
+            }
+
+            // Remove heatmap layer
+            if (map.getLayer('heatmap-layer')) {
+                map.removeLayer('heatmap-layer');
+                map.removeSource('heatmap-source');
+            }
+
+            // Remove selection box
+            if (map.getLayer('selection-box')) {
+                map.removeLayer('selection-box');
+            }
+            if (map.getLayer('selection-box-outline')) {
+                map.removeLayer('selection-box-outline');
+            }
+            if (map.getSource('selection-box')) {
+                map.removeSource('selection-box');
+            }
+
+            // Reset draw state
+            drawStartPoint = null;
+            selectedBbox = null;
+
+            // Hide legend and clear heatmap button
+            document.getElementById('legend').classList.remove('active');
+            document.getElementById('clear-heatmap-btn').style.display = 'none';
+
+            showToast('Map cleared', 'info');
+        }
+
+        // ============================================
+        // Toast Notification
+        // ============================================
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type}`;
+            toast.style.display = 'block';
+
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 3000);
+        }
+
+        // ============================================
+        // FCD Replay WebSocket
+        // ============================================
+        let replayWs = null;
+        let isReplayPlaying = false;
+        let replaySpeed = 1.0;
+        let replayData = null;  // Cached FCD data for client-side replay
+        let replayIndex = 0;
+        let replayTimer = null;
+
+        function connectReplayWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            replayWs = new WebSocket(`${protocol}//${window.location.host}/ws/simulation`);
+
+            replayWs.onopen = () => {
+                console.log('Replay WebSocket connected');
+            };
+
+            replayWs.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+
+                if (data.type === 'vehicles') {
+                    updateVehicleLayer(data.data);
+                    updateReplayUI(data.data);
+                } else if (data.type === 'replay_started') {
+                    isReplayPlaying = true;
+                    showReplayControls();
+                    updatePlayButton(true);
+                } else if (data.type === 'replay_ended') {
+                    isReplayPlaying = false;
+                    updatePlayButton(false);
+                    showToast('Replay finished', 'info');
+                } else if (data.type === 'replay_stopped') {
+                    isReplayPlaying = false;
+                    updatePlayButton(false);
+                } else if (data.type === 'replay_error') {
+                    showToast(`Replay error: ${data.error}`, 'error');
+                }
+            };
+
+            replayWs.onclose = () => {
+                console.log('Replay WebSocket closed, reconnecting...');
+                setTimeout(connectReplayWebSocket, 3000);
+            };
+
+            replayWs.onerror = (error) => {
+                console.error('Replay WebSocket error:', error);
+            };
+        }
+
+        // Show FCD file selector dialog
+        async function showReplaySelector() {
+            try {
+                // Fetch both FCD files and SUMO config files
+                const [fcdResponse, cfgResponse] = await Promise.all([
+                    fetch('/api/fcd/list'),
+                    fetch('/api/sumocfg/list')
+                ]);
+                const fcdData = await fcdResponse.json();
+                const cfgData = await cfgResponse.json();
+
+                if ((!fcdData.fcd_files || fcdData.fcd_files.length === 0) &&
+                    (!cfgData.configs || cfgData.configs.length === 0)) {
+                    showToast('No simulation files available. Run a simulation first.', 'warning');
+                    return;
+                }
+
+                // Create selection dialog
+                const dialog = document.createElement('div');
+                dialog.className = 'heatmap-dialog';
+                dialog.innerHTML = `
+                    <div class="heatmap-dialog-content">
+                        <h3>Select Simulation to Replay</h3>
+                        <select id="fcd-select">
+                            ${(fcdData.fcd_files || []).map(f =>
+                                `<option value="${f.filename}">${f.name}</option>`
+                            ).join('')}
+                        </select>
+                        <div class="dialog-buttons">
+                            <button onclick="loadReplayFile()">Load & Play</button>
+                            <button onclick="closeReplayDialog()">Cancel</button>
+                        </div>
+                        <hr style="margin: 16px 0; border: none; border-top: 1px solid #e2e8f0;">
+                        <h4 style="margin-bottom: 8px; font-size: 14px; color: #64748b;">Or open in SUMO GUI</h4>
+                        <select id="sumocfg-select">
+                            ${(cfgData.configs || []).map(c =>
+                                `<option value="${c.path}">${c.name}</option>`
+                            ).join('')}
+                        </select>
+                        <div class="dialog-buttons" style="margin-top: 8px;">
+                            <button onclick="openInSumoGui()" style="background: #3b82f6;">
+                                <i class="fas fa-external-link-alt"></i> Open in SUMO GUI
+                            </button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(dialog);
+            } catch (error) {
+                console.error('Failed to load FCD list:', error);
+                showToast('Failed to load simulation file list', 'error');
+            }
+        }
+
+        // Open simulation in SUMO GUI
+        async function openInSumoGui() {
+            const cfgSelect = document.getElementById('sumocfg-select');
+            if (!cfgSelect || !cfgSelect.value) {
+                showToast('No SUMO config file selected', 'warning');
+                return;
+            }
+
+            const configPath = cfgSelect.value;
+            closeReplayDialog();
+            showToast('Launching SUMO GUI...', 'info');
+
+            try {
+                const response = await fetch(`/api/sumo-gui/open?config_path=${encodeURIComponent(configPath)}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    showToast('SUMO GUI launched successfully', 'success');
+                } else {
+                    // Show detailed error with solution if available
+                    let errorMsg = data.error || 'Failed to launch SUMO GUI';
+                    if (data.solution) {
+                        errorMsg += '\n' + data.solution;
+                    }
+                    showToast(errorMsg, 'error');
+                }
+            } catch (error) {
+                console.error('Failed to launch SUMO GUI:', error);
+                showToast('Failed to launch SUMO GUI', 'error');
+            }
+        }
+
+        function closeReplayDialog() {
+            const dialog = document.querySelector('.heatmap-dialog');
+            if (dialog) dialog.remove();
+        }
+
+        async function loadReplayFile() {
+            const fcdSelect = document.getElementById('fcd-select');
+            const fcdFile = fcdSelect.value;
+
+            closeReplayDialog();
+            showToast(`Loading simulation data...`, 'info');
+
+            try {
+                // Extract base name and timestamp from FCD filename
+                // Format: {base_name}_fcd_{timestamp}.xml
+                // Fetch FCD data (full detail, sample_rate=1)
+                const fcdResponse = await fetch(`/api/fcd/${fcdFile}/parse?sample_rate=1`);
+                const fcdData = await fcdResponse.json();
+
+                if (fcdData.error) {
+                    showToast(fcdData.error, 'error');
+                    return;
+                }
+
+                if (!fcdData.timesteps || fcdData.timesteps.length === 0) {
+                    showToast('No vehicle data in FCD file', 'warning');
+                    return;
+                }
+
+                // Store FCD data for client-side replay
+                replayData = fcdData.timesteps;
+                replayIndex = 0;
+
+                // Show replay controls
+                showReplayControls();
+                document.getElementById('replay-slider').max = replayData.length - 1;
+                document.getElementById('replay-slider').value = 0;
+
+                showToast(`Loaded ${fcdData.total_timesteps} timesteps. Ready to play.`, 'success');
+
+                // Auto-play
+                startClientReplay();
+
+            } catch (error) {
+                console.error('Failed to load FCD file:', error);
+                showToast('Failed to load FCD file', 'error');
+            }
+        }
+
+        // Client-side replay (more responsive than WebSocket streaming)
+        function startClientReplay() {
+            if (!replayData || replayData.length === 0) return;
+
+            isReplayPlaying = true;
+            updatePlayButton(true);
+
+            function playNextFrame() {
+                if (!isReplayPlaying || replayIndex >= replayData.length) {
+                    if (replayIndex >= replayData.length) {
+                        isReplayPlaying = false;
+                        updatePlayButton(false);
+                        showToast('Replay finished', 'info');
+                    }
+                    return;
+                }
+
+                const timestep = replayData[replayIndex];
+                const prevTimestep = replayIndex > 0 ? replayData[replayIndex - 1] : null;
+
+                // Update vehicle layer
+                updateVehicleLayer({
+                    time: timestep.time,
+                    vehicles: timestep.vehicles,
+                    vehicle_count: timestep.vehicles.length
+                });
+
+                // Update UI
+                updateReplayUI({
+                    time: timestep.time,
+                    step: replayIndex + 1,
+                    total_steps: replayData.length,
+                    vehicles: timestep.vehicles
+                });
+
+                // Update slider
+                document.getElementById('replay-slider').value = replayIndex;
+
+                replayIndex++;
+
+                // Calculate delay for next frame
+                let delay = 100;  // Default 100ms
+                if (prevTimestep && replaySpeed > 0) {
+                    delay = Math.max(10, (timestep.time - prevTimestep.time) * 1000 / replaySpeed);
+                }
+
+                replayTimer = setTimeout(playNextFrame, delay);
+            }
+
+            playNextFrame();
+        }
+
+        function pauseClientReplay() {
+            isReplayPlaying = false;
+            updatePlayButton(false);
+            if (replayTimer) {
+                clearTimeout(replayTimer);
+                replayTimer = null;
+            }
+        }
+
+        function toggleReplay() {
+            if (isReplayPlaying) {
+                pauseClientReplay();
+            } else {
+                startClientReplay();
+            }
+        }
+
+        function stopReplay() {
+            pauseClientReplay();
+            replayIndex = 0;
+            document.getElementById('replay-slider').value = 0;
+            clearVehicles();
+        }
+
+        function closeReplay() {
+            stopReplay();
+            replayData = null;
+            document.getElementById('replay-controls').classList.remove('active');
+            document.getElementById('clear-replay-btn').style.display = 'none';
+        }
+
+        // Clear replay from left panel button
+        function clearReplayFromButton() {
+            closeReplay();
+            showToast('Replay cleared', 'info');
+        }
+
+        function seekReplay(value) {
+            const wasPlaying = isReplayPlaying;
+            pauseClientReplay();
+
+            replayIndex = parseInt(value);
+
+            if (replayData && replayIndex < replayData.length) {
+                const timestep = replayData[replayIndex];
+
+                updateVehicleLayer({
+                    time: timestep.time,
+                    vehicles: timestep.vehicles,
+                    vehicle_count: timestep.vehicles.length
+                });
+                updateReplayUI({
+                    time: timestep.time,
+                    step: replayIndex + 1,
+                    total_steps: replayData.length,
+                    vehicles: timestep.vehicles
+                });
+            }
+
+            // Resume if was playing
+            if (wasPlaying) {
+                setTimeout(startClientReplay, 100);
+            }
+        }
+
+        function setReplaySpeed(speed) {
+            replaySpeed = speed;
+
+            // Update button styles
+            document.querySelectorAll('.replay-buttons .btn-speed').forEach(btn => {
+                btn.classList.remove('active');
+                if (parseFloat(btn.dataset.speed) === speed) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+
+        function updateReplayUI(data) {
+            document.getElementById('replay-time').textContent = `Time: ${data.time?.toFixed(0) || 0}s`;
+            document.getElementById('replay-step').textContent = `Step: ${data.step || 0} / ${data.total_steps || 0}`;
+            document.getElementById('replay-vehicles').textContent = `Vehicles: ${data.vehicles?.length || 0}`;
+        }
+
+        function updatePlayButton(playing) {
+            const btn = document.getElementById('replay-play-btn');
+            if (playing) {
+                btn.innerHTML = '<i class="fas fa-pause"></i> Pause';
+            } else {
+                btn.innerHTML = '<i class="fas fa-play"></i> Play';
+            }
+        }
+
+        function showReplayControls() {
+            document.getElementById('replay-controls').classList.add('active');
+            document.getElementById('clear-replay-btn').style.display = 'block';
+        }
+
+        // ============================================
+        // Vehicle Layer Rendering (Custom Image)
+        // ============================================
+        let vehicleImageLoaded = false;
+
+        function loadVehicleImage() {
+            if (vehicleImageLoaded) return Promise.resolve();
+
+            return new Promise((resolve, reject) => {
+                map.loadImage('/static/vehicle.png', (error, image) => {
+                    if (error) {
+                        console.error('Failed to load vehicle image:', error);
+                        reject(error);
+                        return;
+                    }
+
+                    if (!map.hasImage('vehicle-icon')) {
+                        map.addImage('vehicle-icon', image);
+                    }
+                    vehicleImageLoaded = true;
+                    resolve();
+                });
+            });
+        }
+
+        function updateVehicleLayer(data) {
+            if (!data || !data.vehicles || data.vehicles.length === 0) {
+                // Remove vehicle layer if no vehicles
+                if (map.getLayer('vehicles-layer')) {
+                    map.removeLayer('vehicles-layer');
+                }
+                if (map.getSource('vehicles-source')) {
+                    map.removeSource('vehicles-source');
+                }
+                return;
+            }
+
+            // Filter vehicles with valid lon/lat coordinates
+            const validVehicles = data.vehicles.filter(v => v.lon != null && v.lat != null);
+
+            if (validVehicles.length === 0) {
+                // No geo coordinates - show warning once
+                if (!window._geoWarningShown) {
+                    showToast('FCD file missing geo coordinates. Run a new simulation.', 'warning');
+                    window._geoWarningShown = true;
+                }
+                return;
+            }
+
+            // Convert vehicle data to GeoJSON
+            const geojson = {
+                type: 'FeatureCollection',
+                features: validVehicles.map(v => ({
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [v.lon, v.lat]
+                    },
+                    properties: {
+                        id: v.id,
+                        speed: v.speed,
+                        angle: v.angle
+                    }
+                }))
+            };
+
+            // Update or create source
+            if (map.getSource('vehicles-source')) {
+                map.getSource('vehicles-source').setData(geojson);
+            } else {
+                map.addSource('vehicles-source', {
+                    type: 'geojson',
+                    data: geojson
+                });
+
+                // Try to add vehicle layer with custom image
+                loadVehicleImage().then(() => {
+                    if (!map.getLayer('vehicles-layer')) {
+                        map.addLayer({
+                            id: 'vehicles-layer',
+                            type: 'symbol',
+                            source: 'vehicles-source',
+                            layout: {
+                                'icon-image': 'vehicle-icon',
+                                'icon-size': [
+                                    'interpolate', ['linear'], ['zoom'],
+                                    12, 0.012,
+                                    16, 0.02,
+                                    20, 0.04
+                                ],
+                                // SUMO angle: 0=North, clockwise. Car image faces right, so subtract 90.
+                                'icon-rotate': ['-', ['get', 'angle'], 90],
+                                'icon-rotation-alignment': 'map',
+                                'icon-allow-overlap': true,
+                                'icon-ignore-placement': true
+                            }
+                        });
+                    }
+                }).catch(() => {
+                    // Fallback to circles if image fails
+                    if (!map.getLayer('vehicles-layer')) {
+                        map.addLayer({
+                            id: 'vehicles-layer',
+                            type: 'circle',
+                            source: 'vehicles-source',
+                            paint: {
+                                'circle-radius': 5,
+                                'circle-color': '#3b82f6',
+                                'circle-stroke-width': 1,
+                                'circle-stroke-color': '#ffffff'
+                            }
+                        });
+                    }
+                });
+            }
+
+            // Update simulation info display (in left panel)
+            updateSimulationInfo(data);
+        }
+
+        // ============================================
+        // Simulation Info
+        // ============================================
+        function updateSimulationInfo(data) {
+            // Update info in left panel instead of floating div
+            const panel = document.getElementById('simulation-info-panel');
+            const simTime = document.getElementById('sim-time');
+            const simVehicles = document.getElementById('sim-vehicles');
+
+            if (panel && simTime && simVehicles) {
+                panel.style.display = 'block';
+
+                const time = data.time ? data.time.toFixed(0) : '0';
+                const vehicleCount = data.vehicle_count || 0;
+
+                simTime.textContent = `${time}s`;
+                simVehicles.textContent = vehicleCount;
+            }
+        }
+
+        function clearVehicles() {
+            if (map.getLayer('vehicles-layer')) {
+                map.removeLayer('vehicles-layer');
+            }
+            if (map.getSource('vehicles-source')) {
+                map.removeSource('vehicles-source');
+            }
+            if (map.getLayer('traffic-lights-layer')) {
+                map.removeLayer('traffic-lights-layer');
+            }
+            if (map.getSource('traffic-lights-source')) {
+                map.removeSource('traffic-lights-source');
+            }
+            const panel = document.getElementById('simulation-info-panel');
+            if (panel) panel.style.display = 'none';
+        }
+
+        // ============================================
+        // Initialize
+        // ============================================
+        map.on('load', () => {
+            connectWebSocket();
+            connectReplayWebSocket();
+        });
+    </script>
+</body>
+</html>

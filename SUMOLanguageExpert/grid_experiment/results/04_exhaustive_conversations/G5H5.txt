@@ -1,0 +1,163 @@
+Strategy: 04_exhaustive
+Edge: G5H5
+Messages: 18
+============================================================
+
+============================================================
+[Turn 1 - User]
+If the G5H5 edge is removed from the 11x11 grid network, which column (A-K) or row (0-10) contains the edge with the largest density INCREASE compared to baseline?
+
+Use the training DB to find similar scenarios. Answer with only one letter (A-K) or number (0-10).
+
+[Turn 1 - Assistant (thinking)]
+The user is asking about a specific scenario: removing edge G5H5 from an 11x11 grid network. They want to know which column (A-K) or row (0-10) contains the edge with the largest density increase compared to baseline.
+
+I need to:
+1. First, understand what G5H5 edge removal scenario looks like (if it exists in training data)
+2. If it doesn't exist, find similar scenarios to reason from
+3. Compare density changes between baseline and the removal scenario
+4. Identify which column or row has the largest density increase
+
+Let me start by:
+1. Listing tables to understand the schema
+2. Looking for G5H5 edge removal scenario in the simulations
+3. If not found, look at similar edge removals to understand patterns
+4. Calculate density increases for edges
+
+The edge G5H5 connects column G row 5 to column H row 5, so it's a horizontal edge in the middle of the grid.
+
+Let me query the database to find:
+1. Baseline simulation (no edges removed)
+2. G5H5 edge removal simulation (if exists)
+3. Or similar scenarios to infer from
+
+Since the instructions say "This specific edge removal simulation does NOT exist in the DB - you must reason from similar cases", I need to find similar edge removal scenarios.
+
+Strategy:
+1. Find baseline simulation
+2. Find edge removal scenarios similar to G5H5 (middle of grid, horizontal edges)
+3. Calculate density increases for each edge
+4. Aggregate by column/row to find which has the largest increase
+
+[Turn 1 - Assistant]
+I'll help you find which column or row contains the edge with the largest density increase when the G5H5 edge is removed. Let me start by exploring the database.
+
+[Turn 1 - Assistant (tool_use)]
+Tool: list_tables
+Input: {}
+
+[Turn 1 - Assistant (tool_use)]
+Tool: read_query
+Input: {
+  "query": "SELECT simulation_id, description, vehicle_count FROM simulations ORDER BY simulation_id LIMIT 10"
+}
+
+[Turn 1 - Tool Result]
+[{'name': 'simulations'}, {'name': 'trips'}, {'name': 'edge_metrics'}]
+
+[Turn 1 - Tool Result]
+[{'simulation_id': 'baseline', 'description': 'Baseline simulation', 'vehicle_count': 353}, {'simulation_id': 'sim_20260130_114308_799', 'description': 'A0A1 edge removed', 'vehicle_count': 351}, {'simulation_id': 'sim_20260130_114309_932', 'description': 'A10A9 edge removed', 'vehicle_count': 352}, {'simulation_id': 'sim_20260130_114310_481', 'description': 'A10B10 edge removed', 'vehicle_count': 353}, {'simulation_id': 'sim_20260130_114311_021', 'description': 'A1A2 edge removed', 'vehicle_count': 353}, {'simulation_id': 'sim_20260130_114311_562', 'description': 'A1B1 edge removed', 'vehicle_count': 353}, {'simulation_id': 'sim_20260130_114312_647', 'description': 'A2B2 edge removed', 'vehicle_count': 353}, {'simulation_id': 'sim_20260130_114313_183', 'description': 'A3A4 edge removed', 'vehicle_count': 353}, {'simulation_id': 'sim_20260130_114313_735', 'description': 'A3B3 edge removed', 'vehicle_count': 353}, {'simulation_id': 'sim_20260130_114314_277', 'description': 'A4A5 edge removed', 'vehicle_count': 353}]
+
+[Turn 1 - Assistant (tool_use)]
+Tool: read_query
+Input: {
+  "query": "SELECT simulation_id, description FROM simulations WHERE description LIKE '%G5H5%'"
+}
+
+[Turn 1 - Tool Result]
+[]
+
+[Turn 1 - Assistant]
+As expected, G5H5 edge removal doesn't exist in the training data. Let me find similar scenarios - horizontal edges in the middle area of the grid around row 5 and columns G-H.
+
+[Turn 1 - Assistant (tool_use)]
+Tool: read_query
+Input: {
+  "query": "SELECT simulation_id, description FROM simulations WHERE description LIKE '%G5%' OR description LIKE '%H5%' OR description LIKE '%F5G5%' OR description LIKE '%H5I5%'"
+}
+
+[Turn 1 - Tool Result]
+[{'simulation_id': 'sim_20260130_114414_858', 'description': 'F5G5 edge removed'}, {'simulation_id': 'sim_20260130_114425_214', 'description': 'G4G5 edge removed'}, {'simulation_id': 'sim_20260130_114426_349', 'description': 'G5G6 edge removed'}, {'simulation_id': 'sim_20260130_114437_506', 'description': 'H4H5 edge removed'}, {'simulation_id': 'sim_20260130_114438_695', 'description': 'H5H6 edge removed'}, {'simulation_id': 'sim_20260130_114439_282', 'description': 'H5I5 edge removed'}]
+
+[Turn 1 - Assistant]
+Perfect! I found similar scenarios. F5G5 and H5I5 are horizontal edges adjacent to G5H5. Let me analyze the density increases for these scenarios to find patterns.
+
+[Turn 1 - Assistant (tool_use)]
+Tool: read_query
+Input: {
+  "query": "SELECT edge_id, AVG(density) as avg_density FROM edge_metrics WHERE simulation_id = 'baseline' GROUP BY edge_id"
+}
+
+[Turn 1 - Tool Result]
+[{'edge_id': 'A0A1', 'avg_density': 0.12}, {'edge_id': 'A0B0', 'avg_density': 0.07}, {'edge_id': 'A10A9', 'avg_density': 0.14}, {'edge_id': 'A10B10', 'avg_density': 0.02}, {'edge_id': 'A1A0', 'avg_density': 0.04}, {'edge_id': 'A1A2', 'avg_density': 0.33}, {'edge_id': 'A1B1', 'avg_density': 0.12}, {'edge_id': 'A2A1', 'avg_density': 0.05}, {'edge_id': 'A2A3', 'avg_density': 0.36}, {'edge_id': 'A2B2', 'avg_density': 0.24}, {'edge_id': 'A3A2', 'avg_density': 0.14}, {'edge_id': 'A3A4', 'avg_density': 0.57}, {'edge_id': 'A3B3', 'avg_density': 0.09}, {'edge_id': 'A4A3', 'avg_density': 0.15}, {'edge_id': 'A4A5', 'avg_density': 0.58}, {'edge_id': 'A4B4', 'avg_density': 0.02}, {'edge_id': 'A5A4', 'avg_density': 0.23}, {'edge_id': 'A5A6', 'avg_density': 0.45}, {'edge_id': 'A5B5', 'avg_density': 0.1}, {'edge_id': 'A6A5', 'avg_density': 0.11}, {'edge_id': 'A6A7', 'avg_density': 0.48}, {'edge_id': 'A6B6', 'avg_density': 0.15}, {'edge_id': 'A7A6', 'avg_density': 0.26}, {'edge_id': 'A7A8', 'avg_density': 0.12}, {'edge_id': 'A7B7', 'avg_density': 0.09}, {'edge_id': 'A8A7', 'avg_density': 0.27}, {'edge_id': 'A8A9', 'avg_density': 0.16}, {'edge_id': 'A8B8', 'avg_density': 0.21}, {'edge_id': 'A9A10', 'avg_density': 0.05}, {'edge_id': 'A9A8', 'avg_density': 0.04}, {'edge_id': 'A9B9', 'avg_density': 0.12}, {'edge_id': 'B0A0', 'avg_density': 0.07}, {'edge_id': 'B0B1', 'avg_density': 0.21}, {'edge_id': 'B0C0', 'avg_density': 0.17}, {'edge_id': 'B10A10', 'avg_density': 0.11}, {'edge_id': 'B10B9', 'avg_density': 0.07}, {'edge_id': 'B10C10', 'avg_density': 0.09}, {'edge_id': 'B1A1', 'avg_density': 0.14}, {'edge_id': 'B1B0', 'avg_density': 0.11}, {'edge_id': 'B1B2', 'avg_density': 0.42}, {'edge_id': 'B1C1', 'avg_density': 0.27}, {'edge_id': 'B2A2', 'avg_density': 0.06}, {'edge_id': 'B2B1', 'avg_density': 0.3}, {'edge_id': 'B2B3', 'avg_density': 0.35}, {'edge_id': 'B2C2', 'avg_density': 0.26}, {'edge_id': 'B3A3', 'avg_density': 0.16}, {'edge_id': 'B3B2', 'avg_density': 0.31}, {'edge_id': 'B3B4'
+... [TRUNCATED]
+
+[Turn 1 - Assistant]
+Now let me analyze the adjacent horizontal edge scenarios (F5G5 and H5I5) to understand the pattern when a middle horizontal edge is removed:
+
+[Turn 1 - Assistant (tool_use)]
+Tool: read_query
+Input: {
+  "query": "SELECT em.edge_id, em.simulation_id, AVG(em.density) as avg_density FROM edge_metrics em WHERE em.simulation_id IN ('sim_20260130_114414_858', 'sim_20260130_114439_282') GROUP BY em.simulation_id, em.edge_id"
+}
+
+[Turn 1 - Tool Result]
+[{'edge_id': 'A0A1', 'simulation_id': 'sim_20260130_114414_858', 'avg_density': 0.13}, {'edge_id': 'A0B0', 'simulation_id': 'sim_20260130_114414_858', 'avg_density': 0.07}, {'edge_id': 'A10A9', 'simulation_id': 'sim_20260130_114414_858', 'avg_density': 0.14}, {'edge_id': 'A10B10', 'simulation_id': 'sim_20260130_114414_858', 'avg_density': 0.02}, {'edge_id': 'A1A0', 'simulation_id': 'sim_20260130_114414_858', 'avg_density': 0.04}, {'edge_id': 'A1A2', 'simulation_id': 'sim_20260130_114414_858', 'avg_density': 0.33}, {'edge_id': 'A1B1', 'simulation_id': 'sim_20260130_114414_858', 'avg_density': 0.11}, {'edge_id': 'A2A1', 'simulation_id': 'sim_20260130_114414_858', 'avg_density': 0.05}, {'edge_id': 'A2A3', 'simulation_id': 'sim_20260130_114414_858', 'avg_density': 0.36}, {'edge_id': 'A2B2', 'simulation_id': 'sim_20260130_114414_858', 'avg_density': 0.24}, {'edge_id': 'A3A2', 'simulation_id': 'sim_20260130_114414_858', 'avg_density': 0.14}, {'edge_id': 'A3A4', 'simulation_id': 'sim_20260130_114414_858', 'avg_density': 0.57}, {'edge_id': 'A3B3', 'simulation_id': 'sim_20260130_114414_858', 'avg_density': 0.08}, {'edge_id': 'A4A3', 'simulation_id': 'sim_20260130_114414_858', 'avg_density': 0.15}, {'edge_id': 'A4A5', 'simulation_id': 'sim_20260130_114414_858', 'avg_density': 0.51}, {'edge_id': 'A4B4', 'simulation_id': 'sim_20260130_114414_858', 'avg_density': 0.06}, {'edge_id': 'A5A4', 'simulation_id': 'sim_20260130_114414_858', 'avg_density': 0.23}, {'edge_id': 'A5A6', 'simulation_id': 'sim_20260130_114414_858', 'avg_density': 0.29}, {'edge_id': 'A5B5', 'simulation_id': 'sim_20260130_114414_858', 'avg_density': 0.1}, {'edge_id': 'A6A5', 'simulation_id': 'sim_20260130_114414_858', 'avg_density': 0.11}, {'edge_id': 'A6A7', 'simulation_id': 'sim_20260130_114414_858', 'avg_density': 0.46}, {'edge_id': 'A6B6', 'simulation_id': 'sim_20260130_114414_858', 'avg_density': 0.11}, {'edge_id': 'A7A6', 'simulation_id': 'sim_20260130_114414_858', 'avg_density': 0.26}, {'edge_id': 'A7A8',
+... [TRUNCATED]
+
+[Turn 1 - Assistant]
+Now let me calculate the density increases by comparing with baseline. Let me aggregate by column/row to find the pattern. I'll focus on extracting the key edge density changes from both simulations:
+
+[Turn 1 - Assistant (tool_use)]
+Tool: read_query
+Input: {
+  "query": "SELECT b.edge_id, b.avg_density as baseline_density, f.avg_density as f5g5_removal_density, h.avg_density as h5i5_removal_density, f.avg_density - b.avg_density as f5g5_increase, h.avg_density - b.avg_density as h5i5_increase, SUBSTR(b.edge_id, 1, 1) as col1, SUBSTR(b.edge_id, INSTR(b.edge_id, SUBSTR(b.edge_id, 1, 1)) + LENGTH(SUBSTR(b.edge_id, 1, 1))) as rest FROM (SELECT edge_id, AVG(density) as avg_density FROM edge_metrics WHERE simulation_id = 'baseline' GROUP BY edge_id) b LEFT JOIN (SELECT edge_id, AVG(density) as avg_density FROM edge_metrics WHERE simulation_id = 'sim_20260130_114414_858' GROUP BY edge_id) f ON b.edge_id = f.edge_id LEFT JOIN (SELECT edge_id, AVG(density) as avg_density FROM edge_metrics WHERE simulation_id = 'sim_20260130_114439_282' GROUP BY edge_id) h ON b.edge_id = h.edge_id WHERE (f.avg_density - b.avg_density > 0.1 OR h.avg_density - b.avg_density > 0.1) ORDER BY f5g5_increase DESC, h5i5_increase DESC LIMIT 20"
+}
+
+[Turn 1 - Tool Result]
+[{'edge_id': 'D6C6', 'baseline_density': 0.22, 'f5g5_removal_density': 0.56, 'h5i5_removal_density': 0.3, 'f5g5_increase': 0.3400000000000001, 'h5i5_increase': 0.07999999999999999, 'col1': 'D', 'rest': '6C6'}, {'edge_id': 'G6F6', 'baseline_density': 0.28, 'f5g5_removal_density': 0.59, 'h5i5_removal_density': 0.41, 'f5g5_increase': 0.30999999999999994, 'h5i5_increase': 0.12999999999999995, 'col1': 'G', 'rest': '6F6'}, {'edge_id': 'F5F6', 'baseline_density': 0.27, 'f5g5_removal_density': 0.52, 'h5i5_removal_density': 0.2, 'f5g5_increase': 0.25, 'h5i5_increase': -0.07, 'col1': 'F', 'rest': '5F6'}, {'edge_id': 'F6E6', 'baseline_density': 0.4, 'f5g5_removal_density': 0.62, 'h5i5_removal_density': 0.55, 'f5g5_increase': 0.21999999999999997, 'h5i5_increase': 0.15000000000000002, 'col1': 'F', 'rest': '6E6'}, {'edge_id': 'F4G4', 'baseline_density': 0.44, 'f5g5_removal_density': 0.65, 'h5i5_removal_density': 0.51, 'f5g5_increase': 0.21000000000000002, 'h5i5_increase': 0.07, 'col1': 'F', 'rest': '4G4'}, {'edge_id': 'G4F4', 'baseline_density': 0.33, 'f5g5_removal_density': 0.5, 'h5i5_removal_density': 0.41, 'f5g5_increase': 0.16999999999999998, 'h5i5_increase': 0.07999999999999996, 'col1': 'G', 'rest': '4F4'}, {'edge_id': 'G9H9', 'baseline_density': 0.66, 'f5g5_removal_density': 0.83, 'h5i5_removal_density': 0.74, 'f5g5_increase': 0.16999999999999993, 'h5i5_increase': 0.07999999999999996, 'col1': 'G', 'rest': '9H9'}, {'edge_id': 'I6H6', 'baseline_density': 0.33, 'f5g5_removal_density': 0.49, 'h5i5_removal_density': 0.51, 'f5g5_increase': 0.15999999999999998, 'h5i5_increase': 0.18, 'col1': 'I', 'rest': '6H6'}, {'edge_id': 'F8F9', 'baseline_density': 0.35, 'f5g5_removal_density': 0.49, 'h5i5_removal_density': 0.35, 'f5g5_increase': 0.14, 'h5i5_increase': 0.0, 'col1': 'F', 'rest': '8F9'}, {'edge_id': 'G5G6', 'baseline_density': 0.44, 'f5g5_removal_density': 0.58, 'h5i5_removal_density': 0.44, 'f5g5_increase': 0.13999999999999996, 'h5i5_increase': 0.0, 'col1': 'G', 'rest': '5G6'}, 
+... [TRUNCATED]
+
+[Turn 1 - Assistant]
+Let me identify edges by column and row more systematically. Looking at the patterns, I need to group edges by the columns/rows they belong to and find which has the highest average or max increase:
+
+[Turn 1 - Assistant (tool_use)]
+Tool: read_query
+Input: {
+  "query": "SELECT SUBSTR(edge_id, 1, 1) as first_letter, SUM(CASE WHEN avg_density_f5g5 - avg_density_base > 0 THEN avg_density_f5g5 - avg_density_base ELSE 0 END) as total_f5g5_increase, SUM(CASE WHEN avg_density_h5i5 - avg_density_base > 0 THEN avg_density_h5i5 - avg_density_base ELSE 0 END) as total_h5i5_increase FROM (SELECT b.edge_id, b.avg_density as avg_density_base, f.avg_density as avg_density_f5g5, h.avg_density as avg_density_h5i5 FROM (SELECT edge_id, AVG(density) as avg_density FROM edge_metrics WHERE simulation_id = 'baseline' GROUP BY edge_id) b LEFT JOIN (SELECT edge_id, AVG(density) as avg_density FROM edge_metrics WHERE simulation_id = 'sim_20260130_114414_858' GROUP BY edge_id) f ON b.edge_id = f.edge_id LEFT JOIN (SELECT edge_id, AVG(density) as avg_density FROM edge_metrics WHERE simulation_id = 'sim_20260130_114439_282' GROUP BY edge_id) h ON b.edge_id = h.edge_id) WHERE edge_id LIKE first_letter || '%' GROUP BY first_letter ORDER BY total_f5g5_increase DESC"
+}
+
+[Turn 1 - Tool Result]
+[{'first_letter': 'G', 'total_f5g5_increase': 1.6599999999999997, 'total_h5i5_increase': 0.4299999999999998}, {'first_letter': 'F', 'total_f5g5_increase': 1.2300000000000002, 'total_h5i5_increase': 0.58}, {'first_letter': 'D', 'total_f5g5_increase': 0.6400000000000001, 'total_h5i5_increase': 0.4}, {'first_letter': 'E', 'total_f5g5_increase': 0.5499999999999998, 'total_h5i5_increase': 0.33999999999999997}, {'first_letter': 'H', 'total_f5g5_increase': 0.4499999999999998, 'total_h5i5_increase': 0.7999999999999998}, {'first_letter': 'C', 'total_f5g5_increase': 0.36000000000000004, 'total_h5i5_increase': 0.2599999999999999}, {'first_letter': 'B', 'total_f5g5_increase': 0.27, 'total_h5i5_increase': 0.12999999999999992}, {'first_letter': 'I', 'total_f5g5_increase': 0.26, 'total_h5i5_increase': 0.7}, {'first_letter': 'J', 'total_f5g5_increase': 0.16, 'total_h5i5_increase': 0.22999999999999998}, {'first_letter': 'A', 'total_f5g5_increase': 0.05, 'total_h5i5_increase': 0.010000000000000009}, {'first_letter': 'K', 'total_f5g5_increase': 0.02999999999999997, 'total_h5i5_increase': 0.04000000000000001}]
+
+[Turn 1 - Assistant]
+Great! For F5G5 removal (which is adjacent to and one column west of G5H5), column **G** shows the highest total density increase. For H5I5 removal (adjacent to and one column east of G5H5), column **H** shows the highest total density increase, with **I** being second.
+
+Let me verify by looking at row-based aggregation as well:
+
+[Turn 1 - Assistant (tool_use)]
+Tool: read_query
+Input: {
+  "query": "SELECT CASE WHEN edge_id LIKE '%0%' AND edge_id NOT LIKE '%10%' THEN '0' WHEN edge_id LIKE '%1%' AND edge_id NOT LIKE '%10%' THEN '1' WHEN edge_id LIKE '%2%' THEN '2' WHEN edge_id LIKE '%3%' THEN '3' WHEN edge_id LIKE '%4%' THEN '4' WHEN edge_id LIKE '%5%' THEN '5' WHEN edge_id LIKE '%6%' THEN '6' WHEN edge_id LIKE '%7%' THEN '7' WHEN edge_id LIKE '%8%' THEN '8' WHEN edge_id LIKE '%9%' THEN '9' WHEN edge_id LIKE '%10%' THEN '10' END as row_num, SUM(CASE WHEN avg_density_f5g5 - avg_density_base > 0 THEN avg_density_f5g5 - avg_density_base ELSE 0 END) as total_f5g5_increase, SUM(CASE WHEN avg_density_h5i5 - avg_density_base > 0 THEN avg_density_h5i5 - avg_density_base ELSE 0 END) as total_h5i5_increase, COUNT(*) as edge_count FROM (SELECT b.edge_id, b.avg_density as avg_density_base, f.avg_density as avg_density_f5g5, h.avg_density as avg_density_h5i5 FROM (SELECT edge_id, AVG(density) as avg_density FROM edge_metrics WHERE simulation_id = 'baseline' GROUP BY edge_id) b LEFT JOIN (SELECT edge_id, AVG(density) as avg_density FROM edge_metrics WHERE simulation_id = 'sim_20260130_114414_858' GROUP BY edge_id) f ON b.edge_id = f.edge_id LEFT JOIN (SELECT edge_id, AVG(density) as avg_density FROM edge_metrics WHERE simulation_id = 'sim_20260130_114439_282' GROUP BY edge_id) h ON b.edge_id = h.edge_id) GROUP BY row_num ORDER BY total_f5g5_increase DESC"
+}
+
+[Turn 1 - Tool Result]
+[{'row_num': '6', 'total_f5g5_increase': 1.8699999999999999, 'total_h5i5_increase': 1.4, 'edge_count': 42}, {'row_num': '4', 'total_f5g5_increase': 1.1199999999999999, 'total_h5i5_increase': 0.5099999999999999, 'edge_count': 42}, {'row_num': '5', 'total_f5g5_increase': 0.8699999999999999, 'total_h5i5_increase': 0.51, 'edge_count': 42}, {'row_num': '9', 'total_f5g5_increase': 0.66, 'total_h5i5_increase': 0.1299999999999999, 'edge_count': 42}, {'row_num': '8', 'total_f5g5_increase': 0.39, 'total_h5i5_increase': 0.35999999999999993, 'edge_count': 42}, {'row_num': '3', 'total_f5g5_increase': 0.25, 'total_h5i5_increase': 0.38999999999999996, 'edge_count': 42}, {'row_num': '7', 'total_f5g5_increase': 0.24000000000000005, 'total_h5i5_increase': 0.24999999999999992, 'edge_count': 42}, {'row_num': '1', 'total_f5g5_increase': 0.14999999999999994, 'total_h5i5_increase': 0.16000000000000003, 'edge_count': 42}, {'row_num': '2', 'total_f5g5_increase': 0.06999999999999995, 'total_h5i5_increase': 0.1299999999999999, 'edge_count': 42}, {'row_num': '0', 'total_f5g5_increase': 0.040000000000000036, 'total_h5i5_increase': 0.08000000000000002, 'edge_count': 42}, {'row_num': '10', 'total_f5g5_increase': 0, 'total_h5i5_increase': 0, 'edge_count': 20}]
+
+[Turn 1 - Assistant]
+Excellent! Row **6** shows the highest total density increase for F5G5 removal. This pattern makes sense because when horizontal edges are removed at row 5, traffic gets rerouted and creates congestion at adjacent rows.
+
+Given that:
+- G5H5 is between F5G5 and H5I5
+- When F5G5 is removed, column G shows highest increase (1.66) and row 6 shows highest increase (1.87)
+- When H5I5 is removed, column H shows highest increase (0.80) and row 6 still shows high increase (1.40)
+
+For G5H5 removal, I would expect the impact to be centered between these two scenarios. Looking at the data:
+- Column G had the biggest increase for F5G5 removal
+- Row 6 had the biggest increase for both scenarios
+
+Since both similar scenarios point to **row 6** as having the largest density increases (and G5H5 is at row 5, so row 6 is adjacent), I believe row 6 will contain the edges with the largest density increase.
+
+ANSWER: 6
+
+REASONING: When analyzing adjacent horizontal edge removals (F5G5 and H5I5) at row 5, row 6 consistently showed the highest total density increases (1.87 and 1.40 respectively), significantly more than row 5 itself or other rows. When G5H5 is removed, traffic will similarly reroute to adjacent parallel paths, with row 6 absorbing the most diverted traffic.

@@ -1,0 +1,38 @@
+# API Keys & Tokens (공유를 위해 주석 처리)
+# claude_api.txt
+# mapbox_token.txt
+# sumo_home.txt
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+.Python
+.venv/
+venv/
+ENV/
+
+# Claude Code
+.claude/
+
+# Output files (시뮬레이션 결과) - 공유를 위해 주석 처리
+# output/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local

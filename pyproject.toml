@@ -1,0 +1,44 @@
+[project]
+name = "agentsumo"
+version = "0.1.0"
+description = "AgentSUMO: AI-Powered SUMO Traffic Simulation Platform with Claude and MCP"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "certifi>=2025.8.3",
+    "geopandas>=0.14.3,<0.15.0",
+    "geopy>=2.4.1",
+    "ipykernel>=6.30.1",
+    "lxml>=5.0.0", # Required for SUMO attributeStats.py XML parsing
+    "matplotlib>=3.10.6",
+    "mcp[cli]>=1.13.1",
+    "numpy>=1.26.4",
+    "osmium>=4.1.1",
+    "pandas>=2.3.2",
+    "pyproj>=3.6.0", # Required for coordinate transformations in SUMO
+    "rtree>=1.0.0", # Recommended for faster spatial queries in SUMO
+    "shapely>=2.1.1",
+    "sumolib>=1.24.0",
+    "anthropic>=0.39.0", # Claude API
+    "jupyter>=1.0.0", # Jupyter notebook
+    "gradio>=4.0.0", # Gradio web interface (alternative to Streamlit)
+    "folium>=0.20.0",
+    # Web interface
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "websockets>=12.0",
+    "jinja2>=3.1.0",
+    "pyarrow>=22.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["agentsumo*"]
+exclude = ["data*", "output*", "checkpoints*", "tests*", "__pycache__*", "*.egg-info*", "sumo_mcp*", "examples*"]
+
+[tool.setuptools.package-data]
+agentsumo = ["*.txt", "*.json", "*.xml"]
