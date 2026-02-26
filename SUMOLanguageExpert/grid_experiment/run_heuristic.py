@@ -372,6 +372,7 @@ def run_heuristic(mode: str = "max") -> None:
     ground_truth = load_ground_truth()
 
     print(f"테스트 엣지: {len(test_edges)}개")
+    print(f"Heuristic mode: {mode}")
 
     # Build training samples from precomputed training ground-truth CSV
     training_samples = load_training_samples()
@@ -399,8 +400,11 @@ def run_heuristic(mode: str = "max") -> None:
             }
         )
 
-    # Save results
-    csv_file = RESULTS_DIR / "heuristic_answers.csv"
+    # Save results (mode-specific filename)
+    suffix = mode.lower()
+    if suffix not in {"max", "proportional"}:
+        suffix = "custom"
+    csv_file = RESULTS_DIR / f"heuristic_{suffix}_answers.csv"
     with open(csv_file, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=["edge_id", "answer", "gt_answer"])
         writer.writeheader()
