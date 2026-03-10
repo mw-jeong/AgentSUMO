@@ -12,6 +12,7 @@ from .mcp_client import (
     create_mcp_client,
     test_mcp_connection
 )
+from .filesystem_mcp_client import FilesystemMCPClient
 
 __all__ = [
     "SUMOMCPClient",
@@ -19,7 +20,8 @@ __all__ = [
     "MCPConnectionError",
     "MCPToolCallError",
     "create_mcp_client",
-    "test_mcp_connection"
+    "test_mcp_connection",
+    "FilesystemMCPClient",
 ]
 
 

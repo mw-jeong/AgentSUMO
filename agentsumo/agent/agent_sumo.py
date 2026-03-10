@@ -46,7 +46,10 @@ class AgentSUMO:
         db_path: Optional[str] = None,
         system_prompt: Optional[str] = None,
         enable_sumo_mcp: bool = True,
-        inject_state: bool = True  # [임시] SUMOLanguageExpert용 - 나중에 제거
+        inject_state: bool = True,  # [임시] SUMOLanguageExpert용 - 나중에 제거
+        enable_sqlite_mcp: bool = True,
+        enable_filesystem_mcp: bool = False,
+        filesystem_root: Optional[str] = None,
     ):
         """
         Args:
@@ -61,6 +64,9 @@ class AgentSUMO:
             inject_state: [임시] SUMOLanguageExpert 실험용 - 나중에 제거 예정
                          State context를 유저 메시지에 주입할지 여부 (기본: True)
                          Text-to-SQL 실험처럼 state가 불필요한 경우 False로 설정
+            enable_sqlite_mcp: SQLite MCP 활성화 여부 (False면 SQLite 도구 비활성화)
+            enable_filesystem_mcp: Filesystem MCP 활성화 여부 (True면 파일 접근 도구 제공)
+            filesystem_root: Filesystem MCP가 접근할 디렉토리 경로 (enable_filesystem_mcp=True 시 필수)
         """
         self.debug = enable_debug
         self.interface = interface
@@ -68,6 +74,9 @@ class AgentSUMO:
         self._custom_system_prompt = system_prompt  # 커스텀 시스템 프롬프트
         self._enable_sumo_mcp = enable_sumo_mcp  # SUMO MCP 활성화 여부
         self._inject_state = inject_state  # [임시] State 주입 여부 - SUMOLanguageExpert용
+        self._enable_sqlite_mcp = enable_sqlite_mcp  # SQLite MCP 활성화 여부
+        self._enable_filesystem_mcp = enable_filesystem_mcp  # Filesystem MCP 활성화 여부
+        self._filesystem_root = filesystem_root  # Filesystem MCP 접근 디렉토리
         # Claude API 초기화
         self.claude = anthropic.Anthropic(
             api_key=AgentSUMOConfig.get_claude_api_key()
@@ -86,8 +95,9 @@ class AgentSUMO:
         
         # 다중 MCP Clients
         self.mcp_clients: Dict[str, Any] = {
-            "sumo": None,     # SUMO MCP Server (필수)
-            "sqlite": None    # SQLite MCP Server (선택적)
+            "sumo": None,        # SUMO MCP Server (필수)
+            "sqlite": None,      # SQLite MCP Server (선택적)
+            "filesystem": None   # Filesystem MCP Server (선택적, ablation용)
         }
         self.tools: List[Dict] = []
         
@@ -160,58 +170,78 @@ class AgentSUMO:
         else:
             logger.info("⏭️ SUMO MCP 비활성화 (SQLite 전용 모드)")
 
-        # 2. SQLite MCP 연결
-        # db_path가 없으면 기본 경로에서 자동 탐색
+        # 2. SQLite MCP 연결 (enable_sqlite_mcp=True일 때만)
         sqlite_tools = []
 
-        if db_path is None:
-            # 기본 경로에서 DB 파일 자동 탐색
-            try:
-                from agentsumo.server.utils.path_utils import get_output_path
+        if self._enable_sqlite_mcp:
+            # db_path가 없으면 기본 경로에서 자동 탐색
+            if db_path is None:
+                try:
+                    from agentsumo.server.utils.path_utils import get_output_path
 
-                analysis_dir = get_output_path("output/analysis")
+                    analysis_dir = get_output_path("output/analysis")
 
-                if analysis_dir.exists():
-                    db_files = list(analysis_dir.glob("*.db"))
+                    if analysis_dir.exists():
+                        db_files = list(analysis_dir.glob("*.db"))
 
-                    if db_files:
-                        # 가장 최근에 수정된 DB 파일 선택
-                        latest_db = max(db_files, key=lambda p: p.stat().st_mtime)
-                        db_path = str(latest_db)
-                        logger.info(f"📊 기존 DB 파일 발견: {latest_db.name}")
+                        if db_files:
+                            latest_db = max(db_files, key=lambda p: p.stat().st_mtime)
+                            db_path = str(latest_db)
+                            logger.info(f"📊 기존 DB 파일 발견: {latest_db.name}")
+                        else:
+                            logger.info("📊 SQLite MCP: 기존 DB 파일 없음. DB 생성 후 자동 활성화됩니다.")
                     else:
-                        logger.info("📊 SQLite MCP: 기존 DB 파일 없음. DB 생성 후 자동 활성화됩니다.")
-                else:
-                    logger.info("📊 SQLite MCP: analysis 디렉토리 없음. DB 생성 후 자동 활성화됩니다.")
+                        logger.info("📊 SQLite MCP: analysis 디렉토리 없음. DB 생성 후 자동 활성화됩니다.")
 
-            except Exception as e:
-                logger.warning(f"⚠️ SQLite MCP 자동 탐색 실패: {e}. 계속 진행합니다.")
+                except Exception as e:
+                    logger.warning(f"⚠️ SQLite MCP 자동 탐색 실패: {e}. 계속 진행합니다.")
 
-        # db_path가 있고 파일이 존재하면 SQLite 자동 활성화
-        if db_path and PathlibPath(db_path).exists():
+            # db_path가 있고 파일이 존재하면 SQLite 자동 활성화
+            if db_path and PathlibPath(db_path).exists():
+                try:
+                    from agentsumo.client.sqlite_mcp_client import SQLiteMCPClient
+
+                    logger.info(f"SQLite MCP Server 연결 중... (DB: {db_path})")
+                    self.mcp_clients["sqlite"] = SQLiteMCPClient(db_path)
+                    await self.mcp_clients["sqlite"].__aenter__()
+
+                    sqlite_tools = await self.mcp_clients["sqlite"].list_tools()
+
+                    self.simulation_state["sqlite_enabled"] = True
+                    self.simulation_state["current_db"] = db_path
+
+                    logger.info(f"✅ SQLite MCP: {len(sqlite_tools)} tools")
+
+                except Exception as e:
+                    logger.error(f"SQLite MCP 연결 실패: {e}. 계속 진행합니다.")
+            elif db_path:
+                logger.warning(f"⚠️ DB 파일이 존재하지 않습니다: {db_path}")
+        else:
+            logger.info("⏭️ SQLite MCP 비활성화")
+
+        # 3. Filesystem MCP 연결 (enable_filesystem_mcp=True일 때만)
+        filesystem_tools = []
+
+        if self._enable_filesystem_mcp and self._filesystem_root:
             try:
-                from agentsumo.client.sqlite_mcp_client import SQLiteMCPClient
+                from agentsumo.client.filesystem_mcp_client import FilesystemMCPClient
 
-                logger.info(f"SQLite MCP Server 연결 중... (DB: {db_path})")
-                self.mcp_clients["sqlite"] = SQLiteMCPClient(db_path)
-                await self.mcp_clients["sqlite"].__aenter__()
+                logger.info(f"Filesystem MCP Server 연결 중... (dir: {self._filesystem_root})")
+                self.mcp_clients["filesystem"] = FilesystemMCPClient(self._filesystem_root)
+                await self.mcp_clients["filesystem"].__aenter__()
 
-                sqlite_tools = await self.mcp_clients["sqlite"].list_tools()
-
-                self.simulation_state["sqlite_enabled"] = True
-                self.simulation_state["current_db"] = db_path
-
-                logger.info(f"✅ SQLite MCP: {len(sqlite_tools)} tools")
+                filesystem_tools = await self.mcp_clients["filesystem"].list_tools()
+                logger.info(f"✅ Filesystem MCP: {len(filesystem_tools)} tools")
 
             except Exception as e:
-                logger.error(f"SQLite MCP 연결 실패: {e}. 계속 진행합니다.")
-        elif db_path:
-            logger.warning(f"⚠️ DB 파일이 존재하지 않습니다: {db_path}")
-        
-        # 3. Tools 통합
-        all_mcp_tools = sumo_tools + sqlite_tools
+                logger.error(f"Filesystem MCP 연결 실패: {e}. 계속 진행합니다.")
+        elif self._enable_filesystem_mcp:
+            logger.warning("⚠️ Filesystem MCP 활성화했지만 filesystem_root가 지정되지 않았습니다.")
+
+        # 4. Tools 통합
+        all_mcp_tools = sumo_tools + sqlite_tools + filesystem_tools
         self.tools = self._convert_mcp_to_claude_tools(all_mcp_tools)
-        
+
         logger.info(f"✅ 총 {len(self.tools)}개 도구 로드 완료")
         logger.info("✅ AgentSUMO 준비 완료!\n")
     
@@ -306,12 +336,10 @@ class AgentSUMO:
 
         # 2. Claude 호출 (시스템 프롬프트는 고정, state는 유저 메시지에)
         prompt_start = time.time()
-        if self._custom_system_prompt:
-            system_prompt = self._custom_system_prompt
-        else:
-            system_prompt = self.prompt_builder.build_unified_prompt(
-                interface=self.interface
-            )
+        system_prompt = self.prompt_builder.build_unified_prompt(
+            interface=self.interface,
+            base_prompt=self._custom_system_prompt  # None이면 기본 템플릿
+        )
         prompt_time = time.time() - prompt_start
         if prompt_time > 0.1:
             logger.debug(f"프롬프트 빌드 시간: {prompt_time:.2f}초")
@@ -562,6 +590,14 @@ class AgentSUMO:
         # SQLite MCP tools
         sqlite_tool_names = ["query", "read_query", "list_tables", "describe_table", "append_insight"]
 
+        # Filesystem MCP tools
+        filesystem_tool_names = [
+            "read_file", "read_multiple_files", "list_directory",
+            "search_files", "get_file_info",
+            "write_file", "create_directory", "move_file",
+            "list_allowed_directories", "directory_tree",
+        ]
+
         if tool_name in sqlite_tool_names:
             if not self.mcp_clients.get("sqlite") or not self.mcp_clients["sqlite"].is_connected:
                 raise RuntimeError(
@@ -571,6 +607,16 @@ class AgentSUMO:
 
             logger.debug(f"  → SQLite MCP로 라우팅: {tool_name}")
             return await self.mcp_clients["sqlite"].call_tool(tool_name, tool_input)
+
+        elif tool_name in filesystem_tool_names:
+            if not self.mcp_clients.get("filesystem") or not self.mcp_clients["filesystem"].is_connected:
+                raise RuntimeError(
+                    f"Filesystem MCP가 연결되지 않았습니다. "
+                    f"Tool '{tool_name}'를 사용하려면 먼저 Filesystem MCP를 활성화하세요."
+                )
+
+            logger.debug(f"  → Filesystem MCP로 라우팅: {tool_name}")
+            return await self.mcp_clients["filesystem"].call_tool(tool_name, tool_input)
 
         # SUMO MCP tools
         else:
@@ -799,16 +845,20 @@ class AgentSUMO:
     async def _check_and_enable_sqlite_if_needed(self):
         """
         SQLite MCP 첫 활성화
-        
+
         xml_to_sqlite_tool로 DB 생성 후, 다음 chat()에서 자동으로 활성화.
-        
+
         IMPORTANT: 재연결은 하지 않음! 한 세션 = 한 DB
         - 같은 지역 여러 정책 → 같은 DB에 누적 (재연결 불필요)
         - 다른 지역 → 새 세션 시작 (재시작 필요)
         """
+        # SQLite MCP 비활성화 시 skip
+        if not self._enable_sqlite_mcp:
+            return
+
         current_db = self.simulation_state.get("current_db")
         sqlite_enabled = self.simulation_state.get("sqlite_enabled", False)
-        
+
         # 이미 활성화됐으면 즉시 skip (성능 최적화)
         if sqlite_enabled:
             return
