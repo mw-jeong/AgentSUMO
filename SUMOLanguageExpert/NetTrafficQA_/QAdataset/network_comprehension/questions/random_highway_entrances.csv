@@ -1,0 +1,2 @@
+network,type,question,ground_truth
+random,highway_entrances,"Considering the entire network, which edges can be regarded as highway entrances (i.e., highway edges that have non-highway incoming edges)?",None

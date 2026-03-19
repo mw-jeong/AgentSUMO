@@ -1,0 +1,11 @@
+network,type,edge_id,question,ground_truth
+grid_11x11,from_junction,I0J0,What is the id of the from-junction for the edge with id I0J0? Please answer with the junction ID only.,I0
+grid_11x11,from_junction,B6A6,What is the id of the from-junction for the edge with id B6A6? Please answer with the junction ID only.,B6
+grid_11x11,from_junction,A3B3,What is the id of the from-junction for the edge with id A3B3? Please answer with the junction ID only.,A3
+grid_11x11,from_junction,J2J3,What is the id of the from-junction for the edge with id J2J3? Please answer with the junction ID only.,J2
+grid_11x11,from_junction,D5E5,What is the id of the from-junction for the edge with id D5E5? Please answer with the junction ID only.,D5
+grid_11x11,from_junction,D2C2,What is the id of the from-junction for the edge with id D2C2? Please answer with the junction ID only.,D2
+grid_11x11,from_junction,C9D9,What is the id of the from-junction for the edge with id C9D9? Please answer with the junction ID only.,C9
+grid_11x11,from_junction,B9B8,What is the id of the from-junction for the edge with id B9B8? Please answer with the junction ID only.,B9
+grid_11x11,from_junction,J2I2,What is the id of the from-junction for the edge with id J2I2? Please answer with the junction ID only.,J2
+grid_11x11,from_junction,B4C4,What is the id of the from-junction for the edge with id B4C4? Please answer with the junction ID only.,B4

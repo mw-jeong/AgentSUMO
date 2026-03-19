@@ -1,0 +1,11 @@
+network,type,edge_id,question,ground_truth
+random,immediate_predecessors,523,"What are the edge id(s) that can come immediately before the edge with id 523? Please provide the IDs separated by commas, or 'None'.","-505, -517, -523, 338"
+random,immediate_predecessors,-326,"What are the edge id(s) that can come immediately before the edge with id -326? Please provide the IDs separated by commas, or 'None'.","116, 313, 326"
+random,immediate_predecessors,-870,"What are the edge id(s) that can come immediately before the edge with id -870? Please provide the IDs separated by commas, or 'None'.","679, 696, 870"
+random,immediate_predecessors,-319,"What are the edge id(s) that can come immediately before the edge with id -319? Please provide the IDs separated by commas, or 'None'.","-621, -623, -625, -639, 319"
+random,immediate_predecessors,-728,"What are the edge id(s) that can come immediately before the edge with id -728? Please provide the IDs separated by commas, or 'None'.","-1029, -870, 728"
+random,immediate_predecessors,870,"What are the edge id(s) that can come immediately before the edge with id 870? Please provide the IDs separated by commas, or 'None'.","-1029, -870, 728"
+random,immediate_predecessors,-867,"What are the edge id(s) that can come immediately before the edge with id -867? Please provide the IDs separated by commas, or 'None'.",867
+random,immediate_predecessors,344,"What are the edge id(s) that can come immediately before the edge with id 344? Please provide the IDs separated by commas, or 'None'.","-344, 125, 126, 570"
+random,immediate_predecessors,1883,"What are the edge id(s) that can come immediately before the edge with id 1883? Please provide the IDs separated by commas, or 'None'.","-1883, -1891, 1526"
+random,immediate_predecessors,1501,"What are the edge id(s) that can come immediately before the edge with id 1501? Please provide the IDs separated by commas, or 'None'.","-1499, -1501, -1517, -1523, 1429"

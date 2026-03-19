@@ -1,0 +1,11 @@
+network,type,edge_id,question,ground_truth
+grid_11x11,num_lanes,I0J0,How many lanes does the edge with id I0J0 have? Please answer with the number only.,2
+grid_11x11,num_lanes,B6A6,How many lanes does the edge with id B6A6 have? Please answer with the number only.,2
+grid_11x11,num_lanes,A3B3,How many lanes does the edge with id A3B3 have? Please answer with the number only.,2
+grid_11x11,num_lanes,J2J3,How many lanes does the edge with id J2J3 have? Please answer with the number only.,2
+grid_11x11,num_lanes,D5E5,How many lanes does the edge with id D5E5 have? Please answer with the number only.,2
+grid_11x11,num_lanes,D2C2,How many lanes does the edge with id D2C2 have? Please answer with the number only.,2
+grid_11x11,num_lanes,C9D9,How many lanes does the edge with id C9D9 have? Please answer with the number only.,2
+grid_11x11,num_lanes,B9B8,How many lanes does the edge with id B9B8 have? Please answer with the number only.,2
+grid_11x11,num_lanes,J2I2,How many lanes does the edge with id J2I2 have? Please answer with the number only.,2
+grid_11x11,num_lanes,B4C4,How many lanes does the edge with id B4C4 have? Please answer with the number only.,2
