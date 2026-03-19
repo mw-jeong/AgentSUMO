@@ -12,12 +12,12 @@ from utils import DEFAULT_MODEL, get_client, load_adjacency, adj_to_text
 
 
 SYSTEM_PROMPT = """You are an expert in traffic network analysis specializing in SUMO simulations.
-You are given a directed edge adjacency list and a question about the network.
+You are given a structural adjacency and coordinate list for a network and a question about it.
 
 Answer the question with ONLY a single value (integer or as instructed).
 Do NOT explain your reasoning. Do NOT show your work. Output ONLY the final answer. Nothing else.
 
-Directed edge adjacency list (each line shows edge_id: successor edges reachable in one hop):
+Network connection and coordinate data:
 {adj_text}"""
 
 
