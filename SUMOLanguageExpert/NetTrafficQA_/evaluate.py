@@ -43,15 +43,21 @@ def compare_answers(predicted: str, ground_truth: str, task_type: str = "") -> b
     gt = ground_truth.strip().lower()
     
     # Extract all relevant entities (IDs or numbers) from both
-    p_items = re.findall(r'[a-zA-Z0-9_\-:]+', p)
-    gt_items = re.findall(r'[a-zA-Z0-9_\-:]+', gt)
+    # Added '.' to support floating point numbers and potential IDs with dots
+    p_items = re.findall(r'[a-zA-Z0-9_\-:\.]+', p)
+    gt_items = re.findall(r'[a-zA-Z0-9_\-:\.]+', gt)
 
     # Simple exact match
     if p == gt: return True
     
     # Simple single-item presence (if GT is just one ID)
     if len(gt_items) == 1 and len(p_items) >= 1:
-        return gt_items[0] in p_items
+        if gt_items[0] in p_items: return True
+        # Try numeric matching for single items
+        try:
+            if abs(float(gt_items[0]) - float(p_items[0])) < 0.1:
+                return True
+        except: pass
 
     # If ground truth is a list (path tasks require order)
     if "path" in task_type and " -> " in ground_truth:
@@ -60,18 +66,44 @@ def compare_answers(predicted: str, ground_truth: str, task_type: str = "") -> b
         # Filter p_items to only include things that look like they could be IDs (alphanumeric)
         p_seq = [x for x in p_items if any(c.isalpha() for c in x) or any(c.isdigit() for c in x)]
         # This is a bit risky but standard for such benchmarks
-        return gt_items == p_seq[:len(gt_items)] or gt_items == p_seq[-len(gt_items):]
+        if gt_items == p_seq[:len(gt_items)] or gt_items == p_seq[-len(gt_items):]:
+            return True
 
     # For general list matching (unsorted set)
     if "," in ground_truth or " " in ground_truth:
-        # If the ground truth has multiple items, we check if the sets match
-        # To avoid extra noise, we filter response items to match the "shape" of GT items if possible
-        # but here we'll just use a simple set comparison on extracted tokens
+        # Try numeric comparison first for coordinate-like tasks
+        try:
+            p_nums = []
+            for item in p_items:
+                try: p_nums.append(float(item))
+                except: pass
+            
+            gt_nums = [float(x) for x in gt_items]
+            
+            if len(gt_nums) > 0 and len(p_nums) >= len(gt_nums):
+                # Fuzzy match each GT num in predicted nums
+                matched_indices = set()
+                all_matched = True
+                for g in gt_nums:
+                    found = False
+                    for i, pn in enumerate(p_nums):
+                        if i not in matched_indices and abs(g - pn) < 0.1:
+                            matched_indices.add(i)
+                            found = True
+                            break
+                    if not found:
+                        all_matched = False
+                        break
+                if all_matched: return True
+        except:
+            pass
+
+        # Fallback to string-based set matching
         p_set = set(p_items)
         gt_set = set(gt_items)
         return gt_set.issubset(p_set) and len(gt_set) > 0 # At least match all GT items
         
-    # If it's an integer/number task
+    # If it's an integer/number task (single value)
     if any(task in task_type for task in ["distance", "lanes", "length", "count"]):
         try:
             # Extract numbers
@@ -79,7 +111,7 @@ def compare_answers(predicted: str, ground_truth: str, task_type: str = "") -> b
             if not p_nums: return False
             p_val = float(p_nums[0])
             gt_val = float(gt)
-            if "length" in task_type:
+            if "length" in task_type or "distance" in task_type:
                 return abs(p_val - gt_val) < 1.0
             return int(p_val) == int(gt_val)
         except: pass
@@ -161,7 +193,7 @@ def main():
     parser.add_argument("--model", default=None, help="Model to filter (e.g., claude-3-5-sonnet-20240620)")
     parser.add_argument("--network", default=None, help="Network to filter (e.g., grid_11x11)")
     parser.add_argument("--n", default=None, help="N to filter (e.g., n10)")
-    parser.add_argument("--type", choices=["feature_retrieval", "network_comprehension", "pathfinding"], default=None, help="Force evaluation of a specific task category")
+    parser.add_argument("--type", default="all", help="Force evaluation of a specific task category or question type (e.g. junction_coord), or 'all' (default)")
     parser.add_argument("--input", default=None, help="Path to a single responses CSV (ignores other filters)")
     args = parser.parse_args()
 
@@ -179,10 +211,12 @@ def main():
             if args.baseline and not stem.startswith(f"{args.baseline}_responses_"): continue
             if args.network and f"_{args.network}_" not in stem: continue
             if args.model and not stem.endswith(f"_{args.model}.csv"): continue
-            if args.n and f"_n{args.n}" not in stem: continue
+            if args.n and f"_n{args.n}_" not in stem: continue
             
-            # Type filter strictly matches the task category in the folder path
-            if args.type and args.type not in p.parts: continue
+            # Type filter matches the task category in the folder path or the question part in filename
+            if args.type and args.type != "all":
+                if (args.type not in p.stem) and (args.type not in p.parts):
+                    continue
             files.append(p)
 
     if not files:

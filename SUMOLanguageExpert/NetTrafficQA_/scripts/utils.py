@@ -6,15 +6,13 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 from agentsumo import AgentSUMOConfig
 
 import anthropic
 
 NETWORK_DIR = (
-    Path(__file__).parent.parent.parent
-    / "grid_experiment"
-    / "experiment_setup"
+    Path(__file__).parent.parent
     / "data"
     / "network"
 )
@@ -50,14 +48,27 @@ def load_adjacency(network: str) -> dict:
 
 
 def adj_to_text(adj: dict) -> str:
-    """Convert an adjacency dict to a human-readable text representation.
-
-    Example:
-        Input:  {"A0B0": ["B0C0", "B0B1"], "A0A1": ["A1B1", "A1A2"]}
-        Output: A0A1: A1B1, A1A2
-                A0B0: B0C0, B0B1
-    """
+    """Convert an adjacency dict with 'edges' and 'junctions' to a human-readable text representation."""
     lines = []
-    for edge in sorted(adj.keys()):
-        lines.append(f"{edge}: {', '.join(adj[edge])}")
+
+    # Process edges
+    if "edges" in adj:
+        lines.append("Edges (edge_id: [connected_edges]; [connected_nodes]):")
+        for e in sorted(adj["edges"], key=lambda x: x["edge_id"]):
+            eid = e["edge_id"]
+            c_edges = ", ".join(e["connected_edges"])
+            c_nodes = ", ".join(e["connected_nodes"])
+            lines.append(f"- {eid}: [{c_edges}]; [{c_nodes}]")
+
+    # Process junctions
+    if "junctions" in adj:
+        if lines:
+            lines.append("")
+        lines.append("Junctions (junction_id: [connected_edges]; [connected_nodes]; coordinates):")
+        for j in sorted(adj["junctions"], key=lambda x: x["junction_id"]):
+            jid = j["junction_id"]
+            c_edges = ", ".join(j["connected_edges"])
+            c_nodes = ", ".join(j["connected_nodes"])
+            lines.append(f"- {jid}: [{c_edges}]; [{c_nodes}]; ({j['x']}, {j['y']})")
+
     return "\n".join(lines)
