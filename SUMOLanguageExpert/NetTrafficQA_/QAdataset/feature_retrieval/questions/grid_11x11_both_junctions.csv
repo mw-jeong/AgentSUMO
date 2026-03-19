@@ -1,0 +1,11 @@
+network,type,edge_id,question,ground_truth
+grid_11x11,both_junctions,I0J0,What are the id of the from-junction and to-junction for the edge with id I0J0? Please provide the two IDs separated by a comma only.,"I0, J0"
+grid_11x11,both_junctions,B6A6,What are the id of the from-junction and to-junction for the edge with id B6A6? Please provide the two IDs separated by a comma only.,"B6, A6"
+grid_11x11,both_junctions,A3B3,What are the id of the from-junction and to-junction for the edge with id A3B3? Please provide the two IDs separated by a comma only.,"A3, B3"
+grid_11x11,both_junctions,J2J3,What are the id of the from-junction and to-junction for the edge with id J2J3? Please provide the two IDs separated by a comma only.,"J2, J3"
+grid_11x11,both_junctions,D5E5,What are the id of the from-junction and to-junction for the edge with id D5E5? Please provide the two IDs separated by a comma only.,"D5, E5"
+grid_11x11,both_junctions,D2C2,What are the id of the from-junction and to-junction for the edge with id D2C2? Please provide the two IDs separated by a comma only.,"D2, C2"
+grid_11x11,both_junctions,C9D9,What are the id of the from-junction and to-junction for the edge with id C9D9? Please provide the two IDs separated by a comma only.,"C9, D9"
+grid_11x11,both_junctions,B9B8,What are the id of the from-junction and to-junction for the edge with id B9B8? Please provide the two IDs separated by a comma only.,"B9, B8"
+grid_11x11,both_junctions,J2I2,What are the id of the from-junction and to-junction for the edge with id J2I2? Please provide the two IDs separated by a comma only.,"J2, I2"
+grid_11x11,both_junctions,B4C4,What are the id of the from-junction and to-junction for the edge with id B4C4? Please provide the two IDs separated by a comma only.,"B4, C4"

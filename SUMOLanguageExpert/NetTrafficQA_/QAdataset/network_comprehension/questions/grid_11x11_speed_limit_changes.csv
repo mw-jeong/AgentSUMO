@@ -1,0 +1,2 @@
+network,type,question,ground_truth
+grid_11x11,speed_limit_changes,"List the edge pairs (E1, E2) where the road speed limit changes when moving from one edge to another at a junction. Please provide the pairs separated by commas, or 'None'.",None

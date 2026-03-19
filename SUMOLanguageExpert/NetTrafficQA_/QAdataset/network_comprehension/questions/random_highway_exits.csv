@@ -1,0 +1,2 @@
+network,type,question,ground_truth
+random,highway_exits,"Considering the entire network, which edges can be regarded as highway exits (i.e., highway edges that lead to non-highway outgoing edges)?",None

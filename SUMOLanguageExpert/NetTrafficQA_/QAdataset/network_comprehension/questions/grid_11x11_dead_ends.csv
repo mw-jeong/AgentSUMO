@@ -1,0 +1,2 @@
+network,type,question,ground_truth
+grid_11x11,dead_ends,"Which edge(s) in this network are dead-ends (i.e., they have no outgoing edges)?",None

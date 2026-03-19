@@ -1,0 +1,2 @@
+network,type,question,ground_truth
+grid_11x11,eb_highways,"List the edges that can be considered as eastbound (rightward) highways. Please provide the edge IDs separated by commas, or 'None'.",None

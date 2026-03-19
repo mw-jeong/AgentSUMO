@@ -1,0 +1,11 @@
+network,type,edge_id,question,ground_truth
+grid_11x11,connected_edges,I0J0,Which edges are connected before and after the edge with id I0J0? Please follow the format: 'Before: {ids}; After: {ids}'.,"Before: H0I0, I1I0, J0I0; After: J0I0, J0J1, J0K0"
+grid_11x11,connected_edges,B6A6,Which edges are connected before and after the edge with id B6A6? Please follow the format: 'Before: {ids}; After: {ids}'.,"Before: A6B6, B5B6, B7B6, C6B6; After: A6A5, A6A7, A6B6"
+grid_11x11,connected_edges,A3B3,Which edges are connected before and after the edge with id A3B3? Please follow the format: 'Before: {ids}; After: {ids}'.,"Before: A2A3, A4A3, B3A3; After: B3A3, B3B2, B3B4, B3C3"
+grid_11x11,connected_edges,J2J3,Which edges are connected before and after the edge with id J2J3? Please follow the format: 'Before: {ids}; After: {ids}'.,"Before: I2J2, J1J2, J3J2, K2J2; After: J3I3, J3J2, J3J4, J3K3"
+grid_11x11,connected_edges,D5E5,Which edges are connected before and after the edge with id D5E5? Please follow the format: 'Before: {ids}; After: {ids}'.,"Before: C5D5, D4D5, D6D5, E5D5; After: E5D5, E5E4, E5E6, E5F5"
+grid_11x11,connected_edges,D2C2,Which edges are connected before and after the edge with id D2C2? Please follow the format: 'Before: {ids}; After: {ids}'.,"Before: C2D2, D1D2, D3D2, E2D2; After: C2B2, C2C1, C2C3, C2D2"
+grid_11x11,connected_edges,C9D9,Which edges are connected before and after the edge with id C9D9? Please follow the format: 'Before: {ids}; After: {ids}'.,"Before: B9C9, C10C9, C8C9, D9C9; After: D9C9, D9D10, D9D8, D9E9"
+grid_11x11,connected_edges,B9B8,Which edges are connected before and after the edge with id B9B8? Please follow the format: 'Before: {ids}; After: {ids}'.,"Before: A9B9, B10B9, B8B9, C9B9; After: B8A8, B8B7, B8B9, B8C8"
+grid_11x11,connected_edges,J2I2,Which edges are connected before and after the edge with id J2I2? Please follow the format: 'Before: {ids}; After: {ids}'.,"Before: I2J2, J1J2, J3J2, K2J2; After: I2H2, I2I1, I2I3, I2J2"
+grid_11x11,connected_edges,B4C4,Which edges are connected before and after the edge with id B4C4? Please follow the format: 'Before: {ids}; After: {ids}'.,"Before: A4B4, B3B4, B5B4, C4B4; After: C4B4, C4C3, C4C5, C4D4"

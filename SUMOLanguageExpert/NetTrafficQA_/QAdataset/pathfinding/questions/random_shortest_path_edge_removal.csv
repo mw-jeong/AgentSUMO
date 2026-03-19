@@ -1,0 +1,11 @@
+network,type,question,ground_truth
+random,shortest_path_edge_removal,"Assuming edge -1363 is removed, what is the shortest path from junction 1362 to junction 347? List the edges in order.",1427 -> 1447 -> 1535 -> -876 -> -639 -> -319 -> -117 -> -15 -> -3 -> 7 -> 356
+random,shortest_path_edge_removal,"Assuming edge -623 is removed, what is the shortest path from junction 622 to junction 673? List the edges in order.",730 -> -639 -> 625 -> 732 -> 837
+random,shortest_path_edge_removal,"Assuming edge 325 is removed, what is the shortest path from junction 622 to junction 337? List the edges in order.",730 -> 880 -> 1357 -> 1415 -> -523
+random,shortest_path_edge_removal,"Assuming edge -876 is removed, what is the shortest path from junction 1440 to junction 12? List the edges in order.",1533 -> -1494 -> -880 -> -639 -> -319 -> -38
+random,shortest_path_edge_removal,"Assuming edge -319 is removed, what is the shortest path from junction 1770 to junction 63? List the edges in order.",-1775 -> -1501 -> -1429 -> -1363 -> -1323 -> -1033 -> -734 -> 732 -> -330 -> -119 -> 117 -> 313 -> -326
+random,shortest_path_edge_removal,"Assuming edge 15 is removed, what is the shortest path from junction 1004 to junction 673? List the edges in order.",-1029 -> -728 -> -11 -> 3 -> 13 -> 38 -> -117 -> 119 -> 330 -> 837
+random,shortest_path_edge_removal,"Assuming edge -674 is removed, what is the shortest path from junction 329 to junction 845? List the edges in order.",-330 -> 332 -> 592 -> 642 -> 846
+random,shortest_path_edge_removal,"Assuming edge 117 is removed, what is the shortest path from junction 329 to junction 115? List the edges in order.",-732 -> -625 -> -319 -> 313
+random,shortest_path_edge_removal,"Assuming edge 17 is removed, what is the shortest path from junction 584 to junction 329? List the edges in order.",-585 -> -210 -> -25 -> -9 -> 3 -> 15 -> 119 -> 330
+random,shortest_path_edge_removal,"Assuming edge -698 is removed, what is the shortest path from junction 1200 to junction 1492? List the edges in order.",-1201 -> 1199 -> -1343 -> -1093 -> -1029 -> -728 -> -11 -> 3 -> 15 -> 117 -> 319 -> 639 -> 880 -> -1767

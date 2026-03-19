@@ -1,0 +1,11 @@
+network,type,edge_id,question,ground_truth
+random,connected_edges,1526,Which edges are connected before and after the edge with id 1526? Please follow the format: 'Before: {ids}; After: {ids}'.,"Before: -1524, -1526, -1532, 1431; After: -1526, 1883, 1891"
+random,connected_edges,1493,Which edges are connected before and after the edge with id 1493? Please follow the format: 'Before: {ids}; After: {ids}'.,"Before: -1483, -1493, 1425; After: 1767"
+random,connected_edges,-608,Which edges are connected before and after the edge with id -608? Please follow the format: 'Before: {ids}; After: {ids}'.,"Before: 614; After: -577, 608, 612"
+random,connected_edges,-876,Which edges are connected before and after the edge with id -876? Please follow the format: 'Before: {ids}; After: {ids}'.,"Before: 1359, 1535, 876; After: -639, -730, 876, 880, 882"
+random,connected_edges,-1431,Which edges are connected before and after the edge with id -1431? Please follow the format: 'Before: {ids}; After: {ids}'.,"Before: -1524, -1526, -1532, 1431; After: -1373, -1427, 1431, 1441, 1447"
+random,connected_edges,-381,Which edges are connected before and after the edge with id -381? Please follow the format: 'Before: {ids}; After: {ids}'.,"Before: -349, -585, 210, 381; After: -128, 381, 383"
+random,connected_edges,848,Which edges are connected before and after the edge with id 848? Please follow the format: 'Before: {ids}; After: {ids}'.,Before: 650; After: -848
+random,connected_edges,-7,Which edges are connected before and after the edge with id -7? Please follow the format: 'Before: {ids}; After: {ids}'.,"Before: -333, -356, -679, 7; After: 11, 3, 7, 9"
+random,connected_edges,-361,Which edges are connected before and after the edge with id -361? Please follow the format: 'Before: {ids}; After: {ids}'.,"Before: -492, -496, 361; After: -336, 361, 504"
+random,connected_edges,535,Which edges are connected before and after the edge with id 535? Please follow the format: 'Before: {ids}; After: {ids}'.,"Before: -533, -535, -569, 365; After: 601"

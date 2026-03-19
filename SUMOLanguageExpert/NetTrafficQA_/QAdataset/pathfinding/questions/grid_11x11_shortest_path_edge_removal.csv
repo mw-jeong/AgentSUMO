@@ -1,0 +1,11 @@
+network,type,question,ground_truth
+grid_11x11,shortest_path_edge_removal,"Assuming edge F7G7 is removed, what is the shortest path from junction B5 to junction K7? List the edges in order.",B5B6 -> B6C6 -> C6D6 -> D6E6 -> E6F6 -> F6G6 -> G6G7 -> G7H7 -> H7I7 -> I7J7 -> J7K7
+grid_11x11,shortest_path_edge_removal,"Assuming edge B3C3 is removed, what is the shortest path from junction A4 to junction G3? List the edges in order.",A4B4 -> B4C4 -> C4C3 -> C3D3 -> D3E3 -> E3F3 -> F3G3
+grid_11x11,shortest_path_edge_removal,"Assuming edge H4H3 is removed, what is the shortest path from junction J6 to junction H2? List the edges in order.",J6I6 -> I6I5 -> I5I4 -> I4I3 -> I3H3 -> H3H2
+grid_11x11,shortest_path_edge_removal,"Assuming edge E2E3 is removed, what is the shortest path from junction E1 to junction G6? List the edges in order.",E1E2 -> E2F2 -> F2F3 -> F3F4 -> F4F5 -> F5F6 -> F6G6
+grid_11x11,shortest_path_edge_removal,"Assuming edge I1H1 is removed, what is the shortest path from junction I1 to junction A3? List the edges in order.",I1I2 -> I2H2 -> H2G2 -> G2F2 -> F2E2 -> E2D2 -> D2C2 -> C2B2 -> B2A2 -> A2A3
+grid_11x11,shortest_path_edge_removal,"Assuming edge F6E6 is removed, what is the shortest path from junction H6 to junction C6? List the edges in order.",H6G6 -> G6F6 -> F6F5 -> F5E5 -> E5D5 -> D5C5 -> C5C6
+grid_11x11,shortest_path_edge_removal,"Assuming edge A7A8 is removed, what is the shortest path from junction A4 to junction J9? List the edges in order.",A4A5 -> A5A6 -> A6A7 -> A7B7 -> B7B8 -> B8B9 -> B9C9 -> C9D9 -> D9E9 -> E9F9 -> F9G9 -> G9H9 -> H9I9 -> I9J9
+grid_11x11,shortest_path_edge_removal,"Assuming edge E0D0 is removed, what is the shortest path from junction K0 to junction A5? List the edges in order.",K0J0 -> J0I0 -> I0H0 -> H0G0 -> G0F0 -> F0E0 -> E0E1 -> E1D1 -> D1C1 -> C1B1 -> B1A1 -> A1A2 -> A2A3 -> A3A4 -> A4A5
+grid_11x11,shortest_path_edge_removal,"Assuming edge E2F2 is removed, what is the shortest path from junction D1 to junction F2? List the edges in order.",D1E1 -> E1F1 -> F1F2
+grid_11x11,shortest_path_edge_removal,"Assuming edge H6G6 is removed, what is the shortest path from junction J6 to junction E1? List the edges in order.",J6I6 -> I6H6 -> H6H5 -> H5G5 -> G5F5 -> F5E5 -> E5E4 -> E4E3 -> E3E2 -> E2E1

@@ -1,0 +1,11 @@
+network,type,edge_id,question,ground_truth
+random,road_type,1526,What is the road type of the edge with id 1526? Please answer with the type string only.,
+random,road_type,1493,What is the road type of the edge with id 1493? Please answer with the type string only.,
+random,road_type,-608,What is the road type of the edge with id -608? Please answer with the type string only.,
+random,road_type,-876,What is the road type of the edge with id -876? Please answer with the type string only.,
+random,road_type,-1431,What is the road type of the edge with id -1431? Please answer with the type string only.,
+random,road_type,-381,What is the road type of the edge with id -381? Please answer with the type string only.,
+random,road_type,848,What is the road type of the edge with id 848? Please answer with the type string only.,
+random,road_type,-7,What is the road type of the edge with id -7? Please answer with the type string only.,
+random,road_type,-361,What is the road type of the edge with id -361? Please answer with the type string only.,
+random,road_type,535,What is the road type of the edge with id 535? Please answer with the type string only.,

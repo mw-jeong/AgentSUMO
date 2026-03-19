@@ -1,0 +1,2 @@
+network,type,question,ground_truth
+random,num_highway_entrances,How many highway entrance edges are there in the network?,0
