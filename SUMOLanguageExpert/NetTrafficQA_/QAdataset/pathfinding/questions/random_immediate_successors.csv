@@ -1,11 +1,11 @@
 network,type,edge_id,question,ground_truth
-random,immediate_successors,-1388,"What are the edge id(s) that come immediately after the edge with id -1388? Please provide the IDs separated by commas, or 'None'.",-533
-random,immediate_successors,-642,"What are the edge id(s) that come immediately after the edge with id -642? Please provide the IDs separated by commas, or 'None'.","-592, 642, 650, 674"
-random,immediate_successors,-126,"What are the edge id(s) that come immediately after the edge with id -126? Please provide the IDs separated by commas, or 'None'.","-25, 126, 128, 138, 210"
-random,immediate_successors,1343,"What are the edge id(s) that come immediately after the edge with id 1343? Please provide the IDs separated by commas, or 'None'.",-1199
-random,immediate_successors,1891,"What are the edge id(s) that come immediately after the edge with id 1891? Please provide the IDs separated by commas, or 'None'.",-1891
-random,immediate_successors,-880,"What are the edge id(s) that come immediately after the edge with id -880? Please provide the IDs separated by commas, or 'None'.","-639, -730, 876, 880, 882"
-random,immediate_successors,-1425,"What are the edge id(s) that come immediately after the edge with id -1425? Please provide the IDs separated by commas, or 'None'.","-1357, 1415, 1425"
-random,immediate_successors,-612,"What are the edge id(s) that come immediately after the edge with id -612? Please provide the IDs separated by commas, or 'None'.","-577, 608, 612"
-random,immediate_successors,639,"What are the edge id(s) that come immediately after the edge with id 639? Please provide the IDs separated by commas, or 'None'.","-639, -730, 876, 880, 882"
-random,immediate_successors,1798,"What are the edge id(s) that come immediately after the edge with id 1798? Please provide the IDs separated by commas, or 'None'.",-1773
+random,immediate_successors,-1388,"What are the edge id(s) that come immediately after the edge with id -1388? Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E3, E5)",-533
+random,immediate_successors,-642,"What are the edge id(s) that come immediately after the edge with id -642? Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E3, E5)","-592, 642, 650, 674"
+random,immediate_successors,-126,"What are the edge id(s) that come immediately after the edge with id -126? Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E3, E5)","-25, 126, 128, 138, 210"
+random,immediate_successors,1343,"What are the edge id(s) that come immediately after the edge with id 1343? Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E3, E5)",-1199
+random,immediate_successors,1891,"What are the edge id(s) that come immediately after the edge with id 1891? Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E3, E5)",-1891
+random,immediate_successors,-880,"What are the edge id(s) that come immediately after the edge with id -880? Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E3, E5)","-639, -730, 876, 880, 882"
+random,immediate_successors,-1425,"What are the edge id(s) that come immediately after the edge with id -1425? Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E3, E5)","-1357, 1415, 1425"
+random,immediate_successors,-612,"What are the edge id(s) that come immediately after the edge with id -612? Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E3, E5)","-577, 608, 612"
+random,immediate_successors,639,"What are the edge id(s) that come immediately after the edge with id 639? Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E3, E5)","-639, -730, 876, 880, 882"
+random,immediate_successors,1798,"What are the edge id(s) that come immediately after the edge with id 1798? Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E3, E5)",-1773

@@ -1,11 +1,11 @@
 network,type,edge_id,question,ground_truth
-grid_11x11,is_highway,I0J0,Is the edge with id I0J0 a highway? Please answer with yes or no.,no
-grid_11x11,is_highway,B6A6,Is the edge with id B6A6 a highway? Please answer with yes or no.,no
-grid_11x11,is_highway,A3B3,Is the edge with id A3B3 a highway? Please answer with yes or no.,no
-grid_11x11,is_highway,J2J3,Is the edge with id J2J3 a highway? Please answer with yes or no.,no
-grid_11x11,is_highway,D5E5,Is the edge with id D5E5 a highway? Please answer with yes or no.,no
-grid_11x11,is_highway,D2C2,Is the edge with id D2C2 a highway? Please answer with yes or no.,no
-grid_11x11,is_highway,C9D9,Is the edge with id C9D9 a highway? Please answer with yes or no.,no
-grid_11x11,is_highway,B9B8,Is the edge with id B9B8 a highway? Please answer with yes or no.,no
-grid_11x11,is_highway,J2I2,Is the edge with id J2I2 a highway? Please answer with yes or no.,no
-grid_11x11,is_highway,B4C4,Is the edge with id B4C4 a highway? Please answer with yes or no.,no
+grid_11x11,is_highway,I0J0,Is the edge with id I0J0 a highway? Answer format: yes or no,no
+grid_11x11,is_highway,B6A6,Is the edge with id B6A6 a highway? Answer format: yes or no,no
+grid_11x11,is_highway,A3B3,Is the edge with id A3B3 a highway? Answer format: yes or no,no
+grid_11x11,is_highway,J2J3,Is the edge with id J2J3 a highway? Answer format: yes or no,no
+grid_11x11,is_highway,D5E5,Is the edge with id D5E5 a highway? Answer format: yes or no,no
+grid_11x11,is_highway,D2C2,Is the edge with id D2C2 a highway? Answer format: yes or no,no
+grid_11x11,is_highway,C9D9,Is the edge with id C9D9 a highway? Answer format: yes or no,no
+grid_11x11,is_highway,B9B8,Is the edge with id B9B8 a highway? Answer format: yes or no,no
+grid_11x11,is_highway,J2I2,Is the edge with id J2I2 a highway? Answer format: yes or no,no
+grid_11x11,is_highway,B4C4,Is the edge with id B4C4 a highway? Answer format: yes or no,no

@@ -1,2 +1,2 @@
 network,type,question,ground_truth
-grid_11x11,lane_increase,"List the junctions where the number of lanes increases when moving from one edge to another. Please provide the junction IDs separated by commas, or 'None'.",None
+grid_11x11,lane_increase,"List the junctions where the number of lanes increases when moving from one edge to another. Answer format: <id1>, <id2>, ... or 'None' (e.g. J2, J4)",None

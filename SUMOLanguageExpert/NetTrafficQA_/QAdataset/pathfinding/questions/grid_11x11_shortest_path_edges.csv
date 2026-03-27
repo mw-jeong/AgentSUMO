@@ -1,11 +1,11 @@
 network,type,question,ground_truth
-grid_11x11,shortest_path_edges,"What is the shortest path from junction I10 to junction E9? List the edges in order, separated by ' -> '.",I10H10 -> H10G10 -> G10F10 -> F10E10 -> E10E9
-grid_11x11,shortest_path_edges,"What is the shortest path from junction D9 to junction D1? List the edges in order, separated by ' -> '.",D9D8 -> D8D7 -> D7D6 -> D6D5 -> D5D4 -> D4D3 -> D3D2 -> D2D1
-grid_11x11,shortest_path_edges,"What is the shortest path from junction B7 to junction C4? List the edges in order, separated by ' -> '.",B7B6 -> B6B5 -> B5B4 -> B4C4
-grid_11x11,shortest_path_edges,"What is the shortest path from junction I8 to junction D9? List the edges in order, separated by ' -> '.",I8H8 -> H8G8 -> G8F8 -> F8E8 -> E8D8 -> D8D9
-grid_11x11,shortest_path_edges,"What is the shortest path from junction E3 to junction A5? List the edges in order, separated by ' -> '.",E3D3 -> D3C3 -> C3B3 -> B3A3 -> A3A4 -> A4A5
-grid_11x11,shortest_path_edges,"What is the shortest path from junction E10 to junction J8? List the edges in order, separated by ' -> '.",E10E9 -> E9E8 -> E8F8 -> F8G8 -> G8H8 -> H8I8 -> I8J8
-grid_11x11,shortest_path_edges,"What is the shortest path from junction E0 to junction H0? List the edges in order, separated by ' -> '.",E0F0 -> F0G0 -> G0H0
-grid_11x11,shortest_path_edges,"What is the shortest path from junction D0 to junction J3? List the edges in order, separated by ' -> '.",D0D1 -> D1D2 -> D2D3 -> D3E3 -> E3F3 -> F3G3 -> G3H3 -> H3I3 -> I3J3
-grid_11x11,shortest_path_edges,"What is the shortest path from junction B10 to junction I4? List the edges in order, separated by ' -> '.",B10B9 -> B9B8 -> B8B7 -> B7B6 -> B6B5 -> B5B4 -> B4C4 -> C4D4 -> D4E4 -> E4F4 -> F4G4 -> G4H4 -> H4I4
-grid_11x11,shortest_path_edges,"What is the shortest path from junction F2 to junction G1? List the edges in order, separated by ' -> '.",F2F1 -> F1G1
+grid_11x11,shortest_path_edges,What is the shortest path from junction I10 to junction E9? List the edges in order. Answer format: <edge1> -> <edge2> -> ... (e.g. E1 -> E5 -> E9),I10H10 -> H10G10 -> G10F10 -> F10E10 -> E10E9
+grid_11x11,shortest_path_edges,What is the shortest path from junction D9 to junction D1? List the edges in order. Answer format: <edge1> -> <edge2> -> ... (e.g. E1 -> E5 -> E9),D9D8 -> D8D7 -> D7D6 -> D6D5 -> D5D4 -> D4D3 -> D3D2 -> D2D1
+grid_11x11,shortest_path_edges,What is the shortest path from junction B7 to junction C4? List the edges in order. Answer format: <edge1> -> <edge2> -> ... (e.g. E1 -> E5 -> E9),B7B6 -> B6B5 -> B5B4 -> B4C4
+grid_11x11,shortest_path_edges,What is the shortest path from junction I8 to junction D9? List the edges in order. Answer format: <edge1> -> <edge2> -> ... (e.g. E1 -> E5 -> E9),I8H8 -> H8G8 -> G8F8 -> F8E8 -> E8D8 -> D8D9
+grid_11x11,shortest_path_edges,What is the shortest path from junction E3 to junction A5? List the edges in order. Answer format: <edge1> -> <edge2> -> ... (e.g. E1 -> E5 -> E9),E3D3 -> D3C3 -> C3B3 -> B3A3 -> A3A4 -> A4A5
+grid_11x11,shortest_path_edges,What is the shortest path from junction E10 to junction J8? List the edges in order. Answer format: <edge1> -> <edge2> -> ... (e.g. E1 -> E5 -> E9),E10E9 -> E9E8 -> E8F8 -> F8G8 -> G8H8 -> H8I8 -> I8J8
+grid_11x11,shortest_path_edges,What is the shortest path from junction E0 to junction H0? List the edges in order. Answer format: <edge1> -> <edge2> -> ... (e.g. E1 -> E5 -> E9),E0F0 -> F0G0 -> G0H0
+grid_11x11,shortest_path_edges,What is the shortest path from junction D0 to junction J3? List the edges in order. Answer format: <edge1> -> <edge2> -> ... (e.g. E1 -> E5 -> E9),D0D1 -> D1D2 -> D2D3 -> D3E3 -> E3F3 -> F3G3 -> G3H3 -> H3I3 -> I3J3
+grid_11x11,shortest_path_edges,What is the shortest path from junction B10 to junction I4? List the edges in order. Answer format: <edge1> -> <edge2> -> ... (e.g. E1 -> E5 -> E9),B10B9 -> B9B8 -> B8B7 -> B7B6 -> B6B5 -> B5B4 -> B4C4 -> C4D4 -> D4E4 -> E4F4 -> F4G4 -> G4H4 -> H4I4
+grid_11x11,shortest_path_edges,What is the shortest path from junction F2 to junction G1? List the edges in order. Answer format: <edge1> -> <edge2> -> ... (e.g. E1 -> E5 -> E9),F2F1 -> F1G1

@@ -1,11 +1,11 @@
 network,type,edge_id,question,ground_truth
-grid_11x11,immediate_predecessors,F3F2,"What are the edge id(s) that can come immediately before the edge with id F3F2? Please provide the IDs separated by commas, or 'None'.","E3F3, F2F3, F4F3, G3F3"
-grid_11x11,immediate_predecessors,C9C10,"What are the edge id(s) that can come immediately before the edge with id C9C10? Please provide the IDs separated by commas, or 'None'.","B9C9, C10C9, C8C9, D9C9"
-grid_11x11,immediate_predecessors,F7E7,"What are the edge id(s) that can come immediately before the edge with id F7E7? Please provide the IDs separated by commas, or 'None'.","E7F7, F6F7, F8F7, G7F7"
-grid_11x11,immediate_predecessors,H4G4,"What are the edge id(s) that can come immediately before the edge with id H4G4? Please provide the IDs separated by commas, or 'None'.","G4H4, H3H4, H5H4, I4H4"
-grid_11x11,immediate_predecessors,D6D5,"What are the edge id(s) that can come immediately before the edge with id D6D5? Please provide the IDs separated by commas, or 'None'.","C6D6, D5D6, D7D6, E6D6"
-grid_11x11,immediate_predecessors,K1K0,"What are the edge id(s) that can come immediately before the edge with id K1K0? Please provide the IDs separated by commas, or 'None'.","J1K1, K0K1, K2K1"
-grid_11x11,immediate_predecessors,A10B10,"What are the edge id(s) that can come immediately before the edge with id A10B10? Please provide the IDs separated by commas, or 'None'.",A9A10
-grid_11x11,immediate_predecessors,J4K4,"What are the edge id(s) that can come immediately before the edge with id J4K4? Please provide the IDs separated by commas, or 'None'.","I4J4, J3J4, J5J4, K4J4"
-grid_11x11,immediate_predecessors,K10K9,"What are the edge id(s) that can come immediately before the edge with id K10K9? Please provide the IDs separated by commas, or 'None'.",J10K10
-grid_11x11,immediate_predecessors,C1C2,"What are the edge id(s) that can come immediately before the edge with id C1C2? Please provide the IDs separated by commas, or 'None'.","B1C1, C0C1, C2C1, D1C1"
+grid_11x11,immediate_predecessors,F3F2,"What are the edge id(s) that can come immediately before the edge with id F3F2? Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E1, E4)","E3F3, F2F3, F4F3, G3F3"
+grid_11x11,immediate_predecessors,C9C10,"What are the edge id(s) that can come immediately before the edge with id C9C10? Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E1, E4)","B9C9, C10C9, C8C9, D9C9"
+grid_11x11,immediate_predecessors,F7E7,"What are the edge id(s) that can come immediately before the edge with id F7E7? Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E1, E4)","E7F7, F6F7, F8F7, G7F7"
+grid_11x11,immediate_predecessors,H4G4,"What are the edge id(s) that can come immediately before the edge with id H4G4? Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E1, E4)","G4H4, H3H4, H5H4, I4H4"
+grid_11x11,immediate_predecessors,D6D5,"What are the edge id(s) that can come immediately before the edge with id D6D5? Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E1, E4)","C6D6, D5D6, D7D6, E6D6"
+grid_11x11,immediate_predecessors,K1K0,"What are the edge id(s) that can come immediately before the edge with id K1K0? Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E1, E4)","J1K1, K0K1, K2K1"
+grid_11x11,immediate_predecessors,A10B10,"What are the edge id(s) that can come immediately before the edge with id A10B10? Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E1, E4)",A9A10
+grid_11x11,immediate_predecessors,J4K4,"What are the edge id(s) that can come immediately before the edge with id J4K4? Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E1, E4)","I4J4, J3J4, J5J4, K4J4"
+grid_11x11,immediate_predecessors,K10K9,"What are the edge id(s) that can come immediately before the edge with id K10K9? Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E1, E4)",J10K10
+grid_11x11,immediate_predecessors,C1C2,"What are the edge id(s) that can come immediately before the edge with id C1C2? Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E1, E4)","B1C1, C0C1, C2C1, D1C1"

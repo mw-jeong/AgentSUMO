@@ -1,11 +1,11 @@
 network,type,edge_id,question,ground_truth
-random,to_junction,1526,What is the id of the to-junction for the edge with id 1526? Please answer with the junction ID only.,1525
-random,to_junction,1493,What is the id of the to-junction for the edge with id 1493? Please answer with the junction ID only.,1492
-random,to_junction,-608,What is the id of the to-junction for the edge with id -608? Please answer with the junction ID only.,576
-random,to_junction,-876,What is the id of the to-junction for the edge with id -876? Please answer with the junction ID only.,638
-random,to_junction,-1431,What is the id of the to-junction for the edge with id -1431? Please answer with the junction ID only.,1372
-random,to_junction,-381,What is the id of the to-junction for the edge with id -381? Please answer with the junction ID only.,127
-random,to_junction,848,What is the id of the to-junction for the edge with id 848? Please answer with the junction ID only.,847
-random,to_junction,-7,What is the id of the to-junction for the edge with id -7? Please answer with the junction ID only.,1
-random,to_junction,-361,What is the id of the to-junction for the edge with id -361? Please answer with the junction ID only.,335
-random,to_junction,535,What is the id of the to-junction for the edge with id 535? Please answer with the junction ID only.,534
+random,to_junction,1526,What is the id of the to-junction for the edge with id 1526? Answer format: <junction_id> (e.g. J2),1525
+random,to_junction,1493,What is the id of the to-junction for the edge with id 1493? Answer format: <junction_id> (e.g. J2),1492
+random,to_junction,-608,What is the id of the to-junction for the edge with id -608? Answer format: <junction_id> (e.g. J2),576
+random,to_junction,-876,What is the id of the to-junction for the edge with id -876? Answer format: <junction_id> (e.g. J2),638
+random,to_junction,-1431,What is the id of the to-junction for the edge with id -1431? Answer format: <junction_id> (e.g. J2),1372
+random,to_junction,-381,What is the id of the to-junction for the edge with id -381? Answer format: <junction_id> (e.g. J2),127
+random,to_junction,848,What is the id of the to-junction for the edge with id 848? Answer format: <junction_id> (e.g. J2),847
+random,to_junction,-7,What is the id of the to-junction for the edge with id -7? Answer format: <junction_id> (e.g. J2),1
+random,to_junction,-361,What is the id of the to-junction for the edge with id -361? Answer format: <junction_id> (e.g. J2),335
+random,to_junction,535,What is the id of the to-junction for the edge with id 535? Answer format: <junction_id> (e.g. J2),534

@@ -50,7 +50,7 @@ def generate_feature_retrieval(net, network_name, n=10):
             "network": network_name,
             "type": "from_junction",
             "edge_id": eid,
-            "question": f"What is the id of the from-junction for the edge with id {eid}? Please answer with the junction ID only.",
+            "question": f"What is the id of the from-junction for the edge with id {eid}? Answer format: <junction_id> (e.g. J1)",
             "ground_truth": from_id
         })
         
@@ -59,7 +59,7 @@ def generate_feature_retrieval(net, network_name, n=10):
             "network": network_name,
             "type": "to_junction",
             "edge_id": eid,
-            "question": f"What is the id of the to-junction for the edge with id {eid}? Please answer with the junction ID only.",
+            "question": f"What is the id of the to-junction for the edge with id {eid}? Answer format: <junction_id> (e.g. J2)",
             "ground_truth": to_id
         })
 
@@ -68,7 +68,7 @@ def generate_feature_retrieval(net, network_name, n=10):
             "network": network_name,
             "type": "both_junctions",
             "edge_id": eid,
-            "question": f"What are the id of the from-junction and to-junction for the edge with id {eid}? Please provide the two IDs separated by a comma only.",
+            "question": f"What are the id of the from-junction and to-junction for the edge with id {eid}? Answer format: <from_junction_id>, <to_junction_id> (e.g. J1, J2)",
             "ground_truth": f"{from_id}, {to_id}"
         })
 
@@ -79,7 +79,7 @@ def generate_feature_retrieval(net, network_name, n=10):
             "network": network_name,
             "type": "is_highway",
             "edge_id": eid,
-            "question": f"Is the edge with id {eid} a highway? Please answer with yes or no.",
+            "question": f"Is the edge with id {eid} a highway? Answer format: yes or no",
             "ground_truth": "yes" if is_highway else "no"
         })
 
@@ -88,7 +88,7 @@ def generate_feature_retrieval(net, network_name, n=10):
             "network": network_name,
             "type": "road_type",
             "edge_id": eid,
-            "question": f"What is the road type of the edge with id {eid}? Please answer with the type string only.",
+            "question": f"What is the road type of the edge with id {eid}? Answer format: <road_type> (e.g. highway.residential)",
             "ground_truth": edge.getType()
         })
         
@@ -97,7 +97,7 @@ def generate_feature_retrieval(net, network_name, n=10):
             "network": network_name,
             "type": "num_lanes",
             "edge_id": eid,
-            "question": f"How many lanes does the edge with id {eid} have? Please answer with the number only.",
+            "question": f"How many lanes does the edge with id {eid} have? Answer format: <integer> (e.g. 3)",
             "ground_truth": str(edge.getLaneNumber())
         })
 
@@ -108,7 +108,7 @@ def generate_feature_retrieval(net, network_name, n=10):
             "network": network_name,
             "type": "connected_edges",
             "edge_id": eid,
-            "question": f"Which edges are connected before and after the edge with id {eid}? Please follow the format: 'Before: {{ids}}; After: {{ids}}'.",
+            "question": f"Which edges are connected before and after the edge with id {eid}? Answer format: Before: <id1>, <id2>, ...; After: <id1>, <id2>, ... (use 'None' if empty; e.g. Before: E1, E2; After: E3)",
             "ground_truth": f"Before: {', '.join(incoming) if incoming else 'None'}; After: {', '.join(outgoing) if outgoing else 'None'}"
         })
 
@@ -122,7 +122,7 @@ def generate_feature_retrieval(net, network_name, n=10):
             "network": network_name,
             "type": "junction_coord",
             "edge_id": nid, # Using edge_id column for junction_id for simplicity in CSV structure
-            "question": f"What are the x, y coordinates of the junction with id {nid}? Please provide the coordinates as 'x, y' only.",
+            "question": f"What are the x, y coordinates of the junction with id {nid}? Answer format: <x>, <y> rounded to 2 decimal places (e.g. 150.0, 200.5)",
             "ground_truth": f"{round(coord[0], 2)}, {round(coord[1], 2)}"
         })
         
@@ -149,12 +149,12 @@ def generate_network_comprehension(net, network_name):
     
     qa_pairs.append({
         "network": network_name, "type": "lane_decrease",
-        "question": "List the junctions where the number of lanes decreases when moving from one edge to another (e.g., from an incoming edge to an outgoing edge at that junction). Please provide the junction IDs separated by commas, or 'None'.",
+        "question": "List the junctions where the number of lanes decreases when moving from one edge to another (e.g., from an incoming edge to an outgoing edge at that junction). Answer format: <id1>, <id2>, ... or 'None' (e.g. J1, J3, J5)",
         "ground_truth": ", ".join(sorted(list(decreasing_junctions))) if decreasing_junctions else "None"
     })
     qa_pairs.append({
         "network": network_name, "type": "lane_increase",
-        "question": "List the junctions where the number of lanes increases when moving from one edge to another. Please provide the junction IDs separated by commas, or 'None'.",
+        "question": "List the junctions where the number of lanes increases when moving from one edge to another. Answer format: <id1>, <id2>, ... or 'None' (e.g. J2, J4)",
         "ground_truth": ", ".join(sorted(list(increasing_junctions))) if increasing_junctions else "None"
     })
 
@@ -177,22 +177,22 @@ def generate_network_comprehension(net, network_name):
 
     qa_pairs.append({
         "network": network_name, "type": "highway_entrances",
-        "question": "Considering the entire network, which edges can be regarded as highway entrances (i.e., highway edges that have non-highway incoming edges)?",
+        "question": "Considering the entire network, which edges can be regarded as highway entrances (i.e., highway edges that have non-highway incoming edges)? Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E5, E12)",
         "ground_truth": ", ".join(sorted(entrances)) if entrances else "None"
     })
     qa_pairs.append({
         "network": network_name, "type": "highway_exits",
-        "question": "Considering the entire network, which edges can be regarded as highway exits (i.e., highway edges that lead to non-highway outgoing edges)?",
+        "question": "Considering the entire network, which edges can be regarded as highway exits (i.e., highway edges that lead to non-highway outgoing edges)? Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E7, E15)",
         "ground_truth": ", ".join(sorted(exits)) if exits else "None"
     })
     qa_pairs.append({
         "network": network_name, "type": "num_highway_entrances",
-        "question": "How many highway entrance edges are there in the network?",
+        "question": "How many highway entrance edges are there in the network? Answer format: <integer> (e.g. 4)",
         "ground_truth": str(len(entrances))
     })
     qa_pairs.append({
         "network": network_name, "type": "ramp_metering_potential",
-        "question": "List the edges where ramp metering could potentially be installed on the highway (typically at highway entrances).",
+        "question": "List the edges where ramp metering could potentially be installed on the highway (typically at highway entrances). Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E5, E12)",
         "ground_truth": ", ".join(sorted(entrances)) if entrances else "None"
     })
 
@@ -208,7 +208,7 @@ def generate_network_comprehension(net, network_name):
     
     qa_pairs.append({
         "network": network_name, "type": "speed_limit_changes",
-        "question": "List the edge pairs (E1, E2) where the road speed limit changes when moving from one edge to another at a junction. Please provide the pairs separated by commas, or 'None'.",
+        "question": "List the edge pairs (E1, E2) where the road speed limit changes when moving from one edge to another at a junction. Answer format: (<edge_id1>, <edge_id2>), (<edge_id3>, <edge_id4>), ... or 'None' (e.g. (E1, E2), (E3, E4))",
         "ground_truth": ", ".join(sorted(list(set(speed_changes)))) if speed_changes else "None"
     })
 
@@ -224,12 +224,12 @@ def generate_network_comprehension(net, network_name):
 
     qa_pairs.append({
         "network": network_name, "type": "wb_highways",
-        "question": "List the edges that can be considered as westbound (leftward) highways. Please provide the edge IDs separated by commas, or 'None'.",
+        "question": "List the edges that can be considered as westbound (leftward) highways. Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E3, E8)",
         "ground_truth": ", ".join(sorted(wb_h)) if wb_h else "None"
     })
     qa_pairs.append({
         "network": network_name, "type": "eb_highways",
-        "question": "List the edges that can be considered as eastbound (rightward) highways. Please provide the edge IDs separated by commas, or 'None'.",
+        "question": "List the edges that can be considered as eastbound (rightward) highways. Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E1, E6)",
         "ground_truth": ", ".join(sorted(eb_h)) if eb_h else "None"
     })
 
@@ -239,12 +239,12 @@ def generate_network_comprehension(net, network_name):
     
     qa_pairs.append({
         "network": network_name, "type": "source_sink_junctions",
-        "question": "List the junctions that can be considered as source and sink for vehicle generation based on the terminal ends of roads (no incoming or no outgoing edges). Please follow the format: 'Sources: {{ids}}; Sinks: {{ids}}'.",
+        "question": "List the junctions that can be considered as source and sink for vehicle generation based on the terminal ends of roads (no incoming or no outgoing edges). Answer format: Sources: <id1>, <id2>, ...; Sinks: <id1>, <id2>, ... (use 'None' for either if applicable; e.g. Sources: J1, J2; Sinks: J5, J6)",
         "ground_truth": f"Sources: {', '.join(sorted(sources)) if sources else 'None'}; Sinks: {', '.join(sorted(sinks)) if sinks else 'None'}"
     })
     qa_pairs.append({
         "network": network_name, "type": "od_pairs_count",
-        "question": "How many possible origin-destination (O-D) pairs can be formed based on the identified source and sink junctions? Please answer with the number only.",
+        "question": "How many possible origin-destination (O-D) pairs can be formed based on the identified source and sink junctions? Answer format: <integer> (e.g. 12)",
         "ground_truth": str(len(sources) * len(sinks))
     })
 
@@ -267,7 +267,7 @@ def generate_pathfinding(net, network_name, n=10):
             "network": network_name,
             "type": "immediate_successors",
             "edge_id": eid,
-            "question": f"What are the edge id(s) that come immediately after the edge with id {eid}? Please provide the IDs separated by commas, or 'None'.",
+            "question": f"What are the edge id(s) that come immediately after the edge with id {eid}? Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E3, E5)",
             "ground_truth": ", ".join(successors) if successors else "None"
         })
 
@@ -280,7 +280,7 @@ def generate_pathfinding(net, network_name, n=10):
             "network": network_name,
             "type": "immediate_predecessors",
             "edge_id": eid,
-            "question": f"What are the edge id(s) that can come immediately before the edge with id {eid}? Please provide the IDs separated by commas, or 'None'.",
+            "question": f"What are the edge id(s) that can come immediately before the edge with id {eid}? Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E1, E4)",
             "ground_truth": ", ".join(predecessors) if predecessors else "None"
         })
 
@@ -313,7 +313,7 @@ def generate_pathfinding(net, network_name, n=10):
             qa_pairs.append({
                 "network": network_name,
                 "type": "shortest_path_edges",
-                "question": f"What is the shortest path from junction {n1id} to junction {n2id}? List the edges in order, separated by ' -> '.",
+                "question": f"What is the shortest path from junction {n1id} to junction {n2id}? List the edges in order. Answer format: <edge1> -> <edge2> -> ... (e.g. E1 -> E5 -> E9)",
                 "ground_truth": " -> ".join(pe)
             })
             # 4. Path edges and junctions
@@ -325,14 +325,14 @@ def generate_pathfinding(net, network_name, n=10):
             qa_pairs.append({
                 "network": network_name,
                 "type": "shortest_path_full",
-                "question": f"What is the shortest path from junction {n1id} to junction {n2id}? List the edges and junctions in order.",
+                "question": f"What is the shortest path from junction {n1id} to junction {n2id}? List the junctions and edges in alternating order. Answer format: <junction> -> <edge> -> <junction> -> ... (e.g. J1 -> E1 -> J2 -> E5 -> J3)",
                 "ground_truth": " -> ".join(full_path)
             })
             # 5. Distance by length
             qa_pairs.append({
                 "network": network_name,
                 "type": "shortest_path_length",
-                "question": f"What is the shortest path distance (by length in meters) from junction {n1id} to junction {n2id}?",
+                "question": f"What is the shortest path distance (by length in meters) from junction {n1id} to junction {n2id}? Answer format: <number> rounded to 2 decimal places (e.g. 345.67)",
                 "ground_truth": str(round(d, 2))
             })
 
@@ -349,7 +349,7 @@ def generate_pathfinding(net, network_name, n=10):
                 qa_pairs.append({
                     "network": network_name,
                     "type": "shortest_path_edge_removal",
-                    "question": f"Assuming edge {removed_edge} is removed, what is the shortest path from junction {n1.getID()} to junction {n2.getID()}? List the edges in order.",
+                    "question": f"Assuming edge {removed_edge} is removed, what is the shortest path from junction {n1.getID()} to junction {n2.getID()}? List the edges in order. Answer format: <edge1> -> <edge2> -> ... (e.g. E2 -> E7 -> E11)",
                     "ground_truth": " -> ".join(pe2)
                 })
 

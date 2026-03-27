@@ -1,2 +1,2 @@
 network,type,question,ground_truth
-grid_11x11,lane_decrease,"List the junctions where the number of lanes decreases when moving from one edge to another (e.g., from an incoming edge to an outgoing edge at that junction). Please provide the junction IDs separated by commas, or 'None'.",None
+grid_11x11,lane_decrease,"List the junctions where the number of lanes decreases when moving from one edge to another (e.g., from an incoming edge to an outgoing edge at that junction). Answer format: <id1>, <id2>, ... or 'None' (e.g. J1, J3, J5)",None
