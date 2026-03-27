@@ -1,2 +1,2 @@
 network,type,question,ground_truth
-random,speed_limit_changes,"List the edge pairs (E1, E2) where the road speed limit changes when moving from one edge to another at a junction. Please provide the pairs separated by commas, or 'None'.",None
+random,speed_limit_changes,"List the edge pairs (E1, E2) where the road speed limit changes when moving from one edge to another at a junction. Answer format: (<edge_id1>, <edge_id2>), (<edge_id3>, <edge_id4>), ... or 'None' (e.g. (E1, E2), (E3, E4))",None

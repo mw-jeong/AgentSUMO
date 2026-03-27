@@ -1,2 +1,2 @@
 network,type,question,ground_truth
-grid_11x11,highway_entrances,"Considering the entire network, which edges can be regarded as highway entrances (i.e., highway edges that have non-highway incoming edges)?",None
+grid_11x11,highway_entrances,"Considering the entire network, which edges can be regarded as highway entrances (i.e., highway edges that have non-highway incoming edges)? Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E5, E12)",None

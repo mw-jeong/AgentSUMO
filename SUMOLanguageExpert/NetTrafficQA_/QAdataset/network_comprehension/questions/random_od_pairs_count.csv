@@ -1,2 +1,2 @@
 network,type,question,ground_truth
-random,od_pairs_count,How many possible origin-destination (O-D) pairs can be formed based on the identified source and sink junctions? Please answer with the number only.,0
+random,od_pairs_count,How many possible origin-destination (O-D) pairs can be formed based on the identified source and sink junctions? Answer format: <integer> (e.g. 12),0

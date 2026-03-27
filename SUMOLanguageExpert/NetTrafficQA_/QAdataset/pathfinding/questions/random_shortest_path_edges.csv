@@ -1,11 +1,11 @@
 network,type,question,ground_truth
-random,shortest_path_edges,"What is the shortest path from junction 1344 to junction 118? List the edges in order, separated by ' -> '.",-1345 -> -1342 -> -1093 -> -1029 -> -728 -> -11 -> 3 -> 15 -> 119
-random,shortest_path_edges,"What is the shortest path from junction 331 to junction 324? List the edges in order, separated by ' -> '.",-332 -> -119 -> 117 -> 325
-random,shortest_path_edges,"What is the shortest path from junction 10 to junction 839? List the edges in order, separated by ' -> '.",-11 -> 3 -> 15 -> 119 -> 332 -> 592 -> 642 -> 840
-random,shortest_path_edges,"What is the shortest path from junction 881 to junction 12? List the edges in order, separated by ' -> '.",-882 -> -639 -> -319 -> -38
-random,shortest_path_edges,"What is the shortest path from junction 1200 to junction 578? List the edges in order, separated by ' -> '.",-1201 -> 1199 -> -1343 -> -1093 -> -1005 -> -612 -> 608 -> -614
-random,shortest_path_edges,"What is the shortest path from junction 63 to junction 622? List the edges in order, separated by ' -> '.",326 -> -313 -> 319 -> 623
-random,shortest_path_edges,"What is the shortest path from junction 8 to junction 503? List the edges in order, separated by ' -> '.",19 -> 123 -> 338 -> 505
-random,shortest_path_edges,"What is the shortest path from junction 1056 to junction 1500? List the edges in order, separated by ' -> '.",-1057 -> -1415 -> -1357 -> 1494 -> -1447 -> -1427 -> 1429 -> 1501
-random,shortest_path_edges,"What is the shortest path from junction 1498 to junction 503? List the edges in order, separated by ' -> '.",-1499 -> -1429 -> 1427 -> 1447 -> -1494 -> 1357 -> 1415 -> -523 -> 505
-random,shortest_path_edges,"What is the shortest path from junction 1881 to junction 335? List the edges in order, separated by ' -> '.",-1882 -> -1523 -> -1429 -> 1427 -> 1447 -> -1494 -> 1357 -> 1415 -> -523 -> -338 -> 336
+random,shortest_path_edges,What is the shortest path from junction 1344 to junction 118? List the edges in order. Answer format: <edge1> -> <edge2> -> ... (e.g. E1 -> E5 -> E9),-1345 -> -1342 -> -1093 -> -1029 -> -728 -> -11 -> 3 -> 15 -> 119
+random,shortest_path_edges,What is the shortest path from junction 331 to junction 324? List the edges in order. Answer format: <edge1> -> <edge2> -> ... (e.g. E1 -> E5 -> E9),-332 -> -119 -> 117 -> 325
+random,shortest_path_edges,What is the shortest path from junction 10 to junction 839? List the edges in order. Answer format: <edge1> -> <edge2> -> ... (e.g. E1 -> E5 -> E9),-11 -> 3 -> 15 -> 119 -> 332 -> 592 -> 642 -> 840
+random,shortest_path_edges,What is the shortest path from junction 881 to junction 12? List the edges in order. Answer format: <edge1> -> <edge2> -> ... (e.g. E1 -> E5 -> E9),-882 -> -639 -> -319 -> -38
+random,shortest_path_edges,What is the shortest path from junction 1200 to junction 578? List the edges in order. Answer format: <edge1> -> <edge2> -> ... (e.g. E1 -> E5 -> E9),-1201 -> 1199 -> -1343 -> -1093 -> -1005 -> -612 -> 608 -> -614
+random,shortest_path_edges,What is the shortest path from junction 63 to junction 622? List the edges in order. Answer format: <edge1> -> <edge2> -> ... (e.g. E1 -> E5 -> E9),326 -> -313 -> 319 -> 623
+random,shortest_path_edges,What is the shortest path from junction 8 to junction 503? List the edges in order. Answer format: <edge1> -> <edge2> -> ... (e.g. E1 -> E5 -> E9),19 -> 123 -> 338 -> 505
+random,shortest_path_edges,What is the shortest path from junction 1056 to junction 1500? List the edges in order. Answer format: <edge1> -> <edge2> -> ... (e.g. E1 -> E5 -> E9),-1057 -> -1415 -> -1357 -> 1494 -> -1447 -> -1427 -> 1429 -> 1501
+random,shortest_path_edges,What is the shortest path from junction 1498 to junction 503? List the edges in order. Answer format: <edge1> -> <edge2> -> ... (e.g. E1 -> E5 -> E9),-1499 -> -1429 -> 1427 -> 1447 -> -1494 -> 1357 -> 1415 -> -523 -> 505
+random,shortest_path_edges,What is the shortest path from junction 1881 to junction 335? List the edges in order. Answer format: <edge1> -> <edge2> -> ... (e.g. E1 -> E5 -> E9),-1882 -> -1523 -> -1429 -> 1427 -> 1447 -> -1494 -> 1357 -> 1415 -> -523 -> -338 -> 336

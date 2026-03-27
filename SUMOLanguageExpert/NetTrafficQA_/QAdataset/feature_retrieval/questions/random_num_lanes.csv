@@ -1,11 +1,11 @@
 network,type,edge_id,question,ground_truth
-random,num_lanes,1526,How many lanes does the edge with id 1526 have? Please answer with the number only.,1
-random,num_lanes,1493,How many lanes does the edge with id 1493 have? Please answer with the number only.,1
-random,num_lanes,-608,How many lanes does the edge with id -608 have? Please answer with the number only.,1
-random,num_lanes,-876,How many lanes does the edge with id -876 have? Please answer with the number only.,1
-random,num_lanes,-1431,How many lanes does the edge with id -1431 have? Please answer with the number only.,1
-random,num_lanes,-381,How many lanes does the edge with id -381 have? Please answer with the number only.,1
-random,num_lanes,848,How many lanes does the edge with id 848 have? Please answer with the number only.,1
-random,num_lanes,-7,How many lanes does the edge with id -7 have? Please answer with the number only.,1
-random,num_lanes,-361,How many lanes does the edge with id -361 have? Please answer with the number only.,1
-random,num_lanes,535,How many lanes does the edge with id 535 have? Please answer with the number only.,1
+random,num_lanes,1526,How many lanes does the edge with id 1526 have? Answer format: <integer> (e.g. 3),1
+random,num_lanes,1493,How many lanes does the edge with id 1493 have? Answer format: <integer> (e.g. 3),1
+random,num_lanes,-608,How many lanes does the edge with id -608 have? Answer format: <integer> (e.g. 3),1
+random,num_lanes,-876,How many lanes does the edge with id -876 have? Answer format: <integer> (e.g. 3),1
+random,num_lanes,-1431,How many lanes does the edge with id -1431 have? Answer format: <integer> (e.g. 3),1
+random,num_lanes,-381,How many lanes does the edge with id -381 have? Answer format: <integer> (e.g. 3),1
+random,num_lanes,848,How many lanes does the edge with id 848 have? Answer format: <integer> (e.g. 3),1
+random,num_lanes,-7,How many lanes does the edge with id -7 have? Answer format: <integer> (e.g. 3),1
+random,num_lanes,-361,How many lanes does the edge with id -361 have? Answer format: <integer> (e.g. 3),1
+random,num_lanes,535,How many lanes does the edge with id 535 have? Answer format: <integer> (e.g. 3),1

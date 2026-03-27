@@ -12,6 +12,8 @@ import csv
 import json
 import re
 import sys
+
+csv.field_size_limit(sys.maxsize)
 from collections import defaultdict
 from pathlib import Path
 

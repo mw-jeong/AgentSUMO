@@ -1,2 +1,2 @@
 network,type,question,ground_truth
-random,source_sink_junctions,List the junctions that can be considered as source and sink for vehicle generation based on the terminal ends of roads (no incoming or no outgoing edges). Please follow the format: 'Sources: {{ids}}; Sinks: {{ids}}'.,Sources: None; Sinks: None
+random,source_sink_junctions,"List the junctions that can be considered as source and sink for vehicle generation based on the terminal ends of roads (no incoming or no outgoing edges). Answer format: Sources: <id1>, <id2>, ...; Sinks: <id1>, <id2>, ... (use 'None' for either if applicable; e.g. Sources: J1, J2; Sinks: J5, J6)",Sources: None; Sinks: None

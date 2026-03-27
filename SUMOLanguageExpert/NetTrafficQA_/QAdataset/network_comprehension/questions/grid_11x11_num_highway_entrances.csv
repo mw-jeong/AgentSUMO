@@ -1,2 +1,2 @@
 network,type,question,ground_truth
-grid_11x11,num_highway_entrances,How many highway entrance edges are there in the network?,0
+grid_11x11,num_highway_entrances,How many highway entrance edges are there in the network? Answer format: <integer> (e.g. 4),0

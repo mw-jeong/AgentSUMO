@@ -1,11 +1,11 @@
 network,type,question,ground_truth
-grid_11x11,shortest_path_length,What is the shortest path distance (by length in meters) from junction I10 to junction E9?,896.0
-grid_11x11,shortest_path_length,What is the shortest path distance (by length in meters) from junction D9 to junction D1?,1433.6
-grid_11x11,shortest_path_length,What is the shortest path distance (by length in meters) from junction B7 to junction C4?,716.8
-grid_11x11,shortest_path_length,What is the shortest path distance (by length in meters) from junction I8 to junction D9?,1075.2
-grid_11x11,shortest_path_length,What is the shortest path distance (by length in meters) from junction E3 to junction A5?,1075.2
-grid_11x11,shortest_path_length,What is the shortest path distance (by length in meters) from junction E10 to junction J8?,1254.4
-grid_11x11,shortest_path_length,What is the shortest path distance (by length in meters) from junction E0 to junction H0?,537.6
-grid_11x11,shortest_path_length,What is the shortest path distance (by length in meters) from junction D0 to junction J3?,1612.8
-grid_11x11,shortest_path_length,What is the shortest path distance (by length in meters) from junction B10 to junction I4?,2329.6
-grid_11x11,shortest_path_length,What is the shortest path distance (by length in meters) from junction F2 to junction G1?,358.4
+grid_11x11,shortest_path_length,What is the shortest path distance (by length in meters) from junction I10 to junction E9? Answer format: <number> rounded to 2 decimal places (e.g. 345.67),896.0
+grid_11x11,shortest_path_length,What is the shortest path distance (by length in meters) from junction D9 to junction D1? Answer format: <number> rounded to 2 decimal places (e.g. 345.67),1433.6
+grid_11x11,shortest_path_length,What is the shortest path distance (by length in meters) from junction B7 to junction C4? Answer format: <number> rounded to 2 decimal places (e.g. 345.67),716.8
+grid_11x11,shortest_path_length,What is the shortest path distance (by length in meters) from junction I8 to junction D9? Answer format: <number> rounded to 2 decimal places (e.g. 345.67),1075.2
+grid_11x11,shortest_path_length,What is the shortest path distance (by length in meters) from junction E3 to junction A5? Answer format: <number> rounded to 2 decimal places (e.g. 345.67),1075.2
+grid_11x11,shortest_path_length,What is the shortest path distance (by length in meters) from junction E10 to junction J8? Answer format: <number> rounded to 2 decimal places (e.g. 345.67),1254.4
+grid_11x11,shortest_path_length,What is the shortest path distance (by length in meters) from junction E0 to junction H0? Answer format: <number> rounded to 2 decimal places (e.g. 345.67),537.6
+grid_11x11,shortest_path_length,What is the shortest path distance (by length in meters) from junction D0 to junction J3? Answer format: <number> rounded to 2 decimal places (e.g. 345.67),1612.8
+grid_11x11,shortest_path_length,What is the shortest path distance (by length in meters) from junction B10 to junction I4? Answer format: <number> rounded to 2 decimal places (e.g. 345.67),2329.6
+grid_11x11,shortest_path_length,What is the shortest path distance (by length in meters) from junction F2 to junction G1? Answer format: <number> rounded to 2 decimal places (e.g. 345.67),358.4
