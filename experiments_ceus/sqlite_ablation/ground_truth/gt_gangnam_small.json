@@ -1,0 +1,115 @@
+{
+  "L1_01": {
+    "answer": 39.4,
+    "unit": "seconds",
+    "eval": "numeric"
+  },
+  "L1_02": {
+    "answer": 18.0,
+    "unit": "seconds",
+    "eval": "numeric"
+  },
+  "L1_03": {
+    "answer": 119450.48,
+    "unit": "mg",
+    "eval": "numeric"
+  },
+  "L1_04": {
+    "answer": 118.0,
+    "unit": "seconds",
+    "eval": "numeric"
+  },
+  "L1_05": {
+    "answer": 0.0,
+    "unit": "percent",
+    "eval": "numeric"
+  },
+  "L2_01": {
+    "answer": 92.86,
+    "unit": "veh/km",
+    "eval": "numeric"
+  },
+  "L2_02": {
+    "answer": 18.84,
+    "unit": "m/s",
+    "eval": "numeric"
+  },
+  "L2_03": {
+    "answer": 515.0,
+    "unit": "seconds",
+    "eval": "numeric"
+  },
+  "L2_04": {
+    "answer": 743953.41,
+    "unit": "mg",
+    "eval": "numeric"
+  },
+  "L2_05": {
+    "answer": 96.15,
+    "unit": "percent",
+    "eval": "numeric"
+  },
+  "L3_01": {
+    "answer": -1.45,
+    "unit": "percent",
+    "eval": "numeric"
+  },
+  "L3_02": {
+    "answer": 22.22,
+    "unit": "percent",
+    "eval": "numeric"
+  },
+  "L3_03": {
+    "answer": 662.68,
+    "unit": "ml",
+    "eval": "numeric",
+    "note": "negative means Green Wave has higher fuel consumption"
+  },
+  "L3_04": {
+    "answer": 9.23,
+    "unit": "percent",
+    "eval": "numeric"
+  },
+  "L3_05": {
+    "answer": -1.4,
+    "unit": "seconds",
+    "eval": "numeric"
+  },
+  "L4_01": {
+    "answer": "Green Wave",
+    "webster_pct": 91.67,
+    "greenwave_pct": 96.15,
+    "eval": "exact_match"
+  },
+  "L4_02": {
+    "answer": "Green Wave",
+    "webster_avg_density": 1.3756,
+    "greenwave_avg_density": 1.36,
+    "eval": "exact_match"
+  },
+  "L4_03": {
+    "answer": "Webster",
+    "webster_avg_co2": 742994.16,
+    "greenwave_avg_co2": 743953.41,
+    "top5_edges": [
+      "521770119#1",
+      "-417750337#1",
+      "520307304#0",
+      "379463130#0",
+      "256787796#0"
+    ],
+    "eval": "exact_match"
+  },
+  "L4_04": {
+    "answer": "Green Wave",
+    "webster_score": -0.0201,
+    "greenwave_score": 0.0151,
+    "eval": "exact_match"
+  },
+  "L4_05": {
+    "answer": "Green Wave",
+    "webster_reduction": -1.33,
+    "greenwave_reduction": -0.07,
+    "eval": "exact_match"
+  }
+}

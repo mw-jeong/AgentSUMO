@@ -330,7 +330,7 @@ class NetworkGenerator:
         center_lon = (bbox[0] + bbox[2]) / 2
         center_lat = (bbox[1] + bbox[3]) / 2
         
-        data_dir = self.environment.BASE_DIR / "data"
+        data_dir = self.environment.BASE_DIR.parent / "data"
         
         # 지역별 .pbf 파일 매칭
         # 한국 (126.9~129.6°E, 33.1~38.6°N)

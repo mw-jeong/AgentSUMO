@@ -80,7 +80,8 @@ class SimulationSettings:
     
     # 시뮬레이션 시간 범위
     DEFAULT_BEGIN_TIME = 0
-    DEFAULT_END_TIME = 2700  # 트립 출발은 45분까지, 시뮬레이션은 3600초까지
+    DEFAULT_END_TIME = 3600
+    # DEFAULT_END_TIME = 2700  # 트립 출발은 45분까지, 시뮬레이션은 3600초까지
 
 
 class NetworkSettings:

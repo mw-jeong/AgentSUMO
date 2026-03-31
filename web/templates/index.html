@@ -467,6 +467,14 @@
         .bot-message li {
             margin: 4px 0;
         }
+        .bot-message h1,
+        .bot-message h2,
+        .bot-message h3,
+        .bot-message h4 {
+            font-size: 14px;
+            font-weight: 700;
+            margin: 8px 0 4px 0;
+        }
 
         /* Simulation Options UI */
         .sim-options {
@@ -751,6 +759,42 @@
             color: var(--danger-color);
         }
 
+        /* Map Select Prompt (from [MAP_SELECT] marker) */
+        .map-select-prompt {
+            margin-top: 12px;
+            text-align: center;
+        }
+        .map-select-btn {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .map-select-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+        .map-select-btn.active {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            animation: pulse-glow 1.5s ease-in-out infinite;
+        }
+        .map-select-btn.done {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            cursor: default;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 5px rgba(245, 158, 11, 0.4); }
+            50% { box-shadow: 0 0 20px rgba(245, 158, 11, 0.6); }
+        }
+
         /* Selection Confirmation Popup */
         .selection-confirm {
             position: absolute;
@@ -863,7 +907,7 @@
             border-top: 1px solid var(--border-color);
         }
 
-        .chat-input input {
+        .chat-input textarea {
             flex: 1;
             padding: 12px 16px;
             border: 2px solid var(--border-color);
@@ -871,9 +915,15 @@
             font-size: 14px;
             outline: none;
             transition: border-color 0.2s;
+            resize: none;
+            min-height: 20px;
+            max-height: 120px;
+            font-family: inherit;
+            line-height: 1.4;
+            overflow-y: auto;
         }
 
-        .chat-input input:focus {
+        .chat-input textarea:focus {
             border-color: var(--primary-color);
         }
 
@@ -1263,7 +1313,6 @@
             </div>
             <div class="replay-info">
                 <span id="replay-time">Time: 0s</span>
-                <span id="replay-step">Step: 0 / 0</span>
                 <span id="replay-vehicles">Vehicles: 0</span>
             </div>
             <div class="replay-buttons">
@@ -1295,13 +1344,21 @@
                 <div class="message bot-message-wrapper">
                     <img src="/static/agentsumo_pic.png" alt="AgentSUMO" class="bot-avatar">
                     <div class="bot-message">
-                        Welcome to AgentSUMO! I can help you with traffic simulation.
+                        <p>안녕하세요! AgentSUMO입니다.</p>
+                        <p>저는 SUMO 교통 시뮬레이션 전문 AI 어시스턴트입니다.</p>
+                        <p><strong>제가 도울 수 있는 작업:</strong></p>
+                        <ul>
+                            <li>도시 교통 네트워크 생성 및 시뮬레이션</li>
+                            <li>교통 정책 효과 분석</li>
+                            <li>시나리오 비교 및 최적화 전략 제안</li>
+                        </ul>
+                        <p>어떤 시뮬레이션을 도와드릴까요?</p>
                     </div>
                 </div>
             </div>
             <div class="chat-input">
-                <input type="text" id="chat-input" placeholder="Type a message..."
-                       onkeypress="handleKeyPress(event)">
+                <textarea id="chat-input" placeholder="Type a message..."
+                       onkeydown="handleKeyDown(event)" rows="1"></textarea>
                 <button onclick="sendMessage()" id="send-btn">
                     <i class="fas fa-paper-plane"></i>
                 </button>
@@ -1541,6 +1598,12 @@
                     if (data.data) showThinking();
                     else hideThinking();
                     break;
+                case 'intermediate':
+                    // Intermediate text from agent (shown before tool execution)
+                    hideThinking();
+                    addMessage('bot', data.data);
+                    showThinking();
+                    break;
                 case 'progress':
                     // Show MCP tool execution progress
                     console.log('📡 Progress received:', data.data);
@@ -1651,6 +1714,7 @@
 
             addMessage('user', message);
             input.value = '';
+            input.style.height = 'auto';
 
             // Show thinking indicator immediately (don't wait for server)
             showThinking();
@@ -1673,9 +1737,15 @@
             const container = document.getElementById('chat-messages');
 
             if (type === 'bot') {
-                // Check for [SIM_OPTIONS] marker
-                const hasSimOptions = text.includes('[SIM_OPTIONS]');
-                const cleanText = text.replace('[SIM_OPTIONS]', '').trim();
+                // Check for [SIM_OPTIONS] / [SIM_OPTIONS:traffic:duration] and [MAP_SELECT] markers
+                const simOptionsMatch = text.match(/\[SIM_OPTIONS(?::(\w+):(\d+))?\]/);
+                const hasSimOptions = !!simOptionsMatch;
+                const hasMapSelect = text.includes('[MAP_SELECT]');
+                const cleanText = text.replace(/\[SIM_OPTIONS(?::\w+:\d+)?\]/, '').replace('[MAP_SELECT]', '').trim();
+                const preselect = simOptionsMatch && simOptionsMatch[1] ? {
+                    traffic: simOptionsMatch[1],
+                    duration: parseInt(simOptionsMatch[2])
+                } : null;
 
                 // Create wrapper with avatar for bot messages
                 const wrapper = document.createElement('div');
@@ -1692,8 +1762,21 @@
 
                 // If [SIM_OPTIONS] marker found, append options UI
                 if (hasSimOptions) {
-                    const optionsUI = createSimOptionsUI();
+                    const optionsUI = createSimOptionsUI(preselect);
                     messageDiv.appendChild(optionsUI);
+                }
+
+                // If [MAP_SELECT] marker found, show area select button (same UI as SIM_OPTIONS)
+                if (hasMapSelect) {
+                    const mapSelectDiv = document.createElement('div');
+                    mapSelectDiv.className = 'map-select-prompt';
+                    mapSelectDiv.innerHTML = `
+                        <button class="sim-option-btn area-select" onclick="startMapSelection(this)">
+                            <i class="fas fa-map-marked-alt"></i>
+                            <span>지도에서 영역 선택</span>
+                        </button>
+                    `;
+                    messageDiv.appendChild(mapSelectDiv);
                 }
 
                 wrapper.appendChild(avatar);
@@ -1709,17 +1792,25 @@
             container.scrollTop = container.scrollHeight;
         }
 
-        function createSimOptionsUI() {
+        function createSimOptionsUI(preselect) {
             // Reset state
             simOptionsState = {
                 mode: 'random',  // 'random' or 'real'
                 area: null,
                 areaSize: null,
-                traffic: null,
-                duration: null,
+                traffic: preselect ? preselect.traffic : null,
+                duration: preselect ? preselect.duration : null,
                 odFile: null,
                 zoneFile: null
             };
+
+            // Pre-selected CSS classes
+            const tLight = preselect && preselect.traffic === 'light' ? ' selected' : '';
+            const tNormal = preselect && preselect.traffic === 'normal' ? ' selected' : '';
+            const tHeavy = preselect && preselect.traffic === 'heavy' ? ' selected' : '';
+            const d1800 = preselect && preselect.duration === 1800 ? ' selected' : '';
+            const d3600 = preselect && preselect.duration === 3600 ? ' selected' : '';
+            const d7200 = preselect && preselect.duration === 7200 ? ' selected' : '';
 
             const optionsDiv = document.createElement('div');
             optionsDiv.className = 'sim-options';
@@ -1731,12 +1822,6 @@
                         <i class="fas fa-sliders-h"></i>
                         시뮬레이션 설정
                     </div>
-                    <!-- TODO: 실제 OD 기능 완성 후 표시
-                    <div class="sim-options-tabs">
-                        <button class="sim-options-tab active" onclick="switchSimTab(this, 'random')">랜덤 OD</button>
-                        <button class="sim-options-tab" onclick="switchSimTab(this, 'real')">실제 OD 데이터</button>
-                    </div>
-                    -->
                 </div>
 
                 <!-- Random OD Content -->
@@ -1754,18 +1839,18 @@
                     <div class="sim-option-group">
                         <div class="sim-option-label">교통량</div>
                         <div class="sim-option-buttons">
-                            <button class="sim-option-btn" onclick="selectTraffic(this, 'light')">한산</button>
-                            <button class="sim-option-btn" onclick="selectTraffic(this, 'normal')">보통</button>
-                            <button class="sim-option-btn" onclick="selectTraffic(this, 'heavy')">혼잡</button>
+                            <button class="sim-option-btn${tLight}" onclick="selectTraffic(this, 'light')">한산</button>
+                            <button class="sim-option-btn${tNormal}" onclick="selectTraffic(this, 'normal')">보통</button>
+                            <button class="sim-option-btn${tHeavy}" onclick="selectTraffic(this, 'heavy')">혼잡</button>
                         </div>
                     </div>
 
                     <div class="sim-option-group">
                         <div class="sim-option-label">시뮬레이션 시간</div>
                         <div class="sim-option-buttons">
-                            <button class="sim-option-btn" onclick="selectDuration(this, 1800)">30분</button>
-                            <button class="sim-option-btn" onclick="selectDuration(this, 3600)">1시간</button>
-                            <button class="sim-option-btn" onclick="selectDuration(this, 7200)">2시간</button>
+                            <button class="sim-option-btn${d1800}" onclick="selectDuration(this, 1800)">30분</button>
+                            <button class="sim-option-btn${d3600}" onclick="selectDuration(this, 3600)">1시간</button>
+                            <button class="sim-option-btn${d7200}" onclick="selectDuration(this, 7200)">2시간</button>
                         </div>
                     </div>
                 </div>
@@ -1795,6 +1880,11 @@
                     </button>
                 </div>
             `;
+
+            // If preselected, update submit button after DOM insertion
+            if (preselect) {
+                setTimeout(() => updateSimSubmitButton(), 0);
+            }
 
             return optionsDiv;
         }
@@ -1876,7 +1966,7 @@
 
                 if (allSelected) {
                     btn.disabled = false;
-                    btn.textContent = '시뮬레이션 시작';
+                    btn.textContent = '선택 완료';
                 } else {
                     btn.disabled = true;
                     const missing = [];
@@ -1889,10 +1979,10 @@
                 // Real OD mode: need odFile
                 if (simOptionsState.odFile) {
                     btn.disabled = false;
-                    btn.textContent = '시뮬레이션 시작';
+                    btn.textContent = '선택 완료';
                 } else {
                     btn.disabled = true;
-                    btn.textContent = 'OD 파일 경로 입력 필요';
+                    btn.textContent = 'OD ��일 경로 입력 필요';
                 }
             }
         }
@@ -1908,15 +1998,15 @@
                 const trafficLabels = { light: '한산', normal: '보통', heavy: '혼잡' };
                 const durationLabels = { 1800: '30분', 3600: '1시간', 7200: '2시간' };
 
-                const message = `[시뮬레이션 설정 완료]
+                const message = `[시뮬레이션 ���정 완료]
 - 영역: Bbox [${simOptionsState.area.map(v => v.toFixed(4)).join(', ')}] (${simOptionsState.areaSize})
 - 교통량: ${trafficLabels[simOptionsState.traffic]}
-- 시간: ${durationLabels[simOptionsState.duration]}
+- 시���: ${durationLabels[simOptionsState.duration]}
 - OD 유형: RandomOD
 
 이 설정으로 시뮬레이션을 실행해주세요.`;
 
-                const displayMessage = `설정 완료: ${simOptionsState.areaSize}, ${trafficLabels[simOptionsState.traffic]}, ${durationLabels[simOptionsState.duration]}`;
+                const displayMessage = `선택 완료`;
                 sendMessageDirectly(message, displayMessage);
 
             } else {
@@ -1999,10 +2089,17 @@
             if (wrapper) wrapper.remove();
         }
 
-        function handleKeyPress(event) {
-            if (event.key === 'Enter') {
+        function handleKeyDown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
                 sendMessage();
             }
+            // Auto-resize textarea
+            setTimeout(() => {
+                const textarea = event.target;
+                textarea.style.height = 'auto';
+                textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+            }, 0);
         }
 
         // ============================================
@@ -2402,7 +2499,7 @@
 ✅ 이미 결정된 옵션은 그대로 사용하고, 아직 결정되지 않은 옵션만 물어보세요.
 ✅ 모든 옵션이 이미 결정되어 있다면 바로 시뮬레이션을 실행하세요.`;
 
-            const displayMessage = `[지도에서 영역 선택 완료: ${width.toFixed(1)}km x ${height.toFixed(1)}km]`;
+            const displayMessage = `[지도에서 영역 선택 완료]`;
 
             sendMessageDirectly(agentMessage, displayMessage);
             showToast('Area sent to agent!', 'success');
@@ -2442,6 +2539,60 @@
             selectedBbox = null;
             showToast('Selection cancelled', 'info');
         }
+
+        // ============================================
+        // Map Select (triggered by [MAP_SELECT] marker)
+        // ============================================
+        let _mapSelectBtn = null;
+
+        function startMapSelection(btn) {
+            _mapSelectBtn = btn;
+            btn.classList.add('selected');
+            btn.innerHTML = '<i class="fas fa-crosshairs"></i> <span>지도에서 두 점을 클릭하세요...</span>';
+
+            // Enter draw mode (same as startAreaSelection)
+            toggleDrawMode();
+            showToast('지도에서 영역을 선택하세요', 'info');
+
+            // Flag so confirmSelection sends to agent
+            window._mapSelectActive = true;
+        }
+
+        // Override confirmSelection to handle [MAP_SELECT] flow
+        const _origConfirmSelection = confirmSelection;
+
+        confirmSelection = function() {
+            if (window._mapSelectActive && selectedBbox) {
+                hideSelectionConfirm();
+
+                const width = (selectedBbox[2] - selectedBbox[0]) * 111 * Math.cos(selectedBbox[1] * Math.PI / 180);
+                const height = (selectedBbox[3] - selectedBbox[1]) * 111;
+
+                // Update the button in chat
+                if (_mapSelectBtn) {
+                    _mapSelectBtn.classList.add('selected');
+                    _mapSelectBtn.innerHTML = `<i class="fas fa-check"></i> <span>선택 완료</span>`;
+                    _mapSelectBtn.onclick = null;
+                }
+
+                // Send to agent
+                const agentMessage = `[사용자가 지도에서 시뮬레이션 영역을 선택했습니다]
+
+선택한 영역 정보:
+- Bbox: [${selectedBbox[0].toFixed(6)}, ${selectedBbox[1].toFixed(6)}, ${selectedBbox[2].toFixed(6)}, ${selectedBbox[3].toFixed(6)}]
+- 영역 크기: 약 ${width.toFixed(1)}km x ${height.toFixed(1)}km
+
+이전에 확정된 시나리오 설정과 함께 시뮬레이션을 실행해주세요.`;
+
+                const displayMessage = `[지도에서 영역 선택 완료]`;
+                sendMessageDirectly(agentMessage, displayMessage);
+                showToast('영역 선택 완료!', 'success');
+
+                window._mapSelectActive = false;
+            } else {
+                _origConfirmSelection();
+            }
+        };
 
         // ============================================
         // Heatmap Functions
@@ -2921,8 +3072,8 @@
             try {
                 // Extract base name and timestamp from FCD filename
                 // Format: {base_name}_fcd_{timestamp}.xml
-                // Fetch FCD data (full detail, sample_rate=1)
-                const fcdResponse = await fetch(`/api/fcd/${fcdFile}/parse?sample_rate=1`);
+                // Fetch FCD data (sample every 10 timesteps for large files)
+                const fcdResponse = await fetch(`/api/fcd/${fcdFile}/parse`);
                 const fcdData = await fcdResponse.json();
 
                 if (fcdData.error) {
@@ -3086,7 +3237,6 @@
 
         function updateReplayUI(data) {
             document.getElementById('replay-time').textContent = `Time: ${data.time?.toFixed(0) || 0}s`;
-            document.getElementById('replay-step').textContent = `Step: ${data.step || 0} / ${data.total_steps || 0}`;
             document.getElementById('replay-vehicles').textContent = `Vehicles: ${data.vehicles?.length || 0}`;
         }
 

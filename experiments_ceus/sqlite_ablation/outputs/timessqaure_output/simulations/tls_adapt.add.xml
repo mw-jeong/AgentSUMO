@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- generated on 2026-03-24 12:54:04.681263 by tlsCycleAdaptation.py UNKNOWN
+<configuration>
+    <net-file value="/Users/mizmorchang/Desktop/newest/AgentSUMO/agentsumo/output/networks/times_square.net.xml"/>
+    <output-file value="/Users/mizmorchang/Desktop/newest/AgentSUMO/agentsumo/output/simulations/tls_adapt_20260324_125404.add.xml"/>
+    <route-files value="/Users/mizmorchang/Desktop/newest/AgentSUMO/agentsumo/output/trips/times_square.net.rou.xml"/>
+    <begin value="0.0"/>
+</configuration>
+-->
+
+<additional xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/additional_file.xsd">
+    <tlLogic id="10168088451" type="static" programID="a" offset="0">
+        <phase duration="16" state="G"/>
+        <phase duration="3" state="y"/>
+        <phase duration="5" state="r"/>
+    </tlLogic>
+    <tlLogic id="10168088452" type="static" programID="a" offset="0">
+        <phase duration="16" state="GGG"/>
+        <phase duration="3" state="yyy"/>
+        <phase duration="5" state="rrr"/>
+    </tlLogic>
+    <tlLogic id="10168088453" type="static" programID="a" offset="0">
+        <phase duration="16" state="GGG"/>
+        <phase duration="3" state="yyy"/>
+        <phase duration="5" state="rrr"/>
+    </tlLogic>
+    <tlLogic id="10168088454" type="static" programID="a" offset="0">
+        <phase duration="16" state="G"/>
+        <phase duration="3" state="y"/>
+        <phase duration="5" state="r"/>
+    </tlLogic>
+    <tlLogic id="10173032937" type="static" programID="a" offset="0">
+        <phase duration="16" state="G"/>
+        <phase duration="3" state="y"/>
+        <phase duration="5" state="r"/>
+    </tlLogic>
+    <tlLogic id="10173032939" type="static" programID="a" offset="0">
+        <phase duration="16" state="G"/>
+        <phase duration="3" state="y"/>
+        <phase duration="5" state="r"/>
+    </tlLogic>
+    <tlLogic id="10173043408" type="static" programID="a" offset="0">
+        <phase duration="16" state="GGGG"/>
+        <phase duration="6" state="yyyy"/>
+        <phase duration="5" state="rrrr"/>
+    </tlLogic>
+    <tlLogic id="10173043410" type="static" programID="a" offset="0">
+        <phase duration="16" state="G"/>
+        <phase duration="3" state="y"/>
+        <phase duration="5" state="r"/>
+    </tlLogic>
+    <tlLogic id="10222417542" type="static" programID="a" offset="0">
+        <phase duration="16" state="GGG"/>
+        <phase duration="3" state="yyy"/>
+        <phase duration="5" state="rrr"/>
+    </tlLogic>
+    <tlLogic id="10222417558" type="static" programID="a" offset="0">
+        <phase duration="16" state="GGG"/>
+        <phase duration="3" state="yyy"/>
+        <phase duration="5" state="rrr"/>
+    </tlLogic>
+    <tlLogic id="10224024800" type="static" programID="a" offset="0">
+        <phase duration="16" state="G"/>
+        <phase duration="3" state="y"/>
+        <phase duration="5" state="r"/>
+    </tlLogic>
+    <tlLogic id="10224032638" type="static" programID="a" offset="0">
+        <phase duration="16" state="G"/>
+        <phase duration="6" state="y"/>
+        <phase duration="5" state="r"/>
+    </tlLogic>
+    <tlLogic id="10228962352" type="static" programID="a" offset="0">
+        <phase duration="16" state="G"/>
+        <phase duration="6" state="y"/>
+        <phase duration="5" state="r"/>
+    </tlLogic>
+    <tlLogic id="10228962353" type="static" programID="a" offset="0">
+        <phase duration="16" state="G"/>
+        <phase duration="6" state="y"/>
+        <phase duration="5" state="r"/>
+    </tlLogic>
+    <tlLogic id="10691086259" type="static" programID="a" offset="0">
+        <phase duration="16" state="G"/>
+        <phase duration="3" state="y"/>
+        <phase duration="5" state="r"/>
+    </tlLogic>
+    <tlLogic id="10691086260" type="static" programID="a" offset="0">
+        <phase duration="16" state="GGGG"/>
+        <phase duration="3" state="yyyy"/>
+        <phase duration="5" state="rrrr"/>
+    </tlLogic>
+    <tlLogic id="12055677929" type="static" programID="a" offset="0">
+        <phase duration="16" state="GGG"/>
+        <phase duration="3" state="yyy"/>
+        <phase duration="5" state="rrr"/>
+    </tlLogic>
+    <tlLogic id="12055677931" type="static" programID="a" offset="0">
+        <phase duration="16" state="G"/>
+        <phase duration="3" state="y"/>
+        <phase duration="5" state="r"/>
+    </tlLogic>
+    <tlLogic id="12055680088" type="static" programID="a" offset="0">
+        <phase duration="16" state="GGG"/>
+        <phase duration="3" state="yyy"/>
+        <phase duration="5" state="rrr"/>
+    </tlLogic>
+    <tlLogic id="12055680089" type="static" programID="a" offset="0">
+        <phase duration="16" state="GGGG"/>
+        <phase duration="3" state="yyyy"/>
+        <phase duration="5" state="rrrr"/>
+    </tlLogic>
+    <tlLogic id="3974095817" type="static" programID="a" offset="0">
+        <phase duration="16" state="G"/>
+        <phase duration="3" state="y"/>
+        <phase duration="5" state="r"/>
+    </tlLogic>
+    <tlLogic id="3974095818" type="static" programID="a" offset="0">
+        <phase duration="16" state="GGGGG"/>
+        <phase duration="3" state="yyyyy"/>
+        <phase duration="5" state="rrrrr"/>
+    </tlLogic>
+    <tlLogic id="3974095821" type="static" programID="a" offset="0">
+        <phase duration="16" state="GGGG"/>
+        <phase duration="3" state="yyyy"/>
+        <phase duration="5" state="rrrr"/>
+    </tlLogic>
+    <tlLogic id="3974095823" type="static" programID="a" offset="0">
+        <phase duration="16" state="GGGG"/>
+        <phase duration="3" state="yyyy"/>
+        <phase duration="5" state="rrrr"/>
+    </tlLogic>
+    <tlLogic id="3974095824" type="static" programID="a" offset="0">
+        <phase duration="16" state="GG"/>
+        <phase duration="3" state="yy"/>
+        <phase duration="5" state="rr"/>
+    </tlLogic>
+    <tlLogic id="3974095825" type="static" programID="a" offset="0">
+        <phase duration="16" state="GGGG"/>
+        <phase duration="3" state="yyyy"/>
+        <phase duration="5" state="rrrr"/>
+    </tlLogic>
+    <tlLogic id="3974095826" type="static" programID="a" offset="0">
+        <phase duration="16" state="GGGG"/>
+        <phase duration="3" state="yyyy"/>
+        <phase duration="5" state="rrrr"/>
+    </tlLogic>
+    <tlLogic id="3974095828" type="static" programID="a" offset="0">
+        <phase duration="16" state="G"/>
+        <phase duration="3" state="y"/>
+        <phase duration="5" state="r"/>
+    </tlLogic>
+    <tlLogic id="3974095829" type="static" programID="a" offset="0">
+        <phase duration="16" state="GGGG"/>
+        <phase duration="3" state="yyyy"/>
+        <phase duration="5" state="rrrr"/>
+    </tlLogic>
+    <tlLogic id="3974095832" type="static" programID="a" offset="0">
+        <phase duration="16" state="G"/>
+        <phase duration="6" state="y"/>
+        <phase duration="5" state="r"/>
+    </tlLogic>
+    <tlLogic id="42428283" type="static" programID="a" offset="0">
+        <phase duration="16" state="G"/>
+        <phase duration="3" state="y"/>
+        <phase duration="5" state="r"/>
+    </tlLogic>
+    <tlLogic id="42428287" type="static" programID="a" offset="0">
+        <phase duration="11" state="GGgGGG"/>
+        <phase duration="3" state="GGgyyy"/>
+        <phase duration="4" state="GGGrrr"/>
+        <phase duration="4" state="GGyrrr"/>
+    </tlLogic>
+    <tlLogic id="42428297" type="static" programID="a" offset="0">
+        <phase duration="4" state="GGGGGrrr"/>
+        <phase duration="4" state="yyyyyrrr"/>
+        <phase duration="8" state="rrrrrGGG"/>
+        <phase duration="4" state="rrrrryyy"/>
+    </tlLogic>
+    <tlLogic id="42430338" type="static" programID="a" offset="0">
+        <phase duration="9" state="GGGGGrrrrrr"/>
+        <phase duration="4" state="yyyyyrrrrrr"/>
+        <phase duration="4" state="rrrrrGGGGGG"/>
+        <phase duration="4" state="rrrrryyyyyy"/>
+    </tlLogic>
+    <tlLogic id="42437363" type="static" programID="a" offset="0">
+        <phase duration="7" state="rrrrGGgGGg"/>
+        <phase duration="4" state="rrrryygyyy"/>
+        <phase duration="5" state="GGGGrrGrrr"/>
+        <phase duration="4" state="yyyyrryrrr"/>
+    </tlLogic>
+    <tlLogic id="42439972" type="static" programID="a" offset="0">
+        <phase duration="4" state="GGGGrrr"/>
+        <phase duration="4" state="yyyyrrr"/>
+        <phase duration="8" state="rrrrGGG"/>
+        <phase duration="4" state="rrrryyy"/>
+    </tlLogic>
+    <tlLogic id="42439984" type="static" programID="a" offset="0">
+        <phase duration="6" state="GGGGrrr"/>
+        <phase duration="4" state="yyyyrrr"/>
+        <phase duration="6" state="rrrrGGG"/>
+        <phase duration="4" state="rrrryyy"/>
+    </tlLogic>
+    <tlLogic id="42439990" type="static" programID="a" offset="0">
+        <phase duration="4" state="GGGGGrrr"/>
+        <phase duration="4" state="yyyyyrrr"/>
+        <phase duration="10" state="rrrrrGGG"/>
+        <phase duration="4" state="rrrrryyy"/>
+    </tlLogic>
+    <tlLogic id="4707407261" type="static" programID="a" offset="0">
+        <phase duration="16" state="GGGGG"/>
+        <phase duration="3" state="yyyyy"/>
+        <phase duration="5" state="rrrrr"/>
+    </tlLogic>
+    <tlLogic id="5651033419" type="static" programID="a" offset="0">
+        <phase duration="16" state="GGGG"/>
+        <phase duration="3" state="yyyy"/>
+        <phase duration="5" state="rrrr"/>
+    </tlLogic>
+    <tlLogic id="6597464486" type="static" programID="a" offset="0">
+        <phase duration="16" state="GGGG"/>
+        <phase duration="3" state="yyyy"/>
+        <phase duration="5" state="rrrr"/>
+    </tlLogic>
+    <tlLogic id="6597464528" type="static" programID="a" offset="0">
+        <phase duration="16" state="G"/>
+        <phase duration="3" state="y"/>
+        <phase duration="5" state="r"/>
+    </tlLogic>
+    <tlLogic id="6597464529" type="static" programID="a" offset="0">
+        <phase duration="16" state="GGGG"/>
+        <phase duration="3" state="yyyy"/>
+        <phase duration="5" state="rrrr"/>
+    </tlLogic>
+    <tlLogic id="6598535159" type="static" programID="a" offset="0">
+        <phase duration="16" state="GGG"/>
+        <phase duration="3" state="yyy"/>
+        <phase duration="5" state="rrr"/>
+    </tlLogic>
+    <tlLogic id="6598535188" type="static" programID="a" offset="0">
+        <phase duration="16" state="GGGGG"/>
+        <phase duration="3" state="yyyyy"/>
+        <phase duration="5" state="rrrrr"/>
+    </tlLogic>
+    <tlLogic id="6598535224" type="static" programID="a" offset="0">
+        <phase duration="16" state="GGG"/>
+        <phase duration="3" state="yyy"/>
+        <phase duration="5" state="rrr"/>
+    </tlLogic>
+    <tlLogic id="6598535230" type="static" programID="a" offset="0">
+        <phase duration="16" state="G"/>
+        <phase duration="3" state="y"/>
+        <phase duration="5" state="r"/>
+    </tlLogic>
+    <tlLogic id="9235539548" type="static" programID="a" offset="0">
+        <phase duration="16" state="GGGG"/>
+        <phase duration="3" state="yyyy"/>
+        <phase duration="5" state="rrrr"/>
+    </tlLogic>
+    <tlLogic id="9235539549" type="static" programID="a" offset="0">
+        <phase duration="16" state="GGG"/>
+        <phase duration="3" state="yyy"/>
+        <phase duration="5" state="rrr"/>
+    </tlLogic>
+    <tlLogic id="9235539555" type="static" programID="a" offset="0">
+        <phase duration="16" state="GGGG"/>
+        <phase duration="3" state="yyyy"/>
+        <phase duration="5" state="rrrr"/>
+    </tlLogic>
+</additional>

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- generated on 2026-03-24 12:54:32.640551 by tlsCoordinator.py UNKNOWN
+<configuration>
+    <net-file value="/Users/mizmorchang/Desktop/newest/AgentSUMO/agentsumo/output/networks/times_square.net.xml"/>
+    <output-file value="/Users/mizmorchang/Desktop/newest/AgentSUMO/agentsumo/output/simulations/tls_offset_20260324_125432.add.xml"/>
+    <route-file value="/Users/mizmorchang/Desktop/newest/AgentSUMO/agentsumo/output/trips/times_square.net.rou.xml"/>
+</configuration>
+-->
+
+<additional xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/additional_file.xsd">
+    <tlLogic id="10168088451" programID="0" offset="-7.57"/>
+    <tlLogic id="10168088452" programID="0" offset="-52.53"/>
+    <tlLogic id="10168088453" programID="0" offset="-52.19"/>
+    <tlLogic id="10168088454" programID="0" offset="-7.30"/>
+    <tlLogic id="10173032937" programID="0" offset="-3.08"/>
+    <tlLogic id="10173032939" programID="0" offset="-1.79"/>
+    <tlLogic id="10173043408" programID="0" offset="0.00"/>
+    <tlLogic id="10173043410" programID="0" offset="-45.17"/>
+    <tlLogic id="10222417542" programID="0" offset="22.04"/>
+    <tlLogic id="10222417558" programID="0" offset="19.86"/>
+    <tlLogic id="10224024800" programID="0" offset="-29.28"/>
+    <tlLogic id="10224032638" programID="0" offset="52.76"/>
+    <tlLogic id="10228962352" programID="0" offset="-0.86"/>
+    <tlLogic id="10228962353" programID="0" offset="0.21"/>
+    <tlLogic id="10691086259" programID="0" offset="-46.43"/>
+    <tlLogic id="10691086260" programID="0" offset="-46.29"/>
+    <tlLogic id="12055677929" programID="0" offset="20.93"/>
+    <tlLogic id="12055677931" programID="0" offset="-28.99"/>
+    <tlLogic id="12055680088" programID="0" offset="19.30"/>
+    <tlLogic id="12055680089" programID="0" offset="21.74"/>
+    <tlLogic id="3974095817" programID="0" offset="-10.70"/>
+    <tlLogic id="3974095818" programID="0" offset="-10.15"/>
+    <tlLogic id="3974095821" programID="0" offset="29.89"/>
+    <tlLogic id="3974095823" programID="0" offset="22.64"/>
+    <tlLogic id="3974095824" programID="0" offset="22.64"/>
+    <tlLogic id="3974095825" programID="0" offset="22.41"/>
+    <tlLogic id="3974095826" programID="0" offset="15.66"/>
+    <tlLogic id="3974095828" programID="0" offset="60.18"/>
+    <tlLogic id="3974095829" programID="0" offset="14.97"/>
+    <tlLogic id="3974095832" programID="0" offset="7.99"/>
+    <tlLogic id="42428283" programID="0" offset="-2.53"/>
+    <tlLogic id="42428287" programID="0" offset="-10.87"/>
+    <tlLogic id="42428297" programID="0" offset="7.85"/>
+    <tlLogic id="42430338" programID="0" offset="-44.99"/>
+    <tlLogic id="42437363" programID="0" offset="-14.96"/>
+    <tlLogic id="42439972" programID="0" offset="-52.32"/>
+    <tlLogic id="42439984" programID="0" offset="15.41"/>
+    <tlLogic id="42439990" programID="0" offset="-44.79"/>
+    <tlLogic id="4707407261" programID="0" offset="7.45"/>
+    <tlLogic id="5651033419" programID="0" offset="-45.35"/>
+    <tlLogic id="6597464486" programID="0" offset="8.21"/>
+    <tlLogic id="6597464528" programID="0" offset="-31.20"/>
+    <tlLogic id="6597464529" programID="0" offset="-59.84"/>
+    <tlLogic id="6598535159" programID="0" offset="-45.15"/>
+    <tlLogic id="6598535188" programID="0" offset="0.59"/>
+    <tlLogic id="6598535224" programID="0" offset="0.22"/>
+    <tlLogic id="6598535230" programID="0" offset="-28.13"/>
+    <tlLogic id="9235539548" programID="0" offset="-14.89"/>
+    <tlLogic id="9235539549" programID="0" offset="-59.88"/>
+    <tlLogic id="9235539555" programID="0" offset="-11.44"/>
+</additional>

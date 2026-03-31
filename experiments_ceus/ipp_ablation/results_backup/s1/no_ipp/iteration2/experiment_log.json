@@ -1,0 +1,84 @@
+{
+  "metadata": {
+    "condition": "no_ipp",
+    "model": "claude-sonnet-4-5-20250929",
+    "session_start": 1772552902.229354,
+    "session_end": 1772552949.356426,
+    "session_duration_seconds": 47.12694501876831
+  },
+  "summary": {
+    "total_api_calls": 4,
+    "total_input_tokens": 6236,
+    "total_output_tokens": 1009,
+    "total_tokens": 7245,
+    "total_cache_creation_tokens": 39072,
+    "total_cache_read_tokens": 39455,
+    "total_tool_calls": 3,
+    "tool_call_breakdown": {
+      "net_generate": 1,
+      "trip_generate": 1,
+      "sumo_runner": 1
+    },
+    "interaction_turns": 4,
+    "turn_times": [
+      26.496973991394043
+    ],
+    "total_session_time_seconds": 47.12694501876831
+  },
+  "api_calls": [
+    {
+      "timestamp": 1772552915.1752489,
+      "input_tokens": 572,
+      "output_tokens": 519,
+      "model": "claude-sonnet-4-5-20250929",
+      "stop_reason": "tool_use",
+      "cache_creation_input_tokens": 19536,
+      "cache_read_input_tokens": 0
+    },
+    {
+      "timestamp": 1772552919.408708,
+      "input_tokens": 1272,
+      "output_tokens": 130,
+      "model": "claude-sonnet-4-5-20250929",
+      "stop_reason": "tool_use",
+      "cache_creation_input_tokens": 19536,
+      "cache_read_input_tokens": 0
+    },
+    {
+      "timestamp": 1772552923.407802,
+      "input_tokens": 1678,
+      "output_tokens": 166,
+      "model": "claude-sonnet-4-5-20250929",
+      "stop_reason": "tool_use",
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 19536
+    },
+    {
+      "timestamp": 1772552931.798208,
+      "input_tokens": 2714,
+      "output_tokens": 194,
+      "model": "claude-sonnet-4-5-20250929",
+      "stop_reason": "end_turn",
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 19919
+    }
+  ],
+  "simulation_state": {
+    "current_network": "/Users/mizmorchang/Desktop/newest/AgentSUMO/agentsumo/output/networks/gangnam_station.net.xml",
+    "baseline_network": "/Users/mizmorchang/Desktop/newest/AgentSUMO/agentsumo/output/networks/gangnam_station.net.xml",
+    "current_routes": "/Users/mizmorchang/Desktop/newest/AgentSUMO/agentsumo/output/trips/gangnam_station.net.rou.xml",
+    "last_results": [
+      "/Users/mizmorchang/Desktop/newest/AgentSUMO/agentsumo/output/simulations/gangnam_station.net_tripinfo_20260304_004843.xml",
+      "/Users/mizmorchang/Desktop/newest/AgentSUMO/agentsumo/output/simulations/gangnam_station.net_netstate_20260304_004843.xml",
+      "/Users/mizmorchang/Desktop/newest/AgentSUMO/agentsumo/output/simulations/gangnam_station.net_netstate_emission_20260304_004843.xml"
+    ],
+    "current_db": "/Users/mizmorchang/Desktop/newest/AgentSUMO/agentsumo/output/analysis/gangnam_station_analysis.db",
+    "sqlite_enabled": true,
+    "simulations": [
+      {
+        "simulation_id": "sim_20260304_004845_662",
+        "trip_count": 893
+      }
+    ]
+  }
+}

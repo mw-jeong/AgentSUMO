@@ -120,7 +120,7 @@ class SimulationRunner:
             "emission": f"{prefix}_emission_{timestamp}.xml",
             "netstate_dump": f"{prefix}_netstate_{timestamp}.xml",
             "netstate_dump_emission": f"{prefix}_netstate_emission_{timestamp}.xml",
-            # "fcd": f"{prefix}_fcd_{timestamp}.xml"
+            "fcd": f"{prefix}_fcd_{timestamp}.xml"
         }
 
     def _copy_input_files(
@@ -150,13 +150,13 @@ class SimulationRunner:
             "freq": str(duration),
             "file": output_files["netstate_dump"],
         })
-        # edge_data_emission = SubElement(add_root, "edgeData", {
-        #     "id": "dump_output_emission",
-        #     "freq": str(duration),
-        #     "file": output_files["netstate_dump_emission"],
-        #     "type": "emissions",
-        #     "excludeEmpty": "true",
-        # })
+        edge_data_emission = SubElement(add_root, "edgeData", {
+            "id": "dump_output_emission",
+            "freq": str(duration),
+            "file": output_files["netstate_dump_emission"],
+            "type": "emissions",
+            "excludeEmpty": "true",
+        })
 
         ElementTree(add_root).write(add_path, encoding="utf-8", xml_declaration=True)
         return add_file
@@ -196,8 +196,8 @@ class SimulationRunner:
         SubElement(output_tag, "tripinfo-output", {"value": output_files["tripinfo"]})
         # SubElement(output_tag, "summary-output", {"value": output_files["summary"]})
         # SubElement(output_tag, "emission-output", {"value": output_files["emission"]})
-        # SubElement(output_tag, "fcd-output", {"value": output_files["fcd"]})
-        # SubElement(output_tag, "fcd-output.geo", {"value": "true"})  # Include lon/lat coordinates
+        SubElement(output_tag, "fcd-output", {"value": output_files["fcd"]})
+        SubElement(output_tag, "fcd-output.geo", {"value": "true"})  # Include lon/lat coordinates
         # Note: tls-switch-output removed - not supported in current SUMO version
         # Traffic light states will be simulated based on time in frontend
 
@@ -227,6 +227,7 @@ class SimulationRunner:
         sumo_cmd = [
             sumo_binary,
             "-c", str(config_file),
+            "--device.emissions.probability", "1.0",
             "--no-warnings"
         ]
 
@@ -269,12 +270,12 @@ class SimulationRunner:
         tripinfo_abs = str(output_path / output_files["tripinfo"])
         edgedata_abs = str(output_path / output_files["netstate_dump"])
         edgedata_emission_abs = str(output_path / output_files["netstate_dump_emission"])
-        # fcd_abs = str(output_path / output_files["fcd"])
+        fcd_abs = str(output_path / output_files["fcd"])
 
         if result.returncode != 0:
             return {
                 "status": "warning",
-                "output_files": [tripinfo_abs, edgedata_abs, edgedata_emission_abs],
+                "output_files": [tripinfo_abs, edgedata_abs, edgedata_emission_abs, fcd_abs],
                 "message": f"Simulation completed with warnings in {result.elapsed:.2f} seconds\n{result.stderr}",
                 "simulation_time": result.elapsed,
                 "metadata": {
@@ -282,7 +283,7 @@ class SimulationRunner:
                     "absolute_tripinfo": tripinfo_abs,
                     "absolute_edgedata": edgedata_abs,
                     "absolute_edgedata_emission": edgedata_emission_abs,
-                    # "absolute_fcd": fcd_abs,
+                    "absolute_fcd": fcd_abs,
                     "return_code": result.returncode,
                     "stdout": result.stdout,
                     "stderr": result.stderr
@@ -291,7 +292,7 @@ class SimulationRunner:
 
         return {
             "status": "success",
-            "output_files": [tripinfo_abs, edgedata_abs, edgedata_emission_abs],
+            "output_files": [tripinfo_abs, edgedata_abs, edgedata_emission_abs, fcd_abs],
             "message": f"Simulation executed successfully in {result.elapsed:.2f} seconds.",
             "simulation_time": result.elapsed,
             "metadata": {
@@ -299,7 +300,7 @@ class SimulationRunner:
                 "absolute_tripinfo": tripinfo_abs,
                 "absolute_edgedata": edgedata_abs,
                 "absolute_edgedata_emission": edgedata_emission_abs,
-                # "absolute_fcd": fcd_abs,
+                "absolute_fcd": fcd_abs,
                 "return_code": result.returncode,
                 "stdout": result.stdout,
                 "stderr": result.stderr

@@ -117,6 +117,13 @@ class XMLToSQLiteConverter:
             vType TEXT,
             speedFactor REAL,
             vaporized TEXT,
+            CO_abs REAL,
+            CO2_abs REAL,
+            HC_abs REAL,
+            PMx_abs REAL,
+            NOx_abs REAL,
+            fuel_abs REAL,
+            electricity_abs REAL,
             PRIMARY KEY (simulation_id, trip_id)
         )""")
 
@@ -142,6 +149,27 @@ class XMLToSQLiteConverter:
             left INTEGER,
             laneChangedFrom INTEGER,
             laneChangedTo INTEGER,
+            CO_abs REAL,
+            CO2_abs REAL,
+            HC_abs REAL,
+            PMx_abs REAL,
+            NOx_abs REAL,
+            fuel_abs REAL,
+            electricity_abs REAL,
+            CO_normed REAL,
+            CO2_normed REAL,
+            HC_normed REAL,
+            PMx_normed REAL,
+            NOx_normed REAL,
+            fuel_normed REAL,
+            electricity_normed REAL,
+            CO_perVeh REAL,
+            CO2_perVeh REAL,
+            HC_perVeh REAL,
+            PMx_perVeh REAL,
+            NOx_perVeh REAL,
+            fuel_perVeh REAL,
+            electricity_perVeh REAL,
             PRIMARY KEY (simulation_id, edge_id, interval_begin)
         )""")
     
@@ -170,9 +198,25 @@ class XMLToSQLiteConverter:
                     except (ValueError, TypeError):
                         return default
 
-                # INSERT 실행 (22 컬럼)
+                # Parse emissions child element
+                emissions_elem = elem.find('emissions')
+                if emissions_elem is not None:
+                    em = emissions_elem.attrib
+                else:
+                    em = {}
+
+                def em_float(key):
+                    val = em.get(key)
+                    if val is None or val == '':
+                        return 0.0
+                    try:
+                        return float(val)
+                    except (ValueError, TypeError):
+                        return 0.0
+
+                # INSERT 실행 (29 컬럼)
                 conn.execute("""INSERT INTO trips VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                 )""", (
                     sim_id,
                     attrs.get('id', ''),
@@ -196,6 +240,13 @@ class XMLToSQLiteConverter:
                     attrs.get('vType', ''),
                     safe_float('speedFactor'),
                     attrs.get('vaporized', ''),
+                    em_float('CO_abs'),
+                    em_float('CO2_abs'),
+                    em_float('HC_abs'),
+                    em_float('PMx_abs'),
+                    em_float('NOx_abs'),
+                    em_float('fuel_abs'),
+                    em_float('electricity_abs'),
                 ))
                 count += 1
                 elem.clear()
@@ -203,6 +254,15 @@ class XMLToSQLiteConverter:
     
     def _import_edgedata(self, conn, edgedata_xml, emission_xml, sim_id):
         """Import edges - edgedata XML의 모든 속성을 개별 컬럼으로 저장"""
+        # Load emission data first
+        emission_data = {}
+        if emission_xml and Path(emission_xml).exists():
+            for event, elem in ET.iterparse(emission_xml, events=('end',)):
+                if elem.tag == 'interval':
+                    for edge in elem.findall('edge'):
+                        emission_data[edge.get('id', '')] = edge.attrib
+                    elem.clear()
+
         count = 0
         for event, elem in ET.iterparse(edgedata_xml, events=('end',)):
             if elem.tag == 'interval':
@@ -230,12 +290,26 @@ class XMLToSQLiteConverter:
                         except (ValueError, TypeError):
                             return default
 
-                    # INSERT 실행 (20 컬럼)
+                    # Look up emission data for this edge
+                    edge_id = attrs.get('id', '')
+                    em = emission_data.get(edge_id, {})
+
+                    def em_float(key, default=0.0):
+                        val = em.get(key)
+                        if val is None or val == '':
+                            return default
+                        try:
+                            return float(val)
+                        except (ValueError, TypeError):
+                            return default
+
+                    # INSERT 실행 (41 컬럼)
                     conn.execute("""INSERT INTO edge_metrics VALUES (
-                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                     )""", (
                         sim_id,
-                        attrs.get('id', ''),
+                        edge_id,
                         interval_begin,
                         interval_end,
                         safe_float('sampledSeconds'),
@@ -254,6 +328,27 @@ class XMLToSQLiteConverter:
                         safe_int('left'),
                         safe_int('laneChangedFrom'),
                         safe_int('laneChangedTo'),
+                        em_float('CO_abs'),
+                        em_float('CO2_abs'),
+                        em_float('HC_abs'),
+                        em_float('PMx_abs'),
+                        em_float('NOx_abs'),
+                        em_float('fuel_abs'),
+                        em_float('electricity_abs'),
+                        em_float('CO_normed'),
+                        em_float('CO2_normed'),
+                        em_float('HC_normed'),
+                        em_float('PMx_normed'),
+                        em_float('NOx_normed'),
+                        em_float('fuel_normed'),
+                        em_float('electricity_normed'),
+                        em_float('CO_perVeh'),
+                        em_float('CO2_perVeh'),
+                        em_float('HC_perVeh'),
+                        em_float('PMx_perVeh'),
+                        em_float('NOx_perVeh'),
+                        em_float('fuel_perVeh'),
+                        em_float('electricity_perVeh'),
                     ))
                     count += 1
                 elem.clear()
