@@ -510,6 +510,13 @@ simulations (PK: simulation_id)
 | vType | ID | The type of the vehicle |
 | speedFactor | float | The individual speed factor of the vehicle |
 | vaporized | bool | Whether the vehicle was removed from the simulation before reaching its destination |
+| CO_abs | mg | Total CO emissions |
+| CO2_abs | mg | Total CO2 emissions |
+| HC_abs | mg | Total HC emissions |
+| PMx_abs | mg | Total particulate matter emissions |
+| NOx_abs | mg | Total NOx emissions |
+| fuel_abs | mg | Total fuel consumption |
+| electricity_abs | Wh | Total electricity consumption |
 
 **edge_metrics** (PK: simulation_id, edge_id, interval_begin) - Per-edge aggregated data from edgeData output:
 
@@ -534,6 +541,27 @@ simulations (PK: simulation_id)
 | left | #veh | The number of vehicles that have left the edge by moving downstream |
 | laneChangedFrom | #veh | The number of vehicles that changed away from this lane |
 | laneChangedTo | #veh | The number of vehicles that changed to this lane |
+| CO_abs | mg | Total CO emissions on the edge |
+| CO2_abs | mg | Total CO2 emissions on the edge |
+| HC_abs | mg | Total HC emissions on the edge |
+| PMx_abs | mg | Total particulate matter emissions on the edge |
+| NOx_abs | mg | Total NOx emissions on the edge |
+| fuel_abs | mg | Total fuel consumption on the edge |
+| electricity_abs | Wh | Total electricity consumption on the edge |
+| CO_normed | mg/m/s | Normalized CO emissions |
+| CO2_normed | mg/m/s | Normalized CO2 emissions |
+| HC_normed | mg/m/s | Normalized HC emissions |
+| PMx_normed | mg/m/s | Normalized particulate matter emissions |
+| NOx_normed | mg/m/s | Normalized NOx emissions |
+| fuel_normed | mg/m/s | Normalized fuel consumption |
+| electricity_normed | Wh/m/s | Normalized electricity consumption |
+| CO_perVeh | mg | CO emissions per vehicle |
+| CO2_perVeh | mg | CO2 emissions per vehicle |
+| HC_perVeh | mg | HC emissions per vehicle |
+| PMx_perVeh | mg | Particulate matter emissions per vehicle |
+| NOx_perVeh | mg | NOx emissions per vehicle |
+| fuel_perVeh | mg | Fuel consumption per vehicle |
+| electricity_perVeh | Wh | Electricity consumption per vehicle |
 
 **Query Examples:**
 ```sql

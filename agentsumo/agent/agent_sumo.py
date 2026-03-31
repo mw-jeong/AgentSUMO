@@ -15,6 +15,7 @@ from agentsumo.core import AgentSUMOConfig
 from agentsumo.agent.prompts import PromptBuilder
 
 
+
 logger = logging.getLogger("agentsumo.agent")
 
 
@@ -46,10 +47,10 @@ class AgentSUMO:
         db_path: Optional[str] = None,
         system_prompt: Optional[str] = None,
         enable_sumo_mcp: bool = True,
-        inject_state: bool = True,  # [임시] SUMOLanguageExpert용 - 나중에 제거
-        enable_sqlite_mcp: bool = True,
+        enable_sqlite_mcp: bool = None,
         enable_filesystem_mcp: bool = False,
         filesystem_root: Optional[str] = None,
+        inject_state: bool = True  # [임시] SUMOLanguageExpert용 - 나중에 제거
     ):
         """
         Args:
@@ -61,22 +62,22 @@ class AgentSUMO:
             db_path: SQLite DB 경로 (None이면 기본 경로에서 자동 탐색)
             system_prompt: 커스텀 시스템 프롬프트 (None이면 unified_system.md 사용)
             enable_sumo_mcp: SUMO MCP 활성화 여부 (False면 SQLite만 사용)
+            enable_sqlite_mcp: SQLite MCP 활성화 여부 (None이면 db_path 존재 시 자동 활성화)
+            enable_filesystem_mcp: Filesystem MCP 활성화 여부 (True면 파일 접근 도구 제공)
+            filesystem_root: Filesystem MCP가 접근할 디렉토리 경로 (enable_filesystem_mcp=True 시 필수)
             inject_state: [임시] SUMOLanguageExpert 실험용 - 나중에 제거 예정
                          State context를 유저 메시지에 주입할지 여부 (기본: True)
                          Text-to-SQL 실험처럼 state가 불필요한 경우 False로 설정
-            enable_sqlite_mcp: SQLite MCP 활성화 여부 (False면 SQLite 도구 비활성화)
-            enable_filesystem_mcp: Filesystem MCP 활성화 여부 (True면 파일 접근 도구 제공)
-            filesystem_root: Filesystem MCP가 접근할 디렉토리 경로 (enable_filesystem_mcp=True 시 필수)
         """
         self.debug = enable_debug
         self.interface = interface
         self._init_db_path = db_path  # start()에서 사용
         self._custom_system_prompt = system_prompt  # 커스텀 시스템 프롬프트
         self._enable_sumo_mcp = enable_sumo_mcp  # SUMO MCP 활성화 여부
-        self._inject_state = inject_state  # [임시] State 주입 여부 - SUMOLanguageExpert용
         self._enable_sqlite_mcp = enable_sqlite_mcp  # SQLite MCP 활성화 여부
         self._enable_filesystem_mcp = enable_filesystem_mcp  # Filesystem MCP 활성화 여부
         self._filesystem_root = filesystem_root  # Filesystem MCP 접근 디렉토리
+        self._inject_state = inject_state  # [임시] State 주입 여부 - SUMOLanguageExpert용
         # Claude API 초기화
         self.claude = anthropic.Anthropic(
             api_key=AgentSUMOConfig.get_claude_api_key()
@@ -95,9 +96,9 @@ class AgentSUMO:
         
         # 다중 MCP Clients
         self.mcp_clients: Dict[str, Any] = {
-            "sumo": None,        # SUMO MCP Server (필수)
-            "sqlite": None,      # SQLite MCP Server (선택적)
-            "filesystem": None   # Filesystem MCP Server (선택적, ablation용)
+            "sumo": None,     # SUMO MCP Server (필수)
+            "sqlite": None,   # SQLite MCP Server (선택적)
+            "filesystem": None  # Filesystem MCP Server (선택적, ablation용)
         }
         self.tools: List[Dict] = []
         
@@ -133,11 +134,14 @@ class AgentSUMO:
         """
         self._progress_callback = callback
 
-    def _emit_progress(self, tool_name: str, status: str, message: str = None):
+    async def _emit_progress(self, tool_name: str, status: str, message: str = None):
         """Emit progress update if callback is set"""
         if self._progress_callback:
             try:
-                self._progress_callback(tool_name, status, message)
+                import inspect
+                result = self._progress_callback(tool_name, status, message)
+                if inspect.isawaitable(result):
+                    await result
             except Exception as e:
                 logger.warning(f"Progress callback error: {e}")
 
@@ -170,12 +174,14 @@ class AgentSUMO:
         else:
             logger.info("⏭️ SUMO MCP 비활성화 (SQLite 전용 모드)")
 
-        # 2. SQLite MCP 연결 (enable_sqlite_mcp=True일 때만)
+        # 2. SQLite MCP 연결
         sqlite_tools = []
 
-        if self._enable_sqlite_mcp:
-            # db_path가 없으면 기본 경로에서 자동 탐색
-            if db_path is None:
+        if self._enable_sqlite_mcp is not False:
+            # enable_sqlite_mcp=None (기본값): db_path 존재 시 자동 활성화
+            # enable_sqlite_mcp=True: 명시적 활성화
+            if db_path is None and self._enable_sqlite_mcp is not True:
+                # 기본 경로에서 DB 파일 자동 탐색
                 try:
                     from agentsumo.server.utils.path_utils import get_output_path
 
@@ -196,7 +202,6 @@ class AgentSUMO:
                 except Exception as e:
                     logger.warning(f"⚠️ SQLite MCP 자동 탐색 실패: {e}. 계속 진행합니다.")
 
-            # db_path가 있고 파일이 존재하면 SQLite 자동 활성화
             if db_path and PathlibPath(db_path).exists():
                 try:
                     from agentsumo.client.sqlite_mcp_client import SQLiteMCPClient
@@ -241,7 +246,7 @@ class AgentSUMO:
         # 4. Tools 통합
         all_mcp_tools = sumo_tools + sqlite_tools + filesystem_tools
         self.tools = self._convert_mcp_to_claude_tools(all_mcp_tools)
-
+        
         logger.info(f"✅ 총 {len(self.tools)}개 도구 로드 완료")
         logger.info("✅ AgentSUMO 준비 완료!\n")
     
@@ -337,9 +342,11 @@ class AgentSUMO:
         # 2. Claude 호출 (시스템 프롬프트는 고정, state는 유저 메시지에)
         prompt_start = time.time()
         system_prompt = self.prompt_builder.build_unified_prompt(
-            interface=self.interface,
-            base_prompt=self._custom_system_prompt  # None이면 기본 템플릿
+            interface=self.interface
         )
+        # Prepend custom system prompt if provided (e.g., demo mode)
+        if self._custom_system_prompt:
+            system_prompt = self._custom_system_prompt + "\n\n---\n\n" + system_prompt
         prompt_time = time.time() - prompt_start
         if prompt_time > 0.1:
             logger.debug(f"프롬프트 빌드 시간: {prompt_time:.2f}초")
@@ -374,7 +381,7 @@ class AgentSUMO:
         total_time = time.time() - start_time
         logger.info(f"AgentSUMO: {assistant_text[:100]}...")
         logger.info(f"총 응답 시간: {total_time:.2f}초 (Claude: {claude_time:.2f}초)")
-        
+
         return assistant_text
     
     def _call_claude(self, system_prompt: str = None):
@@ -393,12 +400,11 @@ class AgentSUMO:
         """
         # Unified self-adaptive system prompt (state 제외 - 유저 메시지에 포함)
         if system_prompt is None:
+            system_prompt = self.prompt_builder.build_unified_prompt(
+                interface=self.interface
+            )
             if self._custom_system_prompt:
-                system_prompt = self._custom_system_prompt
-            else:
-                system_prompt = self.prompt_builder.build_unified_prompt(
-                    interface=self.interface
-                )
+                system_prompt = self._custom_system_prompt + "\n\n---\n\n" + system_prompt
         
         # System prompt with caching (5분간 캐시)
         system_config = [
@@ -438,16 +444,23 @@ class AgentSUMO:
         
         return response
     
-    async def _handle_tool_use(self, response) -> str:
+    async def _handle_tool_use(self, response, _depth: int = 0) -> str:
         """
         Tool use 처리 (공식 패턴)
-        
+
         1. Tool 실행
         2. 결과를 conversation에 추가
         3. Claude에 다시 전달
         """
         tool_results = []
-        
+
+        # Emit intermediate text only on first call (e.g., execution plan)
+        # Skip on recursive calls (intermediate status messages)
+        if _depth == 0:
+            for content in response.content:
+                if content.type == "text" and content.text.strip():
+                    await self._emit_progress("__intermediate_text__", "text", content.text.strip())
+
         # Tool 실행
         for content in response.content:
             if content.type == "tool_use":
@@ -455,7 +468,7 @@ class AgentSUMO:
                 logger.debug(f"     파라미터: {content.input}")
 
                 # Emit progress: tool started
-                self._emit_progress(content.name, "started", f"Executing {content.name}...")
+                await self._emit_progress(content.name, "started", f"Executing {content.name}...")
 
                 try:
                     # MCP Client로 실행 (자동으로 적절한 client 선택)
@@ -492,7 +505,7 @@ class AgentSUMO:
                                 "content": result_content
                             })
                             logger.info(f"     ✅ 완료")
-                            self._emit_progress(content.name, "completed", f"{content.name} completed successfully")
+                            await self._emit_progress(content.name, "completed", f"{content.name} completed successfully")
                     else:
                         # 일반 도구: JSON 파싱하여 status 확인
                         try:
@@ -514,7 +527,7 @@ class AgentSUMO:
                                     "content": result_content
                                 })
                                 logger.info(f"     ✅ 완료")
-                                self._emit_progress(content.name, "completed", f"{content.name} completed successfully")
+                                await self._emit_progress(content.name, "completed", f"{content.name} completed successfully")
 
                                 # sumo_runner 실행 후 자동으로 DB 생성
                                 if content.name == "sumo_runner":
@@ -527,12 +540,12 @@ class AgentSUMO:
                                 "content": result_content
                             })
                             logger.info(f"     ✅ 완료")
-                            self._emit_progress(content.name, "completed", f"{content.name} completed")
+                            await self._emit_progress(content.name, "completed", f"{content.name} completed")
 
                 except Exception as e:
                     logger.error(f"     ❌ 예외 발생: {e}")
                     # Emit progress: tool error
-                    self._emit_progress(content.name, "error", str(e))
+                    await self._emit_progress(content.name, "error", str(e))
                     
                     # 에러도 결과로 전달
                     tool_results.append({
@@ -553,7 +566,7 @@ class AgentSUMO:
             "content": tool_results  # Tool 결과
         })
         
-        # 결과와 함께 다시 Claude 호출
+        # 결과와 함께 ���시 Claude 호���
         final_response = self._call_claude()
         
         # Debug: Raw response 출력
@@ -562,7 +575,7 @@ class AgentSUMO:
         
         # Tool use가 연쇄적으로 일어날 수 있음
         if final_response.stop_reason == "tool_use":
-            return await self._handle_tool_use(final_response)
+            return await self._handle_tool_use(final_response, _depth=_depth + 1)
         
         # 최종 텍스트 응답 (모든 content blocks 처리, thinking 포함!)
         final_text = self._extract_text_from_response(final_response)
@@ -590,14 +603,6 @@ class AgentSUMO:
         # SQLite MCP tools
         sqlite_tool_names = ["query", "read_query", "list_tables", "describe_table", "append_insight"]
 
-        # Filesystem MCP tools
-        filesystem_tool_names = [
-            "read_file", "read_multiple_files", "list_directory",
-            "search_files", "get_file_info",
-            "write_file", "create_directory", "move_file",
-            "list_allowed_directories", "directory_tree",
-        ]
-
         if tool_name in sqlite_tool_names:
             if not self.mcp_clients.get("sqlite") or not self.mcp_clients["sqlite"].is_connected:
                 raise RuntimeError(
@@ -608,7 +613,16 @@ class AgentSUMO:
             logger.debug(f"  → SQLite MCP로 라우팅: {tool_name}")
             return await self.mcp_clients["sqlite"].call_tool(tool_name, tool_input)
 
-        elif tool_name in filesystem_tool_names:
+        # Filesystem MCP tools
+        filesystem_tool_names = [
+            "read_file", "read_text_file", "read_media_file", "read_multiple_files",
+            "write_file", "edit_file", "create_directory",
+            "list_directory", "list_directory_with_sizes", "directory_tree",
+            "move_file", "search_files", "get_file_info",
+            "list_allowed_directories",
+        ]
+
+        if tool_name in filesystem_tool_names:
             if not self.mcp_clients.get("filesystem") or not self.mcp_clients["filesystem"].is_connected:
                 raise RuntimeError(
                     f"Filesystem MCP가 연결되지 않았습니다. "
@@ -845,20 +859,16 @@ class AgentSUMO:
     async def _check_and_enable_sqlite_if_needed(self):
         """
         SQLite MCP 첫 활성화
-
+        
         xml_to_sqlite_tool로 DB 생성 후, 다음 chat()에서 자동으로 활성화.
-
+        
         IMPORTANT: 재연결은 하지 않음! 한 세션 = 한 DB
         - 같은 지역 여러 정책 → 같은 DB에 누적 (재연결 불필요)
         - 다른 지역 → 새 세션 시작 (재시작 필요)
         """
-        # SQLite MCP 비활성화 시 skip
-        if not self._enable_sqlite_mcp:
-            return
-
         current_db = self.simulation_state.get("current_db")
         sqlite_enabled = self.simulation_state.get("sqlite_enabled", False)
-
+        
         # 이미 활성화됐으면 즉시 skip (성능 최적화)
         if sqlite_enabled:
             return

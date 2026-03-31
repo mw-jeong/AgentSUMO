@@ -543,13 +543,12 @@ def create_app() -> FastAPI:
             return JSONResponse(content={"error": str(e), "fcd_files": []}, status_code=500)
 
     @app.get("/api/fcd/{fcd_filename}/parse")
-    async def parse_fcd_file(fcd_filename: str, sample_rate: int = 1):
+    async def parse_fcd_file(fcd_filename: str):
         """
         Parse FCD file and return timestep data for replay.
 
         Args:
             fcd_filename: FCD file name
-            sample_rate: Sample every N timesteps (default 1 = all timesteps)
 
         Returns:
             JSON with timesteps array containing vehicle positions
@@ -568,16 +567,8 @@ def create_app() -> FastAPI:
             timesteps = []
             tree = ET.iterparse(str(fcd_file), events=('end',))
 
-            timestep_count = 0
             for event, elem in tree:
                 if elem.tag == 'timestep':
-                    timestep_count += 1
-
-                    # Apply sample rate
-                    if timestep_count % sample_rate != 0:
-                        elem.clear()
-                        continue
-
                     time_val = float(elem.get('time', 0))
                     vehicles = []
 
@@ -585,12 +576,9 @@ def create_app() -> FastAPI:
                         x_val = float(vehicle.get('x', 0))
                         y_val = float(vehicle.get('y', 0))
                         # With fcd-output.geo=true, x/y ARE lon/lat
-                        # Detect if x looks like longitude (typically 100-180 for East Asia)
-                        # vs SUMO local coordinates (typically 0-10000)
                         if 100 < x_val < 180 and 0 < y_val < 90:
                             lon, lat = x_val, y_val
                         else:
-                            # Old FCD without geo - x/y are local coords, no lon/lat
                             lon, lat = None, None
                         vehicles.append({
                             "id": vehicle.get('id'),
@@ -603,21 +591,20 @@ def create_app() -> FastAPI:
                             "type": vehicle.get('type', 'default')
                         })
 
-                    if vehicles:  # Only include timesteps with vehicles
+                    if vehicles:
                         timesteps.append({
                             "time": time_val,
                             "vehicles": vehicles
                         })
 
-                    elem.clear()  # Free memory
+                    elem.clear()
 
             logger.info(f"Parsed {len(timesteps)} timesteps from FCD file")
 
             return JSONResponse(content={
                 "filename": fcd_filename,
                 "timesteps": timesteps,
-                "total_timesteps": len(timesteps),
-                "sample_rate": sample_rate
+                "total_timesteps": len(timesteps)
             })
 
         except Exception as e:
@@ -1030,13 +1017,18 @@ def create_app() -> FastAPI:
         try:
             agent = await get_agent()
 
-            # Set up progress callback for real-time tool updates
-            def progress_callback(tool_name: str, status: str, message: str = None):
+            # Set up progress callback for real-time tool updates (async)
+            async def progress_callback(tool_name: str, status: str, message: str = None):
                 """Send progress updates via WebSocket"""
                 logger.info(f"📡 Progress callback: {tool_name} - {status}")
                 try:
-                    asyncio.ensure_future(
-                        websocket.send_json({
+                    if tool_name == "__intermediate_text__":
+                        await websocket.send_json({
+                            "type": "intermediate",
+                            "data": message
+                        })
+                    else:
+                        await websocket.send_json({
                             "type": "progress",
                             "data": {
                                 "tool": tool_name,
@@ -1044,7 +1036,6 @@ def create_app() -> FastAPI:
                                 "message": message or f"{tool_name}: {status}"
                             }
                         })
-                    )
                 except Exception as e:
                     logger.warning(f"Failed to send progress: {e}")
 

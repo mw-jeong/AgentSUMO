@@ -61,7 +61,8 @@ class PromptBuilder:
     
     def build_unified_prompt(
         self,
-        interface: str = "cli"
+        interface: str = "cli",
+        base_prompt: Optional[str] = None
     ) -> str:
         """
         Self-Adaptive Unified System Prompt 생성 (고정 부분만)
@@ -71,12 +72,13 @@ class PromptBuilder:
 
         Args:
             interface: 실행 환경 ("cli" or "web")
+            base_prompt: 커스텀 베이스 프롬프트 (None이면 unified_system.md 사용)
 
         Returns:
             완성된 unified 시스템 프롬프트 문자열 (state 제외)
         """
-        # 캐시 키는 interface만 사용 (state 제외)
-        cache_key = f"unified_{interface}"
+        # 캐시 키
+        cache_key = f"unified_{interface}_{'custom' if base_prompt else 'default'}"
 
         # 캐시된 프롬프트가 있으면 재사용
         if self._prompt_cache is not None and self._cached_state_hash == cache_key:
@@ -85,21 +87,22 @@ class PromptBuilder:
 
         logger.info("Building unified self-adaptive system prompt")
 
-        sections = []
+        if base_prompt:
+            prompt = base_prompt
+        else:
+            sections = []
 
-        # 1. Unified system prompt (Self-Assessment 포함)
-        sections.append(self._load_template("unified_system.md"))
+            # 1. Unified system prompt (Self-Assessment 포함)
+            sections.append(self._load_template("unified_system.md"))
 
-        # 2. Interface-specific instructions
-        if interface == "cli":
-            sections.append(self._get_cli_instructions())
-        else:  # web
-            sections.append(self._get_web_instructions())
+            # 2. Interface-specific instructions
+            if interface == "cli":
+                sections.append(self._get_cli_instructions())
+            else:  # web
+                sections.append(self._get_web_instructions())
 
-        # state는 여기서 주입하지 않음 (유저 메시지에서 처리)
-
-        # 섹션 결합
-        prompt = "\n\n".join(sections)
+            # 섹션 결합
+            prompt = "\n\n".join(sections)
 
         # 캐시에 저장
         self._prompt_cache = prompt
@@ -209,32 +212,7 @@ Use this context to avoid redundant operations and build upon existing work.
     
     def _get_cli_instructions(self) -> str:
         """CLI 환경 전용 지침"""
-        return """
-## CLI Interface Mode
-
-**You are running in CLI (command-line) mode, NOT web interface.**
-
-**IMPORTANT CLI-specific rules:**
-- **DO NOT use `[SIM_OPTIONS]` marker** - this is for web interface only
-- Instead of interactive map selection, ask user to provide location name directly
-- Present options as text (e.g., "반경: 1km / 1.5km / 2km 중 선택해주세요")
-- Ask for parameters in conversational format
-
-**CLI Example:**
-```
-User: 강남역 시뮬레이션 하고싶어
-
-Your response:
-강남역 시뮬레이션을 준비하겠습니다.
-
-확인이 필요한 사항:
-1. 반경: 몇 km? (추천: 1-1.5km)
-2. 교통량: 한산 / 보통 / 혼잡
-3. 시뮬레이션 시간: 30분 / 1시간 / 2시간
-
-기본값(1km, 보통, 1시간)으로 진행할까요?
-```
-"""
+        return ""
 
     def _get_web_instructions(self) -> str:
         """Web 환경 전용 지침"""

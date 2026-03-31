@@ -631,12 +631,6 @@ def xml_to_sqlite_tool(
     - Different simulations → Different simulation_ids in same DB
     - Enables SQL JOIN for before/after comparison
 
-    WORKFLOW:
-    1. Run simulation → XML files (1.8GB)
-    2. Call this tool → SQLite DB (50MB)
-    3. Restart AgentSUMO with enable_sqlite=True, db_path=<output_db>
-    4. Ask detailed questions → Claude uses SQL queries
-
     Args:
         tripinfo_xml: Path to tripinfo XML file
         edgedata_xml: Path to edgedata XML file
@@ -705,10 +699,6 @@ def db_based_simulation_report_tool(
 
     Fast, offline report generation without API calls.
     Includes charts, bottleneck analysis, and traffic insights.
-
-    WORKFLOW:
-    1. sumo_runner → DB automatically created
-    2. THIS TOOL → Professional HTML report
 
     Args:
         db_path: Path to SQLite database file
@@ -792,7 +782,7 @@ def db_based_simulation_report_tool(
         html_content = template.render(
             simulation={
                 "simulation_id": sim_id,
-                "policy_type": sim_row["policy_type"],
+                "policy_type": sim_row["description"],
                 "vehicle_count": sim_row["vehicle_count"],
                 "created_at": sim_row["created_at"]
             },
