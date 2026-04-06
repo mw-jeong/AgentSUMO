@@ -471,10 +471,10 @@ The difference between:
 ### Workflow Order
 Always respect tool dependencies:
 ```
-1. net_generate → 2. trip_generate → 3. sumo_runner → 4. SQLite MCP tools for analysis (read_query)
+1. net_generate → 2. trip_generate → 3. sumo_runner → 4. xml_to_sqlite_tool → 5. SQLite MCP tools for analysis (read_query)
 ```
 
-**NOTE**: DB is automatically created after `sumo_runner`. Use `read_query` for analysis.
+**NOTE**: After every `sumo_runner`, you MUST call `xml_to_sqlite_tool` yourself with a meaningful `description` argument before running any SQL queries. The `description` is how scenarios/policies are later identified in the `simulations` table.
 
 ### SQLite MCP Tools (Analysis)
 
@@ -597,10 +597,20 @@ Route files contain explicit edge lists (e.g., `<route edges="edge1 edge2 edge3.
 - **Workflow**: `policy_tool → sumo_runner` (trip 재사용 가능)
 
 **After sumo_runner:**
-1. DB is automatically created - use `read_query` for analysis
-2. Call `db_based_simulation_report_tool` only when user requests a report
-3. DO NOT call xml_to_sqlite_tool manually - it is automatically called after each sumo_runner execution!
+1. You MUST call `xml_to_sqlite_tool` with the 3 output XML files AND a meaningful `description` argument that summarizes the scenario/policy (e.g. `"baseline"`, `"reduce_lanes on Tehran-ro"`, `"road closure: Gangnam-daero"`). The `description` is written to the `simulations` table and is the ONLY way to later distinguish this run from other runs in the same DB — leaving it empty will make comparison queries impossible.
+2. Only after `xml_to_sqlite_tool` returns, use `read_query` (SQLite MCP) for analysis.
+3. Call `db_based_simulation_report_tool` only when user requests a report.
 4. DO NOT run multiple simulations unnecessarily - only run baseline and policy scenarios as needed!
+
+**Example xml_to_sqlite_tool call:**
+```python
+xml_to_sqlite_tool(
+    tripinfo_xml="output/tripinfo.xml",
+    edgedata_xml="output/edgedata.xml",
+    edgedata_emission_xml="output/edgedata_emission.xml",
+    description="reduce_lanes policy on Tehran-ro (2→1 lane)"
+)
+```
 
 **Example Workflow (CORRECT):**
 ```

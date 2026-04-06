@@ -479,7 +479,12 @@ class AgentSUMO:
                     
                     # 상태 업데이트 (간단한 버전)
                     self._update_state(content.name, result)
-                    
+
+                    # xml_to_sqlite_tool 실행 직후 SQLite MCP 활성화
+                    if content.name == "xml_to_sqlite_tool":
+                        await self._check_and_enable_sqlite_if_needed()
+
+
                     # Tool 결과 확인 및 에러 체크
                     result_content = str(result.content[0].text)
                     
@@ -528,10 +533,6 @@ class AgentSUMO:
                                 })
                                 logger.info(f"     ✅ 완료")
                                 await self._emit_progress(content.name, "completed", f"{content.name} completed successfully")
-
-                                # sumo_runner 실행 후 자동으로 DB 생성
-                                if content.name == "sumo_runner":
-                                    await self._auto_create_db_after_simulation(result)
                         except json.JSONDecodeError:
                             # JSON이 아닌 경우 그대로 전달
                             tool_results.append({
@@ -735,38 +736,6 @@ class AgentSUMO:
         
         except Exception as e:
             logger.debug(f"상태 업데이트 실패 (무시): {e}")
-    
-    async def _auto_create_db_after_simulation(self, sumo_result):
-        """
-        sumo_runner 실행 후 자동으로 SQLite DB 생성
-        
-        Note: SQLite MCP 활성화는 다음 chat() 호출 시 자동으로 처리됩니다.
-        """
-        try:
-            # 결과에서 output_files 추출
-            content_str = str(sumo_result.content[0].text)
-            result_dict = json.loads(content_str)
-            output_files = result_dict.get("output_files", [])
-            
-            if len(output_files) < 3:
-                return
-            
-            # xml_to_sqlite_tool 자동 호출 및 상태 업데이트
-            db_result = await self._route_tool_call(
-                "xml_to_sqlite_tool",
-                {
-                    "tripinfo_xml": output_files[0],
-                    "edgedata_xml": output_files[1],
-                    "edgedata_emission_xml": output_files[2]
-                }
-            )
-            self._update_state("xml_to_sqlite_tool", db_result)
-
-            # 같은 턴에서 SQLite 쿼리 사용 가능하도록 즉시 활성화
-            await self._check_and_enable_sqlite_if_needed()
-
-        except Exception as e:
-            logger.debug(f"DB 자동 생성 실패 (무시): {e}")
     
     def _debug_print_response(self, response):
         """
