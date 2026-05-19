@@ -43,10 +43,50 @@ class XMLToSQLiteConverter:
             # Open/create DB
             db_exists = Path(output_db).exists()
             conn = sqlite3.connect(output_db)
-            
+
             if not db_exists:
                 self._create_schema(conn)
-            
+            else:
+                # Prevent duplicate imports of the same simulation data
+                try:
+                    existing = conn.execute(
+                        "SELECT simulation_id, description FROM simulations WHERE net_file=?",
+                        (net_file,)
+                    ).fetchall()
+
+                    for existing_id, existing_desc in existing:
+                        if existing_id == simulation_id:
+                            # Exact same ID already exists — skip
+                            logger.info(f"Duplicate: {simulation_id} already exists, skipping")
+                            conn.close()
+                            return {
+                                "status": "skipped", "db_file": str(output_db),
+                                "simulation_id": existing_id,
+                                "message": f"Already imported as {existing_id}"
+                            }
+
+                        # Case: auto-generated ID exists, now called with meaningful ID
+                        # → delete the auto entry, proceed with the good one
+                        if existing_id.startswith("sim_") and not simulation_id.startswith("sim_"):
+                            logger.info(f"Replacing auto-generated {existing_id} with {simulation_id}")
+                            conn.execute("DELETE FROM trips WHERE simulation_id=?", (existing_id,))
+                            conn.execute("DELETE FROM edge_metrics WHERE simulation_id=?", (existing_id,))
+                            conn.execute("DELETE FROM simulations WHERE simulation_id=?", (existing_id,))
+                            conn.commit()
+
+                        # Case: meaningful ID exists, now called with auto-generated ID
+                        # → skip the auto entry
+                        if not existing_id.startswith("sim_") and simulation_id.startswith("sim_"):
+                            logger.info(f"Skipping auto-generated {simulation_id}, already have {existing_id}")
+                            conn.close()
+                            return {
+                                "status": "skipped", "db_file": str(output_db),
+                                "simulation_id": existing_id,
+                                "message": f"Already imported as {existing_id}"
+                            }
+                except Exception:
+                    pass  # Table might not exist yet, continue normally
+
             # Import data
             trip_count = self._import_tripinfo(conn, tripinfo_xml, simulation_id)
             edge_count = self._import_edgedata(conn, edgedata_xml, edgedata_emission_xml, simulation_id)
