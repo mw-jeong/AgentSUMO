@@ -1,15 +1,17 @@
 """
 Simulation execution functionality for SUMO MCP Server.
 
-Uses subprocess for simulation execution with FCD output for post-simulation replay.
+Uses TraCI for simulation execution with replay frame capture.
 """
 
-import subprocess
+import os
+import json
 import time
 import datetime
 import logging
+import threading
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Callable
 from xml.etree.ElementTree import Element, SubElement, ElementTree
 
 from agentsumo.server.settings.settings import sumo_environment, simulation_settings
@@ -20,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class SimulationRunner:
-    """Simulation execution class for SUMO simulations using subprocess."""
+    """Simulation execution class for SUMO simulations."""
 
     def __init__(self):
         self.environment = sumo_environment
@@ -37,10 +39,10 @@ class SimulationRunner:
         policy_type: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Run SUMO simulation using subprocess with FCD output for replay.
+        Run SUMO simulation using TraCI with replay frame capture.
 
         Args:
-            net_file: Network file path (tag will be extracted from filename)
+            net_file: Network file path
             trip_file: Trip file path (optional)
             route_file: Route file path (optional)
             duration: Simulation duration in seconds
@@ -59,7 +61,7 @@ class SimulationRunner:
             if not Path(net_file).is_absolute():
                 net_file = str(base_dir / net_file)
 
-            # Handle additional files - reset for new baseline simulations
+            # Handle additional files
             if policy_type == "baseline":
                 additional_files = []
             else:
@@ -68,8 +70,6 @@ class SimulationRunner:
             # Generate unique output file names
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             base_name = Path(net_file).stem if net_file else "simulation"
-
-            # Use network filename as prefix (extracts tag automatically)
             prefix = base_name
 
             output_files = self._generate_output_filenames(prefix, timestamp)
@@ -93,9 +93,9 @@ class SimulationRunner:
                 output_files, duration, timestamp
             )
 
-            # Run SUMO simulation using subprocess
-            result = self._run_simulation_subprocess(
-                config_file, output_path, output_files
+            # Run simulation via TraCI
+            result = self._run_simulation_traci(
+                config_file, output_path, output_files, duration, prefix, timestamp
             )
 
             # Prepare result
@@ -120,7 +120,6 @@ class SimulationRunner:
             "emission": f"{prefix}_emission_{timestamp}.xml",
             "netstate_dump": f"{prefix}_netstate_{timestamp}.xml",
             "netstate_dump_emission": f"{prefix}_netstate_emission_{timestamp}.xml",
-            "fcd": f"{prefix}_fcd_{timestamp}.xml"
         }
 
     def _copy_input_files(
@@ -128,7 +127,6 @@ class SimulationRunner:
         output_path: Path, split_id: Optional[str]
     ) -> Dict[str, str]:
         """Copy input files to working directory."""
-        # Always use regular copies (tag is extracted from network filename)
         net_file_name = copy_to_workdir(net_file, output_path)
         trip_file_name = copy_to_workdir(trip_file, output_path) if trip_file else None
         route_file_name = copy_to_workdir(route_file, output_path) if route_file else None
@@ -145,12 +143,12 @@ class SimulationRunner:
         add_path = output_path / add_file
 
         add_root = Element("additional")
-        edge_data = SubElement(add_root, "edgeData", {
+        SubElement(add_root, "edgeData", {
             "id": "dump_output",
             "freq": str(duration),
             "file": output_files["netstate_dump"],
         })
-        edge_data_emission = SubElement(add_root, "edgeData", {
+        SubElement(add_root, "edgeData", {
             "id": "dump_output_emission",
             "freq": str(duration),
             "file": output_files["netstate_dump_emission"],
@@ -194,12 +192,6 @@ class SimulationRunner:
         # Output section
         output_tag = SubElement(cfg_root, "output")
         SubElement(output_tag, "tripinfo-output", {"value": output_files["tripinfo"]})
-        # SubElement(output_tag, "summary-output", {"value": output_files["summary"]})
-        # SubElement(output_tag, "emission-output", {"value": output_files["emission"]})
-        SubElement(output_tag, "fcd-output", {"value": output_files["fcd"]})
-        SubElement(output_tag, "fcd-output.geo", {"value": "true"})  # Include lon/lat coordinates
-        # Note: tls-switch-output removed - not supported in current SUMO version
-        # Traffic light states will be simulated based on time in frontend
 
         # Report section
         report_tag = SubElement(cfg_root, "report")
@@ -209,21 +201,24 @@ class SimulationRunner:
         ElementTree(cfg_root).write(config_file, encoding="utf-8", xml_declaration=True)
         return config_file
 
-    def _run_simulation_subprocess(
+    def _run_simulation_traci(
         self,
         config_file: Path,
         output_path: Path,
-        output_files: Dict[str, str]
-    ) -> subprocess.CompletedProcess:
+        output_files: Dict[str, str],
+        duration: int = 3600,
+        prefix: str = "simulation",
+        timestamp: str = ""
+    ) -> Any:
         """
-        Run SUMO simulation using subprocess.
+        Run SUMO simulation using TraCI.
+        Captures vehicle position frames for post-simulation replay.
+        """
+        import traci
 
-        Returns subprocess.CompletedProcess with elapsed time attribute.
-        """
         start_time = time.time()
         sumo_binary = self.environment.get_binary_path("sumo")
 
-        # Build command
         sumo_cmd = [
             sumo_binary,
             "-c", str(config_file),
@@ -231,51 +226,142 @@ class SimulationRunner:
             "--no-warnings"
         ]
 
-        logger.info(f"Running SUMO simulation: {config_file.name}")
+        logger.info(f"Running SUMO simulation (TraCI): {config_file.name}")
 
         try:
-            result = subprocess.run(
-                sumo_cmd,
-                capture_output=True,
-                text=True,
-                cwd=str(output_path),
-                timeout=600  # 10 minute timeout
-            )
+            # Set SUMO_HOME for TraCI
+            sumo_home = self.environment.SUMO_HOME
+            if sumo_home:
+                os.environ["SUMO_HOME"] = sumo_home
+
+            traci.start(sumo_cmd, traceFile=None, label="agentsumo")
+
+            step_count = 0
+            replay_interval = 5  # Capture frame every N steps
+            wall_timeout = max(duration * 2, 600)
+            replay_frames = []  # Accumulate frames in memory
+            progress_file = output_path / ".sim_progress.json"
+            progress_interval = 10  # Write progress every N steps
+            logger.info(f"Progress file path: {progress_file}, output_path exists: {output_path.exists()}")
+
+            while traci.simulation.getMinExpectedNumber() > 0:
+                # Enforce simulation duration limit
+                sim_time = traci.simulation.getTime()
+                if sim_time >= duration:
+                    logger.info(f"Duration limit reached ({duration}s at sim_time={sim_time:.0f}s), stopping simulation")
+                    break
+
+                # Wall-clock safety net
+                elapsed_wall = time.time() - start_time
+                if elapsed_wall >= wall_timeout:
+                    logger.warning(f"Wall-clock timeout ({wall_timeout}s) reached, forcing stop")
+                    break
+
+                traci.simulationStep()
+                step_count += 1
+
+                # Write progress file periodically
+                if step_count % progress_interval == 0:
+                    try:
+                        pct = min(round(sim_time / duration * 100), 99)
+                        progress_file.write_text(json.dumps({"percent": pct}))
+                        if step_count == progress_interval:
+                            logger.info(f"Progress file created: {progress_file} ({pct}%)")
+                    except Exception as e:
+                        logger.warning(f"Failed to write progress file: {e}")
+
+                # Capture frame for replay
+                if step_count % replay_interval == 0:
+                    try:
+                        vehicles = []
+                        for vid in traci.vehicle.getIDList():
+                            pos = traci.vehicle.getPosition(vid)
+                            geo = traci.simulation.convertGeo(*pos)
+                            vehicles.append({
+                                'id': vid,
+                                'lon': round(geo[0], 6),
+                                'lat': round(geo[1], 6),
+                                'speed': round(traci.vehicle.getSpeed(vid), 1),
+                                'angle': round(traci.vehicle.getAngle(vid), 1)
+                            })
+
+                        replay_frames.append({
+                            'time': traci.simulation.getTime(),
+                            'vehicles': vehicles,
+                            'vehicle_count': len(vehicles)
+                        })
+
+                    except Exception as e:
+                        logger.debug(f"Frame capture error (ignored): {e}")
 
             elapsed = time.time() - start_time
+            logger.info(f"Simulation completed in {elapsed:.2f} seconds ({step_count} steps, {len(replay_frames)} frames captured)")
+
+            # Clean up progress file
+            try:
+                progress_file.unlink(missing_ok=True)
+            except Exception:
+                pass
+
+            traci.close()
+
+            # Save replay file
+            replay_filename = f"{prefix}_replay_{timestamp}.json"
+            replay_path = output_path / replay_filename
+            with open(replay_path, 'w') as f:
+                json.dump({
+                    'duration': duration,
+                    'frame_interval': replay_interval,
+                    'total_frames': len(replay_frames),
+                    'frames': replay_frames
+                }, f)
+            logger.info(f"Replay saved: {replay_filename} ({replay_path.stat().st_size / 1024 / 1024:.1f} MB)")
+
+            # Create result-like object
+            class TraCIResult:
+                returncode = 0
+                stdout = ""
+                stderr = ""
+
+            result = TraCIResult()
             result.elapsed = elapsed
-
-            logger.info(f"Simulation completed in {elapsed:.2f} seconds")
-
+            result.replay_file = replay_filename
             return result
 
-        except subprocess.TimeoutExpired as e:
-            elapsed = time.time() - start_time
+        except Exception as e:
+            try:
+                traci.close()
+            except Exception:
+                pass
 
-            # Create a mock result for timeout
-            class TimeoutResult:
+            elapsed = time.time() - start_time
+            logger.error(f"TraCI simulation failed: {e}")
+
+            class ErrorResult:
                 returncode = 1
                 stdout = ""
-                stderr = f"Simulation timed out after {elapsed:.2f} seconds"
-                elapsed = elapsed
+                stderr = str(e)
 
-            return TimeoutResult()
+            result = ErrorResult()
+            result.elapsed = elapsed
+            result.replay_file = None
+            return result
 
     def _prepare_result(
         self, result: Any, output_path: Path,
         output_files: Dict[str, str], base_dir: Path, duration: int
     ) -> Dict[str, Any]:
         """Prepare simulation result."""
-        # Convert to absolute paths for result analyzer
         tripinfo_abs = str(output_path / output_files["tripinfo"])
         edgedata_abs = str(output_path / output_files["netstate_dump"])
         edgedata_emission_abs = str(output_path / output_files["netstate_dump_emission"])
-        fcd_abs = str(output_path / output_files["fcd"])
+
+        replay_file = getattr(result, 'replay_file', None)
 
         if result.returncode != 0:
             return {
                 "status": "warning",
-                "output_files": [tripinfo_abs, edgedata_abs, edgedata_emission_abs, fcd_abs],
+                "output_files": [tripinfo_abs, edgedata_abs, edgedata_emission_abs],
                 "message": f"Simulation completed with warnings in {result.elapsed:.2f} seconds\n{result.stderr}",
                 "simulation_time": result.elapsed,
                 "metadata": {
@@ -283,16 +369,16 @@ class SimulationRunner:
                     "absolute_tripinfo": tripinfo_abs,
                     "absolute_edgedata": edgedata_abs,
                     "absolute_edgedata_emission": edgedata_emission_abs,
-                    "absolute_fcd": fcd_abs,
                     "return_code": result.returncode,
                     "stdout": result.stdout,
-                    "stderr": result.stderr
+                    "stderr": result.stderr,
+                    "replay_file": replay_file
                 }
             }
 
         return {
             "status": "success",
-            "output_files": [tripinfo_abs, edgedata_abs, edgedata_emission_abs, fcd_abs],
+            "output_files": [tripinfo_abs, edgedata_abs, edgedata_emission_abs],
             "message": f"Simulation executed successfully in {result.elapsed:.2f} seconds.",
             "simulation_time": result.elapsed,
             "metadata": {
@@ -300,9 +386,7 @@ class SimulationRunner:
                 "absolute_tripinfo": tripinfo_abs,
                 "absolute_edgedata": edgedata_abs,
                 "absolute_edgedata_emission": edgedata_emission_abs,
-                "absolute_fcd": fcd_abs,
                 "return_code": result.returncode,
-                "stdout": result.stdout,
-                "stderr": result.stderr
+                "replay_file": replay_file
             }
         }

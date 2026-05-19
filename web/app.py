@@ -7,8 +7,10 @@ FastAPI 기반 웹 서버
 """
 
 import asyncio
+import json
 import logging
 import os
+import sqlite3
 import subprocess
 import xml.etree.ElementTree as ET
 from contextlib import asynccontextmanager
@@ -92,7 +94,12 @@ async def get_agent() -> AgentSUMO:
     async with _agent_lock:
         if _agent is None:
             logger.info("Creating new AgentSUMO instance...")
-            _agent = AgentSUMO(enable_debug=False, interface="web")
+            _agent = AgentSUMO(
+                enable_debug=False,
+                interface="web",
+                enable_filesystem_mcp=True,
+                filesystem_root=str(AgentSUMOConfig.PROJECT_ROOT / "agentsumo" / "output")
+            )
             await _agent.start()
             logger.info("AgentSUMO ready!")
 
@@ -141,6 +148,23 @@ def create_app() -> FastAPI:
         mapbox_token = AgentSUMOConfig.get_mapbox_token()
         return templates.TemplateResponse(
             "index.html",
+            {"request": request, "mapbox_token": mapbox_token}
+        )
+
+    @app.get("/landing")
+    async def landing_page(request: Request):
+        """Landing page (design preview)"""
+        return templates.TemplateResponse(
+            "landing.html",
+            {"request": request}
+        )
+
+    @app.get("/preview")
+    async def preview_page(request: Request):
+        """Main interface dark theme preview"""
+        mapbox_token = AgentSUMOConfig.get_mapbox_token()
+        return templates.TemplateResponse(
+            "main_dark.html",
             {"request": request, "mapbox_token": mapbox_token}
         )
 
@@ -195,6 +219,9 @@ def create_app() -> FastAPI:
                 items = []
                 try:
                     for entry in sorted(path.iterdir()):
+                        # Skip hidden/internal files
+                        if entry.name.startswith('.'):
+                            continue
                         rel_path = str(entry.relative_to(base_path))
                         if entry.is_dir():
                             children = build_tree(entry, base_path)
@@ -435,27 +462,46 @@ def create_app() -> FastAPI:
                     status_code=404
                 )
 
-            # Calculate min/max for normalization
-            values = list(edge_values.values())
-            min_val = min(values)
-            max_val = max(values)
+            # Build edge length lookup for filtering
+            edge_lengths = {}
+            for edge in net.getEdges():
+                edge_lengths[edge.getID()] = edge.getLength()
+
+            # Filter out very short edges (< 5m) — intersection connectors
+            # produce extreme outlier values for all metrics
+            filtered_values = {
+                eid: val for eid, val in edge_values.items()
+                if edge_lengths.get(eid, 0) >= 5.0
+            }
+            if not filtered_values:
+                filtered_values = edge_values
+
+            # Use percentile-based bounds to handle outliers (all attributes)
+            sorted_vals = sorted(filtered_values.values())
+            n = len(sorted_vals)
+            p5_val = sorted_vals[int(n * 0.05)]
+            p95_val = sorted_vals[min(int(n * 0.95), n - 1)]
+            min_val = p5_val
+            max_val = p95_val
             val_range = max_val - min_val if max_val != min_val else 1
 
-            # Build GeoJSON with heatmap values
+            # Build GeoJSON with heatmap values (no invert — frontend handles colormap direction)
             features = []
             for edge in net.getEdges():
                 edge_id = edge.getID()
                 if edge_id not in edge_values:
                     continue
 
+                if edge.getLength() < 5.0:
+                    continue
+
                 shape = edge.getShape()
                 if len(shape) < 2:
                     continue
 
-                # Convert to lon/lat
                 coords = [net.convertXY2LonLat(x, y) for x, y in shape]
                 value = edge_values[edge_id]
-                normalized = (value - min_val) / val_range  # 0 to 1
+                normalized = max(0.0, min((value - min_val) / val_range, 1.0))
 
                 features.append({
                     "type": "Feature",
@@ -508,107 +554,585 @@ def create_app() -> FastAPI:
             )
 
     # ============================================
-    # FCD Replay API
+    # Dashboard API
     # ============================================
 
-    @app.get("/api/fcd/list")
-    async def list_fcd_files():
-        """List available FCD files for replay"""
+    @app.get("/api/dashboard")
+    async def get_dashboard_data(sim_a: str, sim_b: str = None):
+        """Get dashboard data for one or two simulations"""
+        try:
+            output_dir = get_output_dir()
+            if not output_dir:
+                return JSONResponse(content={"error": "No output directory"}, status_code=404)
+
+            analysis_dir = output_dir / "analysis"
+            db_files = list(analysis_dir.glob("*.db")) if analysis_dir.exists() else []
+            if not db_files:
+                return JSONResponse(content={"error": "No analysis DB found"}, status_code=404)
+
+            db_path = str(db_files[0])
+            if Path(db_path).stat().st_size == 0:
+                return JSONResponse(content={"error": "DB is empty"}, status_code=404)
+
+            conn = sqlite3.connect(db_path)
+            conn.row_factory = sqlite3.Row
+
+            def get_kpi(sim_id):
+                r = conn.execute("""
+                    SELECT COUNT(*) as trip_count,
+                           AVG(duration) as avg_duration,
+                           AVG(waitingTime) as avg_waiting,
+                           AVG(timeLoss) as avg_timeloss,
+                           AVG(routeLength) as avg_route_length,
+                           SUM(CO2_abs) as total_co2,
+                           SUM(fuel_abs) as total_fuel,
+                           SUM(NOx_abs) as total_nox
+                    FROM trips WHERE simulation_id=?
+                """, (sim_id,)).fetchone()
+                if not r or r['trip_count'] == 0:
+                    return None
+
+                # Average speed from edge_metrics
+                spd = conn.execute("""
+                    SELECT AVG(speed) as avg_speed FROM edge_metrics
+                    WHERE simulation_id=? AND speed > 0
+                """, (sim_id,)).fetchone()
+
+                return {
+                    "trip_count": r['trip_count'],
+                    "avg_duration": round(r['avg_duration'], 1),
+                    "avg_waiting": round(r['avg_waiting'], 1),
+                    "avg_timeloss": round(r['avg_timeloss'], 1),
+                    "avg_route_length": round(r['avg_route_length'], 1),
+                    "total_co2_kg": round((r['total_co2'] or 0) / 1e6, 1),
+                    "total_fuel_L": round((r['total_fuel'] or 0) / 1e6, 1),
+                    "total_nox_g": round((r['total_nox'] or 0) / 1000, 1),
+                    "avg_speed_kmh": round((spd['avg_speed'] or 0) * 3.6, 1)
+                }
+
+            def get_duration_distribution(sim_id):
+                buckets = [
+                    ("< 1 min", 0, 60),
+                    ("1-3 min", 60, 180),
+                    ("3-5 min", 180, 300),
+                    ("5-10 min", 300, 600),
+                    ("10+ min", 600, 999999)
+                ]
+                result = []
+                for label, lo, hi in buckets:
+                    r = conn.execute(
+                        "SELECT COUNT(*) as cnt FROM trips WHERE simulation_id=? AND duration>=? AND duration<?",
+                        (sim_id, lo, hi)
+                    ).fetchone()
+                    result.append({"bucket": label, "count": r['cnt']})
+                return result
+
+            def get_top_congested(sim_id, limit=5):
+                """Get top congested roads aggregated by road name, length-weighted"""
+                rows = conn.execute("""
+                    SELECT edge_id, AVG(density) as density, AVG(speed) as speed,
+                           AVG(waitingTime) as waiting_time
+                    FROM edge_metrics
+                    WHERE simulation_id=? AND density > 0
+                    GROUP BY edge_id
+                """, (sim_id,)).fetchall()
+
+                # Load network for road names and lengths
+                net_file_row = conn.execute(
+                    "SELECT net_file FROM simulations WHERE simulation_id=?", (sim_id,)
+                ).fetchone()
+
+                net = None
+                if net_file_row and net_file_row['net_file']:
+                    try:
+                        net = sumolib.net.readNet(net_file_row['net_file'])
+                    except Exception:
+                        pass
+
+                if not net:
+                    return []
+
+                # Aggregate by road name (length-weighted, skip < 5m edges)
+                road_data = {}  # name -> {sum_density_x_len, sum_speed_x_len, sum_wait_x_len, total_len, edge_ids}
+                for r in rows:
+                    try:
+                        edge = net.getEdge(r['edge_id'])
+                        length = edge.getLength()
+                        if length < 5.0:
+                            continue
+                        name = edge.getName()
+                        if not name:
+                            continue
+                    except Exception:
+                        continue
+
+                    if name not in road_data:
+                        road_data[name] = {
+                            "sum_d": 0, "sum_s": 0, "sum_w": 0,
+                            "total_len": 0, "edge_ids": []
+                        }
+                    rd = road_data[name]
+                    rd["sum_d"] += r['density'] * length
+                    rd["sum_s"] += r['speed'] * length
+                    rd["sum_w"] += r['waiting_time'] * length
+                    rd["total_len"] += length
+                    rd["edge_ids"].append(r['edge_id'])
+
+                # Compute weighted averages and sort
+                result = []
+                for name, rd in road_data.items():
+                    if rd["total_len"] == 0:
+                        continue
+                    result.append({
+                        "name": name,
+                        "density": round(rd["sum_d"] / rd["total_len"], 1),
+                        "speed_kmh": round(rd["sum_s"] / rd["total_len"] * 3.6, 1),
+                        "waiting_time": round(rd["sum_w"] / rd["total_len"], 1),
+                        "total_length_m": round(rd["total_len"], 0),
+                        "segment_count": len(rd["edge_ids"]),
+                        "edge_ids": rd["edge_ids"]
+                    })
+
+                result.sort(key=lambda x: x["density"], reverse=True)
+                return result[:limit]
+
+            # Build response
+            kpi_a = get_kpi(sim_a)
+            if not kpi_a:
+                conn.close()
+                return JSONResponse(content={"error": f"No data for {sim_a}"}, status_code=404)
+
+            data = {
+                "sim_a": sim_a,
+                "kpi_a": kpi_a,
+                "duration_dist_a": get_duration_distribution(sim_a),
+                "top_congested_a": get_top_congested(sim_a),
+                "has_compare": sim_b is not None
+            }
+
+            if sim_b:
+                kpi_b = get_kpi(sim_b)
+                if kpi_b:
+                    data["sim_b"] = sim_b
+                    data["kpi_b"] = kpi_b
+                    data["duration_dist_b"] = get_duration_distribution(sim_b)
+                    data["top_congested_b"] = get_top_congested(sim_b)
+
+            conn.close()
+            return JSONResponse(content=data)
+
+        except Exception as e:
+            logger.error(f"Error getting dashboard data: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return JSONResponse(content={"error": str(e)}, status_code=500)
+
+    # ============================================
+    # Compare Heatmap API (DB-based)
+    # ============================================
+
+    COMPARE_ATTRIBUTES = [
+        'density', 'speed', 'waitingTime', 'timeLoss',
+        'occupancy', 'laneDensity', 'traveltime', 'sampledSeconds',
+        'CO2_abs', 'NOx_abs', 'fuel_abs', 'CO_abs', 'PMx_abs'
+    ]
+
+    # Attributes where higher = better (need inverted colormap)
+    INVERT_ATTRIBUTES = {'speed', 'speedRelative'}
+
+    @app.get("/api/db/simulations")
+    async def list_db_simulations():
+        """List simulation IDs from the analysis DB"""
+        try:
+            output_dir = get_output_dir()
+            if not output_dir:
+                return JSONResponse(content={"simulations": [], "db_path": None})
+
+            analysis_dir = output_dir / "analysis"
+            if not analysis_dir.exists():
+                return JSONResponse(content={"simulations": [], "db_path": None})
+
+            # Find first .db file
+            db_files = list(analysis_dir.glob("*.db"))
+            if not db_files:
+                return JSONResponse(content={"simulations": [], "db_path": None})
+
+            db_path = str(db_files[0])
+
+            # Skip empty DB files
+            if Path(db_path).stat().st_size == 0:
+                return JSONResponse(content={"simulations": [], "db_path": None})
+
+            conn = sqlite3.connect(db_path)
+
+            # Check if simulations table exists
+            table_check = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='simulations'"
+            ).fetchone()
+            if not table_check:
+                conn.close()
+                return JSONResponse(content={"simulations": [], "db_path": db_path})
+
+            rows = conn.execute(
+                "SELECT simulation_id, description, vehicle_count, net_file FROM simulations ORDER BY created_at"
+            ).fetchall()
+            conn.close()
+
+            sims = []
+            for r in rows:
+                # Skip entries with no description (auto-generated duplicates)
+                if r[1] is None:
+                    continue
+                sims.append({
+                    "id": r[0],
+                    "label": r[1],
+                    "description": r[1],
+                    "vehicle_count": r[2],
+                    "net_file": r[3]
+                })
+
+            return JSONResponse(content={
+                "simulations": sims,
+                "db_path": db_path,
+                "count": len(sims)
+            })
+        except Exception as e:
+            logger.error(f"Error listing DB simulations: {e}")
+            return JSONResponse(content={"error": str(e), "simulations": []}, status_code=500)
+
+    @app.get("/api/compare")
+    async def compare_simulations(
+        network_name: str,
+        sim_a: str,
+        sim_b: str = None,
+        db_path: str = None
+    ):
+        """
+        Compare one or two simulations. Returns GeoJSON with all attributes.
+        All attribute values + normalized values are included per edge.
+        """
+        try:
+            import sqlite3 as sqlite3_mod
+
+            net_file = find_network_file(network_name)
+            if not net_file:
+                return JSONResponse(content={"error": f"Network not found: {network_name}"}, status_code=404)
+
+            # Find DB
+            if not db_path:
+                analysis_dir = get_output_dir() / "analysis"
+                db_files = list(analysis_dir.glob("*.db")) if analysis_dir.exists() else []
+                if not db_files:
+                    return JSONResponse(content={"error": "No analysis DB found"}, status_code=404)
+                db_path = str(db_files[0])
+
+            conn = sqlite3_mod.connect(db_path)
+            conn.row_factory = sqlite3_mod.Row
+
+            attrs = COMPARE_ATTRIBUTES
+
+            # Build AVG query for all attributes
+            avg_cols = ", ".join(f"AVG({a}) as {a}" for a in attrs)
+
+            # Query sim_a
+            rows_a = conn.execute(
+                f"SELECT edge_id, {avg_cols} FROM edge_metrics WHERE simulation_id=? GROUP BY edge_id",
+                (sim_a,)
+            ).fetchall()
+
+            data_a = {r['edge_id']: dict(r) for r in rows_a}
+
+            # Query sim_b if provided
+            data_b = {}
+            if sim_b:
+                rows_b = conn.execute(
+                    f"SELECT edge_id, {avg_cols} FROM edge_metrics WHERE simulation_id=? GROUP BY edge_id",
+                    (sim_b,)
+                ).fetchall()
+                data_b = {r['edge_id']: dict(r) for r in rows_b}
+
+            conn.close()
+
+            if not data_a:
+                return JSONResponse(content={"error": f"No data for simulation: {sim_a}"}, status_code=404)
+
+            # Parse network for geometry
+            net = sumolib.net.readNet(str(net_file))
+
+            # Build edge length filter
+            edge_objs = {e.getID(): e for e in net.getEdges()}
+
+            # Collect values for percentile normalization (per attribute)
+            attr_values_a = {a: [] for a in attrs}
+            attr_values_b = {a: [] for a in attrs}
+            attr_values_diff = {a: [] for a in attrs}
+
+            # First pass: collect values (filtered by length >= 5m)
+            valid_edges = set()
+            for edge_id in data_a:
+                edge_obj = edge_objs.get(edge_id)
+                if not edge_obj or edge_obj.getLength() < 5.0:
+                    continue
+                valid_edges.add(edge_id)
+                for a in attrs:
+                    val = data_a[edge_id].get(a)
+                    if val is not None:
+                        attr_values_a[a].append(val)
+                    if sim_b and edge_id in data_b:
+                        val_b = data_b[edge_id].get(a)
+                        if val_b is not None:
+                            attr_values_b[a].append(val_b)
+                        if val is not None and val_b is not None:
+                            attr_values_diff[a].append(val_b - val)
+
+            # Compute percentile bounds per attribute
+            def percentile_bounds(values):
+                if not values:
+                    return 0, 1
+                s = sorted(values)
+                n = len(s)
+                lo = s[int(n * 0.05)]
+                hi = s[min(int(n * 0.95), n - 1)]
+                if hi == lo:
+                    hi = lo + 1
+                return lo, hi
+
+            bounds_a = {a: percentile_bounds(attr_values_a[a]) for a in attrs}
+            bounds_b = {a: percentile_bounds(attr_values_b[a]) for a in attrs}
+
+            # Diff bounds: symmetric around 0 so that 0 = white center
+            def symmetric_bounds(values):
+                if not values:
+                    return -1, 1
+                s = sorted(values)
+                n = len(s)
+                lo = s[int(n * 0.05)]
+                hi = s[min(int(n * 0.95), n - 1)]
+                extent = max(abs(lo), abs(hi))
+                if extent == 0:
+                    extent = 1
+                return -extent, extent
+
+            bounds_diff = {a: symmetric_bounds(attr_values_diff[a]) for a in attrs}
+
+            # Build GeoJSON
+            features = []
+            for edge_id in valid_edges:
+                edge_obj = edge_objs.get(edge_id)
+                if not edge_obj:
+                    continue
+
+                shape = edge_obj.getShape()
+                if len(shape) < 2:
+                    continue
+
+                coords = [net.convertXY2LonLat(x, y) for x, y in shape]
+
+                props = {
+                    "id": edge_id,
+                    "name": edge_obj.getName() or edge_id,
+                    "length": edge_obj.getLength(),
+                    "lanes": edge_obj.getLaneNumber(),
+                }
+
+                for a in attrs:
+                    val_a = data_a[edge_id].get(a)
+
+                    if val_a is not None:
+                        props[f"{a}_a"] = round(val_a, 4)
+                        lo, hi = bounds_a[a]
+                        norm = max(0.0, min((val_a - lo) / (hi - lo), 1.0))
+                        props[f"n_{a}_a"] = round(norm, 4)
+                    else:
+                        props[f"{a}_a"] = None
+                        props[f"n_{a}_a"] = 0
+
+                    if sim_b and edge_id in data_b:
+                        val_b = data_b[edge_id].get(a)
+                        if val_b is not None:
+                            props[f"{a}_b"] = round(val_b, 4)
+                            lo, hi = bounds_b[a]
+                            norm = max(0.0, min((val_b - lo) / (hi - lo), 1.0))
+                            props[f"n_{a}_b"] = round(norm, 4)
+
+                            # Diff — symmetric around 0: normalized 0.5 = no change
+                            diff = val_b - val_a if val_a is not None else 0
+                            props[f"{a}_diff"] = round(diff, 4)
+                            lo_d, hi_d = bounds_diff[a]
+                            norm_d = max(0.0, min((diff - lo_d) / (hi_d - lo_d), 1.0))
+                            props[f"n_{a}_diff"] = round(norm_d, 4)
+                        else:
+                            props[f"{a}_b"] = None
+                            props[f"n_{a}_b"] = 0
+                            props[f"{a}_diff"] = None
+                            props[f"n_{a}_diff"] = 0.5
+                    else:
+                        props[f"{a}_b"] = None
+                        props[f"n_{a}_b"] = 0
+                        props[f"{a}_diff"] = None
+                        props[f"n_{a}_diff"] = 0.5
+
+                features.append({
+                    "type": "Feature",
+                    "geometry": {"type": "LineString", "coordinates": coords},
+                    "properties": props
+                })
+
+            geojson = {"type": "FeatureCollection", "features": features}
+
+            # Center
+            if features:
+                all_coords = []
+                for f in features:
+                    all_coords.extend(f["geometry"]["coordinates"])
+                lons = [c[0] for c in all_coords]
+                lats = [c[1] for c in all_coords]
+                center = {"lon": sum(lons)/len(lons), "lat": sum(lats)/len(lats)}
+            else:
+                center = {"lon": 127.028, "lat": 37.497}
+
+            # Return bounds info for legend
+            bounds_info = {}
+            for a in attrs:
+                lo_a, hi_a = bounds_a[a]
+                bounds_info[a] = {"min_a": round(lo_a, 2), "max_a": round(hi_a, 2)}
+                if sim_b:
+                    lo_b, hi_b = bounds_b[a]
+                    lo_d, hi_d = bounds_diff[a]
+                    bounds_info[a].update({
+                        "min_b": round(lo_b, 2), "max_b": round(hi_b, 2),
+                        "min_diff": round(lo_d, 2), "max_diff": round(hi_d, 2)
+                    })
+
+            return JSONResponse(content={
+                "geojson": geojson,
+                "center": center,
+                "edge_count": len(features),
+                "attributes": attrs,
+                "bounds": bounds_info,
+                "sim_a": sim_a,
+                "sim_b": sim_b,
+                "has_compare": sim_b is not None
+            })
+
+        except Exception as e:
+            logger.error(f"Error comparing simulations: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return JSONResponse(content={"error": str(e)}, status_code=500)
+
+    # ============================================
+    # Replay API
+    # ============================================
+
+    @app.get("/api/simulation/progress")
+    async def get_simulation_progress():
+        """Get current simulation progress"""
+        sims_dir = get_simulations_dir()
+        if sims_dir:
+            progress_file = sims_dir / ".sim_progress.json"
+            if progress_file.exists():
+                try:
+                    data = json.loads(progress_file.read_text())
+                    return JSONResponse(content=data)
+                except Exception:
+                    pass
+        return JSONResponse(content={"percent": -1})
+
+    @app.get("/api/tool/progress")
+    async def get_tool_progress():
+        """Get current tool execution progress"""
+        output_dir = get_output_dir()
+        if output_dir:
+            progress_file = output_dir / ".tool_progress.json"
+            if progress_file.exists():
+                try:
+                    return JSONResponse(content=json.loads(progress_file.read_text()))
+                except Exception:
+                    pass
+        return JSONResponse(content={"tools": []})
+
+    @app.get("/api/replay/list")
+    async def list_replay_files():
+        """List available replay files with DB description matching"""
         try:
             sims_dir = get_simulations_dir()
             if not sims_dir:
-                return JSONResponse(content={"fcd_files": [], "count": 0})
+                return JSONResponse(content={"replays": [], "count": 0})
 
-            fcd_files = []
+            # Load DB: map net_file stem to description
+            netfile_to_desc = {}
+            try:
+                output_dir = get_output_dir()
+                if output_dir:
+                    analysis_dir = output_dir / "analysis"
+                    if analysis_dir.exists():
+                        db_files = list(analysis_dir.glob("*.db"))
+                        if db_files and db_files[0].stat().st_size > 0:
+                            conn = sqlite3.connect(str(db_files[0]))
+                            try:
+                                rows = conn.execute(
+                                    "SELECT net_file, description FROM simulations WHERE description IS NOT NULL"
+                                ).fetchall()
+                                for net_file, desc in rows:
+                                    if net_file:
+                                        stem = Path(net_file).stem  # e.g. "selected_area.net"
+                                        netfile_to_desc[stem] = desc
+                            except Exception:
+                                pass
+                            conn.close()
+            except Exception:
+                pass
+
+            replays = []
             for f in sims_dir.iterdir():
-                if f.is_file() and '_fcd_' in f.name and f.name.endswith('.xml'):
-                    parts = f.name.split('_fcd_')
+                if f.is_file() and '_replay_' in f.name and f.name.endswith('.json'):
+                    parts = f.name.split('_replay_')
                     if len(parts) >= 2:
                         base_name = parts[0]
-                        timestamp = parts[1].replace('.xml', '')
-                        fcd_files.append({
-                            "name": f"{base_name}_{timestamp}",
+                        timestamp = parts[1].replace('.json', '')
+                        size_mb = f.stat().st_size / 1024 / 1024
+
+                        # Match by net_file stem == replay base_name
+                        display_name = netfile_to_desc.get(base_name, f"{base_name} ({timestamp})")
+
+                        replays.append({
+                            "name": display_name,
                             "base_name": base_name,
                             "filename": f.name,
-                            "path": str(f),
-                            "timestamp": timestamp
+                            "timestamp": timestamp,
+                            "size_mb": round(size_mb, 1)
                         })
 
             return JSONResponse(content={
-                "fcd_files": sorted(fcd_files, key=lambda x: x["timestamp"], reverse=True),
-                "count": len(fcd_files)
+                "replays": sorted(replays, key=lambda x: x["timestamp"], reverse=True),
+                "count": len(replays)
             })
         except Exception as e:
-            logger.error(f"Error listing FCD files: {e}")
-            return JSONResponse(content={"error": str(e), "fcd_files": []}, status_code=500)
+            logger.error(f"Error listing replay files: {e}")
+            return JSONResponse(content={"error": str(e), "replays": []}, status_code=500)
 
-    @app.get("/api/fcd/{fcd_filename}/parse")
-    async def parse_fcd_file(fcd_filename: str):
-        """
-        Parse FCD file and return timestep data for replay.
-
-        Args:
-            fcd_filename: FCD file name
-
-        Returns:
-            JSON with timesteps array containing vehicle positions
-        """
+    @app.get("/api/replay/{replay_filename}")
+    async def get_replay_data(replay_filename: str):
+        """Load replay file data for playback"""
+        import json as _json
         try:
-            fcd_file = find_simulation_file(fcd_filename)
-            if fcd_file is None:
+            replay_file = find_simulation_file(replay_filename)
+            if replay_file is None:
                 return JSONResponse(
-                    content={"error": f"FCD file not found: {fcd_filename}"},
+                    content={"error": f"Replay file not found: {replay_filename}"},
                     status_code=404
                 )
 
-            logger.info(f"Parsing FCD file: {fcd_file}")
+            logger.info(f"Loading replay: {replay_file.name} ({replay_file.stat().st_size / 1024 / 1024:.1f} MB)")
 
-            # Parse FCD XML
-            timesteps = []
-            tree = ET.iterparse(str(fcd_file), events=('end',))
+            with open(replay_file, 'r') as f:
+                data = _json.load(f)
 
-            for event, elem in tree:
-                if elem.tag == 'timestep':
-                    time_val = float(elem.get('time', 0))
-                    vehicles = []
-
-                    for vehicle in elem.findall('vehicle'):
-                        x_val = float(vehicle.get('x', 0))
-                        y_val = float(vehicle.get('y', 0))
-                        # With fcd-output.geo=true, x/y ARE lon/lat
-                        if 100 < x_val < 180 and 0 < y_val < 90:
-                            lon, lat = x_val, y_val
-                        else:
-                            lon, lat = None, None
-                        vehicles.append({
-                            "id": vehicle.get('id'),
-                            "x": x_val,
-                            "y": y_val,
-                            "lon": lon,
-                            "lat": lat,
-                            "angle": float(vehicle.get('angle', 0)),
-                            "speed": float(vehicle.get('speed', 0)),
-                            "type": vehicle.get('type', 'default')
-                        })
-
-                    if vehicles:
-                        timesteps.append({
-                            "time": time_val,
-                            "vehicles": vehicles
-                        })
-
-                    elem.clear()
-
-            logger.info(f"Parsed {len(timesteps)} timesteps from FCD file")
-
-            return JSONResponse(content={
-                "filename": fcd_filename,
-                "timesteps": timesteps,
-                "total_timesteps": len(timesteps)
-            })
+            return JSONResponse(content=data)
 
         except Exception as e:
-            logger.error(f"Error parsing FCD file: {e}")
+            logger.error(f"Error loading replay file: {e}")
             return JSONResponse(content={"error": str(e)}, status_code=500)
 
     @app.get("/api/tls/{tls_filename}/parse")
@@ -739,51 +1263,6 @@ def create_app() -> FastAPI:
             logger.error(f"Error getting traffic lights: {e}")
             return JSONResponse(content={"error": str(e)}, status_code=500)
 
-    @app.get("/api/fcd/{fcd_filename}/metadata")
-    async def get_fcd_metadata(fcd_filename: str):
-        """Get FCD file metadata without loading all data"""
-        try:
-            fcd_file = find_simulation_file(fcd_filename)
-            if fcd_file is None:
-                return JSONResponse(
-                    content={"error": f"FCD file not found: {fcd_filename}"},
-                    status_code=404
-                )
-
-            # Quick scan for metadata
-            timestep_count = 0
-            first_time = None
-            last_time = None
-            max_vehicles = 0
-
-            for event, elem in ET.iterparse(str(fcd_file), events=('end',)):
-                if elem.tag == 'timestep':
-                    time_val = float(elem.get('time', 0))
-                    vehicle_count = len(elem.findall('vehicle'))
-
-                    if first_time is None:
-                        first_time = time_val
-                    last_time = time_val
-
-                    if vehicle_count > max_vehicles:
-                        max_vehicles = vehicle_count
-
-                    timestep_count += 1
-                    elem.clear()
-
-            return JSONResponse(content={
-                "filename": fcd_filename,
-                "total_timesteps": timestep_count,
-                "start_time": first_time,
-                "end_time": last_time,
-                "duration": last_time - first_time if first_time and last_time else 0,
-                "max_vehicles": max_vehicles
-            })
-
-        except Exception as e:
-            logger.error(f"Error getting FCD metadata: {e}")
-            return JSONResponse(content={"error": str(e)}, status_code=500)
-
     # ============================================
     # SUMO GUI API
     # ============================================
@@ -814,6 +1293,106 @@ def create_app() -> FastAPI:
         except Exception as e:
             logger.error(f"Error listing SUMO config files: {e}")
             return JSONResponse(content={"error": str(e), "configs": []}, status_code=500)
+
+    @app.post("/api/clean")
+    async def clean_output():
+        """Clean output directory (same logic as clean.py)"""
+        try:
+            output_dir = get_output_dir()
+            if output_dir is None:
+                return JSONResponse(content={"message": "No output directory", "deleted": 0})
+
+            preserve_files = {"vehicle_types.add.xml"}
+            clean_folders = ["networks", "trips", "simulations", "analysis", "reports", "visualizations"]
+
+            deleted_count = 0
+            preserved_count = 0
+
+            for folder_name in clean_folders:
+                folder = output_dir / folder_name
+                if not folder.exists():
+                    continue
+
+                for entry in folder.iterdir():
+                    if entry.name in preserve_files:
+                        preserved_count += 1
+                    elif entry.is_file():
+                        entry.unlink()
+                        deleted_count += 1
+                    elif entry.is_dir():
+                        import shutil
+                        shutil.rmtree(entry)
+                        deleted_count += 1
+
+            # Also delete state file
+            if output_dir:
+                state_file = output_dir / ".agentsumo_state.json"
+                if state_file.exists():
+                    state_file.unlink()
+                    deleted_count += 1
+
+            logger.info(f"Clean output: {deleted_count} deleted, {preserved_count} preserved")
+
+            return JSONResponse(content={
+                "status": "success",
+                "deleted": deleted_count,
+                "preserved": preserved_count,
+                "message": f"{deleted_count} files deleted, {preserved_count} preserved"
+            })
+        except Exception as e:
+            logger.error(f"Error cleaning output: {e}")
+            return JSONResponse(content={"error": str(e)}, status_code=500)
+
+    @app.post("/api/reset-session")
+    async def reset_session():
+        """Reset entire session: clean output files + recreate AgentSUMO instance"""
+        global _agent
+        try:
+            # 1. Close existing agent (MCP connections)
+            async with _agent_lock:
+                if _agent:
+                    await _agent.close()
+                    _agent = None
+
+            # 2. Clean output files
+            output_dir = get_output_dir()
+            deleted_count = 0
+            if output_dir:
+                preserve_files = {"vehicle_types.add.xml"}
+                clean_folders = ["networks", "trips", "simulations", "analysis", "reports", "visualizations"]
+                for folder_name in clean_folders:
+                    folder = output_dir / folder_name
+                    if not folder.exists():
+                        continue
+                    for entry in folder.iterdir():
+                        if entry.name in preserve_files:
+                            continue
+                        elif entry.is_file():
+                            entry.unlink()
+                            deleted_count += 1
+                        elif entry.is_dir():
+                            import shutil
+                            shutil.rmtree(entry)
+                            deleted_count += 1
+
+            # 3. Delete state file
+            if output_dir:
+                state_file = output_dir / ".agentsumo_state.json"
+                if state_file.exists():
+                    state_file.unlink()
+                    logger.info("State file deleted")
+
+            # 4. Recreate agent (will be lazy-created on next get_agent() call)
+            logger.info(f"Session reset: {deleted_count} files deleted, agent will be recreated on next request")
+
+            return JSONResponse(content={
+                "status": "success",
+                "deleted": deleted_count,
+                "message": f"Session reset. {deleted_count} files deleted."
+            })
+        except Exception as e:
+            logger.error(f"Error resetting session: {e}")
+            return JSONResponse(content={"error": str(e)}, status_code=500)
 
     @app.post("/api/sumo-gui/open")
     async def open_sumo_gui(config_path: str = None, config_name: str = None):
@@ -910,101 +1489,6 @@ def create_app() -> FastAPI:
             return JSONResponse(content={"error": str(e)}, status_code=500)
 
     # ============================================
-    # WebSocket for Simulation Replay
-    # ============================================
-
-    # Store for active replay sessions
-    _replay_websockets = set()
-    _replay_tasks = {}
-
-    @app.websocket("/ws/simulation")
-    async def websocket_simulation(websocket: WebSocket):
-        """WebSocket endpoint for simulation replay streaming"""
-        await websocket.accept()
-        _replay_websockets.add(websocket)
-        logger.info("Replay WebSocket connected")
-
-        try:
-            while True:
-                data = await websocket.receive_json()
-                msg_type = data.get("type", "")
-
-                if msg_type == "ping":
-                    await websocket.send_json({"type": "pong"})
-
-                elif msg_type == "start_replay":
-                    # Start replay with provided timesteps data
-                    timesteps = data.get("timesteps", [])
-                    speed = data.get("speed", 1.0)  # Playback speed multiplier
-
-                    if timesteps:
-                        # Cancel any existing replay
-                        if websocket in _replay_tasks:
-                            _replay_tasks[websocket].cancel()
-
-                        # Start new replay task
-                        task = asyncio.create_task(
-                            _run_replay(websocket, timesteps, speed)
-                        )
-                        _replay_tasks[websocket] = task
-
-                elif msg_type == "stop_replay":
-                    if websocket in _replay_tasks:
-                        _replay_tasks[websocket].cancel()
-                        del _replay_tasks[websocket]
-                    await websocket.send_json({"type": "replay_stopped"})
-
-                elif msg_type == "set_speed":
-                    # Update replay speed (will be handled in next timestep)
-                    pass
-
-        except WebSocketDisconnect:
-            logger.info("Replay WebSocket disconnected")
-        except Exception as e:
-            logger.error(f"Replay WebSocket error: {e}")
-        finally:
-            _replay_websockets.discard(websocket)
-            if websocket in _replay_tasks:
-                _replay_tasks[websocket].cancel()
-                del _replay_tasks[websocket]
-
-    async def _run_replay(websocket: WebSocket, timesteps: list, speed: float = 1.0):
-        """Run replay streaming for a websocket connection"""
-        try:
-            await websocket.send_json({"type": "replay_started", "total_timesteps": len(timesteps)})
-
-            prev_time = None
-            for i, timestep in enumerate(timesteps):
-                current_time = timestep["time"]
-
-                # Calculate delay based on simulation time difference
-                if prev_time is not None and speed > 0:
-                    delay = (current_time - prev_time) / speed
-                    if delay > 0:
-                        await asyncio.sleep(delay)
-
-                prev_time = current_time
-
-                # Send vehicle positions
-                await websocket.send_json({
-                    "type": "vehicles",
-                    "data": {
-                        "time": current_time,
-                        "step": i + 1,
-                        "total_steps": len(timesteps),
-                        "vehicles": timestep["vehicles"]
-                    }
-                })
-
-            await websocket.send_json({"type": "replay_ended"})
-
-        except asyncio.CancelledError:
-            logger.info("Replay cancelled")
-        except Exception as e:
-            logger.error(f"Replay error: {e}")
-            await websocket.send_json({"type": "replay_error", "error": str(e)})
-
-    # ============================================
     # WebSocket for Chat
     # ============================================
 
@@ -1017,27 +1501,41 @@ def create_app() -> FastAPI:
         try:
             agent = await get_agent()
 
-            # Set up progress callback for real-time tool updates (async)
+            # Set up progress callback — writes to file for polling
+            _progress_file = Path(get_output_dir() or "/tmp") / ".tool_progress.json"
+
             async def progress_callback(tool_name: str, status: str, message: str = None):
-                """Send progress updates via WebSocket"""
-                logger.info(f"📡 Progress callback: {tool_name} - {status}")
+                """Write progress to file for frontend polling"""
+                logger.info(f"📡 Progress: {tool_name} - {status}")
                 try:
                     if tool_name == "__intermediate_text__":
-                        await websocket.send_json({
-                            "type": "intermediate",
-                            "data": message
-                        })
-                    else:
-                        await websocket.send_json({
-                            "type": "progress",
-                            "data": {
-                                "tool": tool_name,
-                                "status": status,
-                                "message": message or f"{tool_name}: {status}"
-                            }
-                        })
+                        # Send intermediate text directly via WS (best-effort)
+                        try:
+                            await websocket.send_json({"type": "intermediate", "data": message})
+                        except Exception:
+                            pass
+                        return
+
+                    # Read current progress state
+                    tools = []
+                    if _progress_file.exists():
+                        try:
+                            tools = json.loads(_progress_file.read_text()).get("tools", [])
+                        except Exception:
+                            tools = []
+
+                    if status == "started":
+                        tools.append({"tool": tool_name, "status": "started"})
+                    elif status in ("completed", "error"):
+                        # Update latest matching tool
+                        for t in reversed(tools):
+                            if t["tool"] == tool_name and t["status"] == "started":
+                                t["status"] = status
+                                break
+
+                    _progress_file.write_text(json.dumps({"tools": tools}))
                 except Exception as e:
-                    logger.warning(f"Failed to send progress: {e}")
+                    logger.warning(f"Failed to write progress: {e}")
 
             agent.set_progress_callback(progress_callback)
 
@@ -1087,6 +1585,11 @@ def create_app() -> FastAPI:
                         })
 
                     finally:
+                        # Clean up tool progress file
+                        try:
+                            _progress_file.unlink(missing_ok=True)
+                        except Exception:
+                            pass
                         await websocket.send_json({
                             "type": "thinking",
                             "data": False

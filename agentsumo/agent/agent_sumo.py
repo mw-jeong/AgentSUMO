@@ -162,11 +162,14 @@ class AgentSUMO:
 
         logger.info("🚀 AgentSUMO 시작...")
 
+        # 0. Restore state from previous session (B: JSON → A: file scan)
+        self._restore_state()
+
         # 1. SUMO MCP 연결 (enable_sumo_mcp=True일 때만)
         sumo_tools = []
         if self._enable_sumo_mcp:
             logger.info("SUMO MCP Server 연결 중...")
-            self.mcp_clients["sumo"] = SUMOMCPClient()
+            self.mcp_clients["sumo"] = SUMOMCPClient(tool_timeout=86400.0)
             await self.mcp_clients["sumo"].__aenter__()
 
             sumo_tools = await self.mcp_clients["sumo"].list_tools()
@@ -178,8 +181,13 @@ class AgentSUMO:
         sqlite_tools = []
 
         if self._enable_sqlite_mcp is not False:
-            # enable_sqlite_mcp=None (기본값): db_path 존재 시 자동 활성화
-            # enable_sqlite_mcp=True: 명시적 활성화
+            # Use restored state's current_db if available
+            if db_path is None and self.simulation_state.get("current_db"):
+                restored_db = self.simulation_state["current_db"]
+                if PathlibPath(restored_db).exists() and PathlibPath(restored_db).stat().st_size > 0:
+                    db_path = restored_db
+                    logger.info(f"📊 State에서 DB 경로 복원: {PathlibPath(restored_db).name}")
+
             if db_path is None and self._enable_sqlite_mcp is not True:
                 # 기본 경로에서 DB 파일 자동 탐색
                 try:
@@ -188,7 +196,7 @@ class AgentSUMO:
                     analysis_dir = get_output_path("output/analysis")
 
                     if analysis_dir.exists():
-                        db_files = list(analysis_dir.glob("*.db"))
+                        db_files = [f for f in analysis_dir.glob("*.db") if f.stat().st_size > 0]
 
                         if db_files:
                             latest_db = max(db_files, key=lambda p: p.stat().st_mtime)
@@ -202,7 +210,7 @@ class AgentSUMO:
                 except Exception as e:
                     logger.warning(f"⚠️ SQLite MCP 자동 탐색 실패: {e}. 계속 진행합니다.")
 
-            if db_path and PathlibPath(db_path).exists():
+            if db_path and PathlibPath(db_path).exists() and PathlibPath(db_path).stat().st_size > 0:
                 try:
                     from agentsumo.client.sqlite_mcp_client import SQLiteMCPClient
 
@@ -715,7 +723,7 @@ class AgentSUMO:
                 db_file = result_dict.get("db_file")
                 simulation_id = result_dict.get("simulation_id")
                 metadata = result_dict.get("metadata", {})
-                
+
                 self.simulation_state["current_db"] = db_file
                 
                 # 시뮬레이션 목록 업데이트
@@ -736,7 +744,115 @@ class AgentSUMO:
         
         except Exception as e:
             logger.debug(f"상태 업데이트 실패 (무시): {e}")
-    
+
+        # B: Save state to disk after every update
+        self._save_state()
+
+    # ============================================
+    # State Persistence (B: JSON save/load)
+    # ============================================
+
+    def _get_state_file_path(self):
+        """Get path to state persistence file"""
+        from agentsumo.server.utils.path_utils import get_output_path
+        return get_output_path("output") / ".agentsumo_state.json"
+
+    def _save_state(self):
+        """Save simulation_state to disk (called after every _update_state)"""
+        try:
+            state_file = self._get_state_file_path()
+            state_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(state_file, 'w') as f:
+                json.dump(self.simulation_state, f, indent=2, default=str)
+            logger.debug(f"State saved to {state_file}")
+        except Exception as e:
+            logger.debug(f"State save failed (non-critical): {e}")
+
+    def _restore_state(self):
+        """
+        Restore simulation_state on startup.
+        Priority: B (JSON file) → A (file scan fallback) → empty state
+        """
+        # B: Try loading from JSON file
+        try:
+            state_file = self._get_state_file_path()
+            if state_file.exists() and state_file.stat().st_size > 0:
+                with open(state_file, 'r') as f:
+                    saved = json.load(f)
+
+                # Validate: check that referenced files still exist
+                from pathlib import Path as P
+                valid = True
+                for key in ["current_network", "baseline_network", "current_routes", "current_db"]:
+                    path = saved.get(key)
+                    if path and not P(path).exists():
+                        logger.warning(f"State restore: {key}={path} no longer exists, discarding")
+                        saved[key] = None
+                        valid = False
+
+                self.simulation_state.update(saved)
+                logger.info(f"✅ State restored from {state_file.name}")
+                if self.simulation_state.get("current_network"):
+                    logger.info(f"   Network: {self.simulation_state['current_network']}")
+                if self.simulation_state.get("current_db"):
+                    logger.info(f"   DB: {self.simulation_state['current_db']}")
+                return
+        except Exception as e:
+            logger.debug(f"State JSON restore failed: {e}")
+
+        # A: Fallback — scan output directories
+        logger.info("State JSON not found, scanning output files...")
+        try:
+            from agentsumo.server.utils.path_utils import get_output_path
+            from pathlib import Path as P
+
+            # Scan networks
+            networks_dir = get_output_path("output/networks")
+            if networks_dir.exists():
+                net_files = sorted(networks_dir.glob("*.net.xml"), key=lambda p: p.stat().st_mtime)
+                if net_files:
+                    # Oldest = baseline, newest = current
+                    self.simulation_state["baseline_network"] = str(net_files[0])
+                    self.simulation_state["current_network"] = str(net_files[-1])
+                    logger.info(f"   Found network: {net_files[-1].name}")
+
+            # Scan routes
+            trips_dir = get_output_path("output/trips")
+            if trips_dir.exists():
+                rou_files = sorted(trips_dir.glob("*.rou.xml"), key=lambda p: p.stat().st_mtime)
+                if rou_files:
+                    self.simulation_state["current_routes"] = str(rou_files[-1])
+                    logger.info(f"   Found routes: {rou_files[-1].name}")
+
+            # Scan simulations (last_results)
+            sims_dir = get_output_path("output/simulations")
+            if sims_dir.exists():
+                tripinfo_files = sorted(sims_dir.glob("*_tripinfo_*.xml"), key=lambda p: p.stat().st_mtime)
+                if tripinfo_files:
+                    latest = tripinfo_files[-1]
+                    base = latest.name.replace("_tripinfo_", "_netstate_").replace("_tripinfo_", "_netstate_")
+                    # Try to find matching edgedata files
+                    results = [str(latest)]
+                    netstate = sims_dir / latest.name.replace("_tripinfo_", "_netstate_")
+                    emission = sims_dir / latest.name.replace("_tripinfo_", "_netstate_emission_")
+                    if netstate.exists():
+                        results.append(str(netstate))
+                    if emission.exists():
+                        results.append(str(emission))
+                    self.simulation_state["last_results"] = results
+                    logger.info(f"   Found simulation results: {latest.name}")
+
+            # DB is already auto-detected in start() — skip here
+
+            if self.simulation_state.get("current_network"):
+                logger.info("✅ State recovered from file scan")
+                self._save_state()  # Save the recovered state
+            else:
+                logger.info("   No existing files found, starting fresh")
+
+        except Exception as e:
+            logger.debug(f"File scan fallback failed: {e}")
+
     def _debug_print_response(self, response):
         """
         Debug 모드: Claude raw response 출력
@@ -827,19 +943,13 @@ class AgentSUMO:
     
     async def _check_and_enable_sqlite_if_needed(self):
         """
-        SQLite MCP 첫 활성화
-        
-        xml_to_sqlite_tool로 DB 생성 후, 다음 chat()에서 자동으로 활성화.
-        
-        IMPORTANT: 재연결은 하지 않음! 한 세션 = 한 DB
-        - 같은 지역 여러 정책 → 같은 DB에 누적 (재연결 불필요)
-        - 다른 지역 → 새 세션 시작 (재시작 필요)
+        SQLite MCP 활성화 — DB가 존재하고 MCP가 미연결이면 연결
         """
         current_db = self.simulation_state.get("current_db")
-        sqlite_enabled = self.simulation_state.get("sqlite_enabled", False)
-        
-        # 이미 활성화됐으면 즉시 skip (성능 최적화)
-        if sqlite_enabled:
+
+        # Already connected? Skip.
+        if self.mcp_clients.get("sqlite") and self.mcp_clients["sqlite"].is_connected:
+            self.simulation_state["sqlite_enabled"] = True
             return
         
         # DB 있고, 아직 활성화 안 됐으면 → 첫 활성화!
@@ -875,12 +985,20 @@ class AgentSUMO:
         self.conversation_history = []
         self.simulation_state = {
             "current_network": None,
-            "baseline_network": None,     # 원본 네트워크 (정책 비교용)
+            "baseline_network": None,
             "current_routes": None,
             "last_results": None,
             "current_db": None,
             "sqlite_enabled": False,
             "simulations": []
         }
+        # Delete saved state file
+        try:
+            state_file = self._get_state_file_path()
+            if state_file.exists():
+                state_file.unlink()
+                logger.info("State file deleted")
+        except Exception:
+            pass
         logger.info("전체 상태 리셋")
 

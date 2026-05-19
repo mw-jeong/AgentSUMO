@@ -636,16 +636,24 @@ def xml_to_sqlite_tool(
         edgedata_xml: Path to edgedata XML file
         edgedata_emission_xml: Path to edgedata emission XML file
         output_dir: Output directory for database (default: output/analysis)
-        simulation_id: Unique ID for this simulation (auto-generated if None)
+        simulation_id: REQUIRED — NEVER leave as None!
+            Format: "{N}_{scenario_name}" where N is the sequential number.
+            - Check current simulations in context to determine N.
+            - Use short, descriptive English names.
+            - Examples: "1_baseline", "2_road_closure_teheran", "3_lane_reduction_gangnam",
+              "4_tls_optimize_seocho", "5_speed_limit_gangnam"
         net_file: Path to network (.net.xml) file used in this simulation
         route_file: Path to route (.rou.xml) file used in this simulation
-        description: Human-readable description of this simulation.
+        description: REQUIRED — NEVER leave as None!
+            Human-readable English description of the scenario.
+            Displayed in the UI for scenario comparison.
+            Always describe WHAT was changed and WHERE.
             Examples:
-            - "Baseline simulation"
-            - "7th Avenue between 42nd and 43rd removed"
-            - "Broadway speed limit reduced to 30km/h"
-            - "5th Avenue lanes reduced from 3 to 2"
-            - "Signal timing optimized at 42nd & Broadway"
+            - "Baseline simulation (Gangnam Station 1km)"
+            - "Road closure on Teheran-ro near Gangnam Station (500m)"
+            - "Lane reduction on Gangnam-daero (3 to 2 lanes)"
+            - "Signal timing optimization at Seocho-daero intersection"
+            - "Speed limit reduced to 30km/h on Teheran-ro"
 
     Returns:
         Dict with db_file, simulation_id, and metadata
@@ -655,10 +663,15 @@ def xml_to_sqlite_tool(
             tripinfo_xml="gangnam_tripinfo.xml",
             edgedata_xml="gangnam_edgedata.xml",
             edgedata_emission_xml="gangnam_emission.xml",
-            simulation_id="baseline",
-            description="Baseline simulation"
+            simulation_id="1_baseline",
+            description="Baseline simulation (Gangnam Station 1km)"
         )
-        → DB: gangnam_station_analysis.db (simulation_id: baseline)
+
+        xml_to_sqlite_tool(
+            ...,
+            simulation_id="2_road_closure_teheran",
+            description="Road closure on Teheran-ro near Gangnam Station (7 segments)"
+        )
     """
     from agentsumo.server.analysis.xml_to_sqlite import XMLToSQLiteConverter, extract_tag_from_xml
     from agentsumo.server.utils.path_utils import get_output_path
@@ -691,120 +704,376 @@ def xml_to_sqlite_tool(
 @mcp.tool()
 def db_based_simulation_report_tool(
     db_path: str,
-    simulation_id: str = None,
+    executive_summary: str = "",
     output_dir: str = "output/reports"
 ):
     """
-    Generate HTML simulation report from SQLite database using Jinja2.
+    Generate a comprehensive HTML simulation analysis report from SQLite database.
 
-    Fast, offline report generation without API calls.
-    Includes charts, bottleneck analysis, and traffic insights.
+    This is the FINAL deliverable of a simulation analysis session.
+    It summarizes ALL scenarios in the database with KPIs, comparisons, congestion analysis, and emissions.
+
+    The report is a standalone dark-themed HTML file that can be:
+    - Viewed in the web interface (click from file tree)
+    - Opened in any browser
+    - Shared as a file
+
+    IMPORTANT — Before calling this tool:
+    1. Query the database (read_query) to understand the simulation results
+    2. Write an executive_summary (1-2 paragraphs, English, professional tone) that covers:
+       - Context: what area was studied and what problem was investigated
+       - Key findings: most significant results from scenario comparison
+       - Risks/concerns: any metrics that worsened or areas of concern
+       - Recommendation: what action should urban stakeholders take based on the analysis
+       Focus on insights useful for urban decision-makers (policymakers, planners, city officials).
+       Do NOT list raw numbers — interpret them.
 
     Args:
         db_path: Path to SQLite database file
-        simulation_id: Optional simulation ID to analyze (default: latest)
+        executive_summary: LLM-generated executive summary for urban stakeholders (English, 1-2 paragraphs)
         output_dir: Output directory for report files
 
     Returns:
         Dict with report_file path and metadata
     """
-    import sqlite3
+    import sqlite3 as sqlite3_mod
     import datetime
     from pathlib import Path
-    from jinja2 import Environment, FileSystemLoader
+    import sumolib
     from agentsumo.server.utils.path_utils import get_output_path
 
     try:
-        # Connect to database
-        conn = sqlite3.connect(db_path)
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
+        conn = sqlite3_mod.connect(db_path)
+        conn.row_factory = sqlite3_mod.Row
 
-        # Get simulation info
-        if simulation_id:
-            cursor.execute("SELECT * FROM simulations WHERE simulation_id = ?", (simulation_id,))
-        else:
-            cursor.execute("SELECT * FROM simulations ORDER BY created_at DESC LIMIT 1")
+        # Get all scenarios (skip auto-generated ones)
+        sims = conn.execute(
+            "SELECT simulation_id, description, vehicle_count, net_file, created_at FROM simulations WHERE description IS NOT NULL ORDER BY created_at"
+        ).fetchall()
 
-        sim_row = cursor.fetchone()
-        if not sim_row:
+        if not sims:
             conn.close()
-            return {"status": "error", "message": "No simulation found in database"}
+            return {"status": "error", "message": "No simulations with descriptions found in database"}
 
-        sim_id = sim_row["simulation_id"]
+        # Get network info from first simulation
+        net_file = sims[0]['net_file']
+        net_name = Path(net_file).stem.replace('.net', '').replace('_', ' ').title() if net_file else 'Unknown'
 
-        # Query trip statistics
-        cursor.execute("""
-            SELECT
-                COUNT(*) as total_trips,
-                COALESCE(AVG(duration), 0) as avg_duration,
-                COALESCE(AVG(waitingTime), 0) as avg_waiting_time,
-                COALESCE(AVG(timeLoss), 0) as avg_time_loss,
-                COALESCE(AVG(CO2_abs), 0) as avg_co2,
-                COALESCE(SUM(CO2_abs), 0) as total_co2,
-                COALESCE(AVG(fuel_abs), 0) as avg_fuel,
-                COALESCE(SUM(fuel_abs), 0) as total_fuel
-            FROM trips WHERE simulation_id = ?
-        """, (sim_id,))
-        trip_stats = dict(cursor.fetchone())
+        # Network stats via sumolib
+        net_edges = 0
+        net_junctions = 0
+        svg_lines = ""
+        try:
+            net = sumolib.net.readNet(net_file)
+            edges = net.getEdges()
+            net_edges = len(edges)
+            net_junctions = len(net.getNodes())
 
-        # Query edge statistics
-        cursor.execute("""
-            SELECT
-                COUNT(DISTINCT edge_id) as total_edges,
-                COALESCE(AVG(speed), 0) as avg_speed,
-                COALESCE(AVG(density), 0) as avg_density,
-                COALESCE(MAX(density), 0) as max_density
-            FROM edge_metrics WHERE simulation_id = ?
-        """, (sim_id,))
-        edge_stats = dict(cursor.fetchone())
+            # Generate SVG network visualization
+            all_x, all_y = [], []
+            for e in edges:
+                for x, y in e.getShape():
+                    all_x.append(x); all_y.append(y)
 
-        # Get worst edges (bottlenecks)
-        cursor.execute("""
-            SELECT edge_id,
-                   COALESCE(AVG(waitingTime), 0) as avg_wait,
-                   COALESCE(AVG(density), 0) as avg_density
-            FROM edge_metrics WHERE simulation_id = ?
-            GROUP BY edge_id
-            ORDER BY avg_wait DESC
-            LIMIT 5
-        """, (sim_id,))
-        bottlenecks = [dict(row) for row in cursor.fetchall()]
+            if all_x:
+                svg_w, svg_h = 600, 350
+                x_min, x_max = min(all_x), max(all_x)
+                y_min, y_max = min(all_y), max(all_y)
+                x_range = x_max - x_min or 1
+                y_range = y_max - y_min or 1
+                scale = min(svg_w / x_range, svg_h / y_range) * 0.92
+                ox = (svg_w - x_range * scale) / 2
+                oy = (svg_h - y_range * scale) / 2
+
+                svg_paths = []
+                for e in edges:
+                    if e.getLength() < 3:
+                        continue
+                    shape = e.getShape()
+                    points = []
+                    for x, y in shape:
+                        sx = (x - x_min) * scale + ox
+                        sy = svg_h - ((y - y_min) * scale + oy)
+                        points.append(f"{sx:.1f},{sy:.1f}")
+                    if len(points) >= 2:
+                        svg_paths.append(f'<polyline points="{" ".join(points)}" fill="none" stroke="#5b8c00" stroke-width="1.2" stroke-opacity="0.6"/>')
+                svg_lines = "\n".join(svg_paths)
+        except Exception as e:
+            logger.warning(f"Network SVG generation failed: {e}")
+
+        # Per-scenario KPI data
+        scenarios = []
+        for sim in sims:
+            sid = sim['simulation_id']
+            r = conn.execute("""
+                SELECT COUNT(*) as trips, AVG(duration) as dur, AVG(waitingTime) as wait,
+                       AVG(timeLoss) as tl, AVG(routeLength) as rlen,
+                       SUM(CO2_abs)/1e6 as co2_kg, SUM(fuel_abs)/1e6 as fuel_L,
+                       SUM(NOx_abs)/1e3 as nox_g, SUM(PMx_abs)/1e3 as pm_g
+                FROM trips WHERE simulation_id=?
+            """, (sid,)).fetchone()
+
+            spd = conn.execute(
+                "SELECT AVG(speed) as s FROM edge_metrics WHERE simulation_id=? AND speed > 0", (sid,)
+            ).fetchone()
+
+            # Duration distribution
+            dist = []
+            for label, lo, hi in [("<1 min",0,60),("1-3 min",60,180),("3-5 min",180,300),("5-10 min",300,600),("10+ min",600,999999)]:
+                cnt = conn.execute("SELECT COUNT(*) FROM trips WHERE simulation_id=? AND duration>=? AND duration<?", (sid, lo, hi)).fetchone()[0]
+                dist.append({"bucket": label, "count": cnt})
+
+            scenarios.append({
+                "id": sid,
+                "desc": sim['description'],
+                "vehicles": sim['vehicle_count'],
+                "created": sim['created_at'][:16],
+                "trips": r['trips'],
+                "avg_duration": r['dur'],
+                "avg_wait": r['wait'],
+                "avg_timeloss": r['tl'],
+                "avg_speed_kmh": round((spd['s'] or 0) * 3.6, 1),
+                "co2_kg": round(r['co2_kg'] or 0, 1),
+                "fuel_L": round(r['fuel_L'] or 0, 2),
+                "nox_g": round(r['nox_g'] or 0, 1),
+                "pm_g": round(r['pm_g'] or 0, 2),
+                "duration_dist": dist
+            })
+
+        # Congestion analysis (from first scenario — baseline)
+        base_sid = sims[0]['simulation_id']
+        congested = []
+        try:
+            net_for_names = sumolib.net.readNet(net_file)
+            rows = conn.execute("""
+                SELECT edge_id, AVG(density) as d, AVG(speed) as s, AVG(waitingTime) as w
+                FROM edge_metrics WHERE simulation_id=? AND density > 0 GROUP BY edge_id
+            """, (base_sid,)).fetchall()
+
+            road_data = {}
+            for r in rows:
+                try:
+                    edge = net_for_names.getEdge(r['edge_id'])
+                    if edge.getLength() < 5:
+                        continue
+                    name = edge.getName()
+                    if not name:
+                        continue
+                    length = edge.getLength()
+                except Exception:
+                    continue
+                if name not in road_data:
+                    road_data[name] = {"sd": 0, "ss": 0, "sw": 0, "tl": 0}
+                rd = road_data[name]
+                rd["sd"] += r['d'] * length
+                rd["ss"] += r['s'] * length
+                rd["sw"] += r['w'] * length
+                rd["tl"] += length
+
+            for name, rd in sorted(road_data.items(), key=lambda x: x[1]["sd"]/x[1]["tl"] if x[1]["tl"] else 0, reverse=True)[:5]:
+                if rd["tl"] == 0:
+                    continue
+                congested.append({
+                    "name": name,
+                    "density": round(rd["sd"] / rd["tl"], 1),
+                    "speed_kmh": round(rd["ss"] / rd["tl"] * 3.6, 1),
+                    "wait_min": round(rd["sw"] / rd["tl"] / 60, 1)
+                })
+        except Exception:
+            pass
 
         conn.close()
 
-        # Setup Jinja2
-        template_dir = Path(__file__).parent.parent.parent / "web" / "templates"
-        env = Environment(loader=FileSystemLoader(template_dir))
-        template = env.get_template("simulation_report.html")
+        # Helper functions for formatting
+        def fmt_time(s):
+            if s is None: return "—"
+            if s < 60: return f"{s:.1f}s"
+            return f"{s/60:.1f} min"
 
-        # Render HTML
-        html_content = template.render(
-            simulation={
-                "simulation_id": sim_id,
-                "policy_type": sim_row["description"],
-                "vehicle_count": sim_row["vehicle_count"],
-                "created_at": sim_row["created_at"]
-            },
-            trips=trip_stats,
-            edges=edge_stats,
-            bottlenecks=bottlenecks,
-            generated_at=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        )
+        def fmt_num(n):
+            if n is None: return "—"
+            return f"{n:,.1f}"
+
+        def diff_pct(a, b):
+            if not a or a == 0: return "—"
+            pct = (b - a) / abs(a) * 100
+            sign = "+" if pct > 0 else ""
+            return f"{sign}{pct:.0f}%"
+
+        # Build HTML
+        base = scenarios[0]
+        has_compare = len(scenarios) > 1
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+
+        # KPI comparison table rows
+        kpi_rows = ""
+        metrics = [
+            ("Avg Trip Duration", "avg_duration", True, fmt_time),
+            ("Avg Waiting Time", "avg_wait", True, fmt_time),
+            ("Avg Time Loss", "avg_timeloss", True, fmt_time),
+            ("Avg Speed", "avg_speed_kmh", False, lambda v: f"{v:.1f} km/h"),
+            ("Total CO₂", "co2_kg", True, lambda v: f"{v:,.1f} kg"),
+            ("Total Fuel", "fuel_L", True, lambda v: f"{v:,.2f} L"),
+            ("Total NOx", "nox_g", True, lambda v: f"{v:,.1f} g"),
+            ("Completed Trips", "trips", False, lambda v: f"{v:,}"),
+        ]
+
+        for label, key, higher_bad, formatter in metrics:
+            row = f"<tr><td style='color:#8aa69c;'>{label}</td>"
+            vals = [s[key] for s in scenarios]
+            for i, v in enumerate(vals):
+                row += f"<td style='text-align:right;'>{formatter(v)}</td>"
+            if has_compare:
+                d = diff_pct(vals[0], vals[-1])
+                color = "#ff5a5a" if ("+" in d and higher_bad) or ("-" in d and not higher_bad) else "#2166ac" if d != "—" else "#556e66"
+                row += f"<td style='text-align:right; color:{color}; font-weight:600;'>{d}</td>"
+            row += "</tr>"
+            kpi_rows += row
+
+        # Scenario headers
+        scenario_headers = "".join(f"<th style='text-align:right;'>{s['id']}</th>" for s in scenarios)
+        if has_compare:
+            scenario_headers += "<th style='text-align:right;'>Change</th>"
+
+        # Duration distribution bars
+        dist_html = ""
+        max_count = max(d["count"] for s in scenarios for d in s["duration_dist"]) or 1
+        for i, bucket_info in enumerate(base["duration_dist"]):
+            bucket = bucket_info["bucket"]
+            dist_html += f"<div style='display:flex; align-items:center; margin-bottom:4px; gap:8px;'>"
+            dist_html += f"<span style='width:60px; text-align:right; font-size:12px; color:#8aa69c;'>{bucket}</span>"
+            dist_html += f"<div style='flex:1; display:flex; flex-direction:column; gap:2px;'>"
+            for j, s in enumerate(scenarios):
+                cnt = s["duration_dist"][i]["count"]
+                pct = cnt / max_count * 100
+                color = "#5b8c00" if j == 0 else "#ffb84d"
+                dist_html += f"<div style='height:8px; background:{color}; width:{pct}%; border-radius:3px; opacity:0.7;'></div>"
+            dist_html += "</div>"
+            dist_html += f"<span style='width:30px; font-size:11px; color:#556e66; text-align:right;'>{base['duration_dist'][i]['count']}</span>"
+            dist_html += "</div>"
+
+        # Legend for distribution
+        dist_legend = ""
+        if has_compare:
+            dist_legend = "<div style='display:flex; gap:16px; justify-content:center; margin-top:8px; font-size:11px; color:#556e66;'>"
+            dist_legend += "<span><span style='display:inline-block;width:10px;height:10px;background:#5b8c00;border-radius:2px;margin-right:4px;'></span>Base</span>"
+            dist_legend += "<span><span style='display:inline-block;width:10px;height:10px;background:#ffb84d;border-radius:2px;margin-right:4px;'></span>Compare</span>"
+            dist_legend += "</div>"
+
+        # Congestion table
+        congestion_rows = ""
+        for i, c in enumerate(congested):
+            congestion_rows += f"<tr><td style='color:#556e66; font-weight:600;'>{i+1}</td><td>{c['name']}</td><td style='text-align:right;'>{c['density']}</td><td style='text-align:right;'>{c['speed_kmh']} km/h</td><td style='text-align:right;'>{c['wait_min']} min</td></tr>"
+
+        # Scenario list
+        scenario_list = ""
+        for s in scenarios:
+            scenario_list += f"""
+            <div style="background:rgba(0,0,0,0.15); border:1px solid rgba(91,140,0,0.12); border-radius:8px; padding:12px; margin-bottom:8px;">
+                <div style="font-weight:500; color:#dce8e3; margin-bottom:4px;">{s['id']}</div>
+                <div style="font-size:13px; color:#8aa69c;">{s['desc']}</div>
+                <div style="font-size:11px; color:#556e66; margin-top:4px;">{s['vehicles']} vehicles · {s['created']}</div>
+            </div>"""
+
+        # Emission comparison
+        emission_rows = ""
+        emission_metrics = [("CO₂", "co2_kg", "kg"), ("Fuel", "fuel_L", "L"), ("NOx", "nox_g", "g"), ("PM", "pm_g", "g")]
+        for label, key, unit in emission_metrics:
+            row = f"<tr><td style='color:#8aa69c;'>{label}</td>"
+            for s in scenarios:
+                row += f"<td style='text-align:right;'>{s[key]:,.1f} {unit}</td>"
+            if has_compare:
+                d = diff_pct(scenarios[0][key], scenarios[-1][key])
+                color = "#2166ac" if "-" in d else "#ff5a5a" if "+" in d else "#556e66"
+                row += f"<td style='text-align:right; color:{color}; font-weight:600;'>{d}</td>"
+            row += "</tr>"
+            emission_rows += row
+
+        # Assemble HTML
+        html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentSUMO Analysis Report</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"/>
+<style>
+  * {{ margin:0; padding:0; box-sizing:border-box; }}
+  body {{ font-family:'Pretendard',sans-serif; background:#080a0c; color:#dce8e3; padding:40px; max-width:900px; margin:0 auto; line-height:1.6; }}
+  h1 {{ font-size:28px; font-weight:700; margin-bottom:8px; }}
+  h2 {{ font-size:16px; font-weight:600; color:#7ab800; letter-spacing:1.5px; text-transform:uppercase; margin:32px 0 16px 0; padding-bottom:8px; border-bottom:1px solid rgba(91,140,0,0.2); }}
+  .subtitle {{ font-size:14px; color:#556e66; margin-bottom:32px; }}
+  .summary {{ background:rgba(91,140,0,0.06); border:1px solid rgba(91,140,0,0.15); border-radius:10px; padding:20px; margin-bottom:32px; font-size:15px; line-height:1.7; color:#8aa69c; }}
+  table {{ width:100%; border-collapse:collapse; margin:12px 0; font-size:13px; }}
+  th {{ text-align:left; padding:8px 10px; color:#556e66; font-weight:500; font-size:12px; border-bottom:1px solid rgba(91,140,0,0.15); }}
+  td {{ padding:8px 10px; border-bottom:1px solid rgba(91,140,0,0.06); color:#8aa69c; }}
+  tr:hover td {{ color:#dce8e3; }}
+  .svg-container {{ background:rgba(0,0,0,0.3); border:1px solid rgba(91,140,0,0.15); border-radius:10px; padding:16px; margin:12px 0; text-align:center; }}
+  .footer {{ margin-top:40px; padding-top:16px; border-top:1px solid rgba(91,140,0,0.1); font-size:11px; color:#556e66; text-align:center; }}
+</style>
+</head>
+<body>
+<h1>AgentSUMO Analysis Report</h1>
+<div class="subtitle">Generated {now} · {len(scenarios)} scenario(s) analyzed</div>
+
+<div class="summary">
+<strong>Study Area:</strong> {net_name} · {net_edges:,} edges · {net_junctions:,} junctions<br>
+<strong>Scenarios:</strong> {', '.join(s['desc'] for s in scenarios)}
+</div>
+
+{'<h2>Executive Summary</h2><div class="summary" style="font-size:15px; line-height:1.8; color:#dce8e3;">' + executive_summary + '</div>' if executive_summary else ''}
+
+<h2>Study Area Network</h2>
+<div class="svg-container">
+<svg width="600" height="350" viewBox="0 0 600 350" xmlns="http://www.w3.org/2000/svg" style="background:rgba(0,0,0,0.2); border-radius:6px;">
+{svg_lines}
+</svg>
+</div>
+
+<h2>Scenarios</h2>
+{scenario_list}
+
+<h2>Performance Comparison</h2>
+<table>
+<thead><tr><th>Metric</th>{scenario_headers}</tr></thead>
+<tbody>{kpi_rows}</tbody>
+</table>
+
+<h2>Trip Duration Distribution</h2>
+{dist_html}
+{dist_legend}
+
+<h2>Most Congested Roads (Baseline)</h2>
+<table>
+<thead><tr><th>#</th><th>Road</th><th>Density</th><th>Speed</th><th>Wait</th></tr></thead>
+<tbody>{congestion_rows}</tbody>
+</table>
+
+<h2>Emission Summary</h2>
+<table>
+<thead><tr><th>Pollutant</th>{scenario_headers}</tr></thead>
+<tbody>{emission_rows}</tbody>
+</table>
+
+<div class="footer">
+AgentSUMO · AI-Powered Traffic Simulation Platform · {now}
+</div>
+</body>
+</html>"""
 
         # Save report
         output_path = get_output_path(output_dir)
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        report_file = output_path / f"simulation_report_{timestamp}.html"
+        report_file = output_path / f"report_{timestamp}.html"
 
         with open(report_file, 'w', encoding='utf-8') as f:
-            f.write(html_content)
+            f.write(html)
 
         return {
             "status": "success",
             "report_file": str(report_file),
-            "simulation_id": sim_id,
-            "message": f"HTML report generated: {report_file}"
+            "scenarios": len(scenarios),
+            "message": f"Report generated: {report_file.name}"
         }
 
     except Exception as e:
@@ -886,6 +1155,309 @@ def simulation_qa_tool(
     return qa_system.answer_question(
         tripinfo_json=tripinfo_json, edgedata_json=edgedata_json, question=question
     )
+
+
+# =============== NETWORK & ROUTE ANALYSIS TOOLS ===============
+
+@mcp.tool()
+def network_summary_tool(net_file: str):
+    """
+    Get a comprehensive summary of a SUMO network.
+
+    Use when user asks about the network, its size, or what roads are included.
+    Returns edge count, junction count, total road length, bounding box, and road name list.
+
+    Args:
+        net_file: Path to the SUMO network file (.net.xml)
+
+    Returns:
+        Dict with network statistics and road names
+    """
+    import sumolib
+
+    try:
+        net = sumolib.net.readNet(net_file)
+        edges = net.getEdges()
+        nodes = net.getNodes()
+
+        # Basic stats
+        total_length = sum(e.getLength() for e in edges)
+        total_lanes = sum(e.getLaneNumber() for e in edges)
+
+        # Bounding box
+        all_x, all_y = [], []
+        for e in edges:
+            for x, y in e.getShape():
+                all_x.append(x); all_y.append(y)
+
+        bbox = None
+        if all_x:
+            min_lon, min_lat = net.convertXY2LonLat(min(all_x), min(all_y))
+            max_lon, max_lat = net.convertXY2LonLat(max(all_x), max(all_y))
+            bbox = {
+                "south": round(min_lat, 4), "north": round(max_lat, 4),
+                "west": round(min_lon, 4), "east": round(max_lon, 4)
+            }
+
+        # Road names (unique, sorted)
+        road_names = sorted(set(e.getName() for e in edges if e.getName()))
+
+        # Speed limit stats
+        speeds = [e.getSpeed() for e in edges if e.getLength() >= 5]
+        avg_speed_kmh = round(sum(speeds) / len(speeds) * 3.6, 1) if speeds else 0
+
+        return {
+            "status": "success",
+            "net_file": net_file,
+            "edges": len(edges),
+            "junctions": len(nodes),
+            "total_road_length_km": round(total_length / 1000, 2),
+            "total_lanes": total_lanes,
+            "avg_speed_limit_kmh": avg_speed_kmh,
+            "bbox": bbox,
+            "road_names": road_names,
+            "road_count": len(road_names),
+            "traffic_lights": len(net.getTrafficLights())
+        }
+
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@mcp.tool()
+def route_analysis_tool(
+    net_file: str,
+    origin: str,
+    destination: str,
+    routing_mode: str = "distance",
+    weight_file: str = None,
+    weight_attribute: str = "traveltime",
+    compare_net_file: str = None,
+    compare_weight_file: str = None
+):
+    """
+    Analyze the optimal route between two locations in the network.
+
+    Accepts place names (e.g., "강남역", "Gangnam Station") or road names (e.g., "테헤란로").
+
+    TWO ROUTING MODES:
+    1. "distance" (default): Shortest path by edge length. Works without simulation data.
+    2. "traveltime": Optimal path using actual simulation results (edgedata XML) as edge weights.
+       Requires weight_file (edgedata XML from a previous simulation).
+       Can also use other attributes: "density", "CO2_abs", etc.
+
+    Use cases:
+    - "강남역에서 삼성역까지 최단 경로는?" → routing_mode="distance"
+    - "실제 통행시간 기반 최적 경로는?" → routing_mode="traveltime", weight_file=edgedata.xml
+    - "CO2 최소 경로는?" → routing_mode="traveltime", weight_attribute="CO2_abs"
+    - "도로 차단 후 경로 변화는?" → compare_net_file + compare_weight_file
+
+    In web mode, use [SHOW_ROUTE:edges|color|net_file_name] marker to visualize the result.
+    Always include net_file_name from the result so routes render on the correct network.
+
+    Args:
+        net_file: Network file path
+        origin: Origin location (place name, landmark, or road name)
+        destination: Destination location (place name, landmark, or road name)
+        routing_mode: "distance" (default, edge length) or "traveltime" (simulation-weighted)
+        weight_file: Edgedata XML file for weighted routing (required when routing_mode="traveltime").
+                     Use the netstate/edgedata file from simulation output.
+        weight_attribute: Attribute to use as edge weight (default: "traveltime").
+                         Other options: "density", "CO2_abs", "fuel_abs", etc.
+        compare_net_file: Optional second network for before/after route comparison
+        compare_weight_file: Optional edgedata for the comparison network
+
+    Returns:
+        Dict with route edges, distance, time, road names.
+        If comparison provided, includes both routes and diff.
+    """
+    import sumolib
+    import subprocess
+    import tempfile
+    import xml.etree.ElementTree as ET
+    from pathlib import Path
+    from agentsumo.server.utils.sumo_utils import (
+        geocode_location, find_nearest_edge, check_coordinates_in_network,
+        get_edge_ids_from_road_name
+    )
+    from agentsumo.server.settings.settings import sumo_environment
+
+    def resolve_location(net, net_path, loc_name):
+        """Resolve location to edge — geocoding first, road name fallback"""
+        coords = geocode_location(loc_name)
+        if coords:
+            valid, info = check_coordinates_in_network(net_path, coords[0], coords[1], buffer_km=1.5)
+            if valid:
+                result = find_nearest_edge(net_path, coords[0], coords[1], 0.5)
+                if result:
+                    return result[0], coords
+        edge_ids = get_edge_ids_from_road_name(net_path, loc_name)
+        if edge_ids:
+            return edge_ids[len(edge_ids)//2], None
+        return None, None
+
+    def compute_route_stats(net, edge_ids):
+        """Compute distance, free-flow time, and road names for a route"""
+        total_dist = 0
+        total_time = 0
+        road_names = []
+        seen = set()
+        for eid in edge_ids:
+            try:
+                e = net.getEdge(eid)
+                total_dist += e.getLength()
+                total_time += e.getLength() / max(e.getSpeed(), 0.1)
+                name = e.getName()
+                if name and name not in seen:
+                    road_names.append(name)
+                    seen.add(name)
+            except Exception:
+                pass
+        return total_dist, total_time, road_names
+
+    def route_via_sumolib(net, origin_eid, dest_eid):
+        """Distance-based shortest path via sumolib"""
+        src = net.getEdge(origin_eid)
+        dst = net.getEdge(dest_eid)
+        path_result = net.getShortestPath(src, dst, vClass="passenger")
+        if path_result and path_result[0]:
+            return [e.getID() for e in path_result[0]]
+        return None
+
+    def route_via_duarouter(net_path, origin_eid, dest_eid, wt_file, wt_attr):
+        """Weighted routing via SUMO duarouter"""
+        duarouter_bin = sumo_environment.get_binary_path("duarouter")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create trip file
+            trip_file = Path(tmpdir) / "trip.xml"
+            trip_file.write_text(
+                f'<trips>\n'
+                f'  <trip id="analysis" depart="0" from="{origin_eid}" to="{dest_eid}"/>\n'
+                f'</trips>\n'
+            )
+
+            output_file = Path(tmpdir) / "routes.xml"
+
+            cmd = [
+                duarouter_bin,
+                "--net-file", str(net_path),
+                "--trip-files", str(trip_file),
+                "--output-file", str(output_file),
+                "--no-warnings", "true",
+                "--ignore-errors", "true",
+            ]
+
+            if wt_file:
+                cmd.extend(["--weight-files", str(wt_file)])
+                if wt_attr:
+                    cmd.extend(["--weight-attribute", wt_attr])
+
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+
+            if not output_file.exists():
+                return None
+
+            # Parse route output
+            tree = ET.parse(str(output_file))
+            for vehicle in tree.findall('.//vehicle'):
+                route_elem = vehicle.find('route')
+                if route_elem is not None:
+                    edges_str = route_elem.get('edges', '')
+                    if edges_str:
+                        return edges_str.split()
+        return None
+
+    def analyze_single(net_path, origin_name, dest_name, mode, wt_file, wt_attr):
+        """Full analysis for one network"""
+        net = sumolib.net.readNet(str(net_path))
+
+        origin_eid, origin_coords = resolve_location(net, str(net_path), origin_name)
+        if not origin_eid:
+            return None, None, f"Could not find origin: {origin_name}"
+
+        dest_eid, dest_coords = resolve_location(net, str(net_path), dest_name)
+        if not dest_eid:
+            return None, None, f"Could not find destination: {dest_name}"
+
+        # Route calculation
+        if mode == "traveltime" and wt_file:
+            edge_ids = route_via_duarouter(net_path, origin_eid, dest_eid, wt_file, wt_attr)
+            if not edge_ids:
+                # Fallback to distance
+                edge_ids = route_via_sumolib(net, origin_eid, dest_eid)
+                mode = "distance (fallback)"
+        else:
+            edge_ids = route_via_sumolib(net, origin_eid, dest_eid)
+
+        if not edge_ids:
+            return None, None, f"No route found from {origin_name} to {dest_name}"
+
+        total_dist, total_time, road_names = compute_route_stats(net, edge_ids)
+
+        route_data = {
+            "route_edge_ids": edge_ids,
+            "route_edge_count": len(edge_ids),
+            "distance_m": round(total_dist, 1),
+            "distance_km": round(total_dist / 1000, 2),
+            "freeflow_time_s": round(total_time, 1),
+            "freeflow_time_min": round(total_time / 60, 1),
+            "road_names_along_route": road_names,
+            "routing_mode": mode,
+            "origin_edge": origin_eid,
+            "destination_edge": dest_eid,
+        }
+
+        coords_info = {"origin_coords": origin_coords, "dest_coords": dest_coords}
+        return route_data, coords_info, None
+
+    try:
+        # Primary route
+        route_data, coords_info, error = analyze_single(
+            net_file, origin, destination, routing_mode, weight_file, weight_attribute
+        )
+
+        if error:
+            return {"status": "error", "message": error}
+
+        result = {
+            "status": "success",
+            "origin": origin,
+            "destination": destination,
+            "net_file_name": Path(net_file).name,
+            **route_data
+        }
+
+        if weight_file and routing_mode == "traveltime":
+            result["weight_file"] = weight_file
+            result["weight_attribute"] = weight_attribute
+
+        # Comparison route
+        if compare_net_file:
+            cmp_mode = "traveltime" if compare_weight_file else "distance"
+            cmp_data, _, cmp_error = analyze_single(
+                compare_net_file, origin, destination, cmp_mode, compare_weight_file, weight_attribute
+            )
+
+            if cmp_error:
+                result["compare"] = {"status": "error", "message": cmp_error}
+            else:
+                base_dist = route_data["distance_m"]
+                base_time = route_data["freeflow_time_s"]
+                cmp_dist = cmp_data["distance_m"]
+                cmp_time = cmp_data["freeflow_time_s"]
+
+                cmp_data["distance_change_pct"] = round((cmp_dist - base_dist) / max(base_dist, 1) * 100, 1)
+                cmp_data["time_change_pct"] = round((cmp_time - base_time) / max(base_time, 1) * 100, 1)
+                cmp_data["route_changed"] = route_data["route_edge_ids"] != cmp_data["route_edge_ids"]
+                cmp_data["net_file_name"] = Path(compare_net_file).name
+                result["compare"] = cmp_data
+
+        return result
+
+    except Exception as e:
+        import traceback
+        return {"status": "error", "message": str(e), "detail": traceback.format_exc()}
 
 
 # =============== VISUALIZATION TOOLS ===============

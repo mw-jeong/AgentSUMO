@@ -93,7 +93,7 @@ class PromptBuilder:
             sections = []
 
             # 1. Unified system prompt (Self-Assessment 포함)
-            sections.append(self._load_template("unified_system.md"))
+            sections.append(self._load_template("unified_system_v2.md"))
 
             # 2. Interface-specific instructions
             if interface == "cli":
@@ -217,47 +217,93 @@ Use this context to avoid redundant operations and build upon existing work.
     def _get_web_instructions(self) -> str:
         """Web 환경 전용 지침"""
         return """
-## Web Interface: Interactive Options UI (CRITICAL)
+## Web Interface Instructions
 
-**When running via web interface, use `[SIM_OPTIONS]` marker to trigger interactive UI!**
-
-### When to Use [SIM_OPTIONS]
+### Simulation Options UI — [SIM_OPTIONS] Marker
 
 When user requests a simulation and you need to ask for parameters (area, traffic, duration),
-include `[SIM_OPTIONS]` at the END of your response. This triggers an interactive options panel
-in the web interface where users can:
-- Select area on map (instead of typing coordinates)
-- Click buttons for traffic level (한산/보통/혼잡)
-- Click buttons for duration (30분/1시간/2시간)
+include `[SIM_OPTIONS]` at the END of your response. This triggers an interactive options panel.
 
-### Example Usage
+Rules:
+1. Only use for NEW simulation requests, not for analysis or comparison
+2. Place marker at the very END of your message
+3. After user submits options, you'll receive a message with all parameters → then execute
 
-**User**: "강남역을 시뮬레이션 하고싶어"
+### Map Visualization Markers (CRITICAL)
 
-**Your Response**:
+In web mode, the user has an interactive Mapbox map. Instead of generating PNG images,
+use these markers to trigger map actions directly. The markers are parsed by the frontend
+and will NOT be shown to the user.
+
+**[HIGHLIGHT_ROAD:road_name]**
+Use when user asks about road locations, road details, or "where is X road?"
+The frontend will find ALL edges with that road name and highlight them on the map.
+No need to call get_edge_ids_from_road_name_tool — just include the road name.
+
+Example:
 ```
-강남역 시뮬레이션을 준비하겠습니다.
-
-아래에서 옵션을 선택해주세요:
-- 영역: 지도에서 직접 선택
-- 교통량: 한산/보통/혼잡
-- 시간: 30분/1시간/2시간
-
-[SIM_OPTIONS]
+User: "테헤란로가 어디있어?"
+Response: "테헤란로 is located in the Gangnam area, running east-west.
+[HIGHLIGHT_ROAD:테헤란로]"
 ```
 
-### Important Rules
+You can highlight multiple roads: `[HIGHLIGHT_ROAD:테헤란로][HIGHLIGHT_ROAD:강남대로]`
 
-1. **Only use for NEW simulation requests** - not for analysis, comparison planning, or other tasks
-2. **Place marker at the very END** of your message
-3. **Keep the text brief** - the UI will provide the options
-4. **After user submits options**, you'll receive a message with all parameters → then execute simulation
+**[SEARCH_LOCATION:location_name]**
+Use when user asks about a place, landmark, or address (not a road name).
+The frontend will geocode the location, show a marker, and zoom to it.
+This works even when no network is loaded — ALWAYS use it for location questions.
 
-### When NOT to Use [SIM_OPTIONS]
+Example:
+```
+User: "강남역이 어디 있어?"
+Response: "강남역 is a major subway station in Gangnam-gu, Seoul.
+[SEARCH_LOCATION:강남역]"
+```
 
-- User already provided all parameters (area, traffic, duration)
-- User selected area on map (bbox already in message)
-- Task is analysis, comparison, or non-simulation work
+User: "Times Square 위치 알려줘"
+Response: "Times Square is in Midtown Manhattan, New York City.
+[SEARCH_LOCATION:Times Square, New York]"
+
+**[HIGHLIGHT_EDGES:edge_id1,edge_id2,...]**
+Use only when you need to highlight SPECIFIC edge IDs (e.g., after policy application).
+Include ALL edge IDs — do not truncate the list.
+
+**[SHOW_ROUTE:edge_id1,edge_id2,...|color|net_file_name]**
+Use after calling route_analysis_tool to visualize the route on the map.
+Include ALL edge IDs from the route_edge_ids result. Color is a hex code.
+IMPORTANT: Always include net_file_name (from the tool result) so the route is rendered
+on the correct network. This ensures routes are visible even when the displayed network differs.
+
+Example (single route):
+```
+[SHOW_ROUTE:218864491#1,218864491#2,375049565#3|#39ccff|selected_area.net.xml]
+```
+
+Example (comparison — two routes with different colors, each with its own network):
+```
+[SHOW_ROUTE:218864491#1,218864491#2|#39ccff|selected_area.net.xml]
+[SHOW_ROUTE:975332778#0,504231011#1|#ff4444|selected_area.net_edgeedit_20260408.net.xml]
+```
+
+Colors: #39ccff (blue, baseline), #ff4444 (red, policy), #39ff8a (green), #ffb84d (orange)
+
+**[LOAD_NETWORK:filename]**
+Use when a new network is generated and should be displayed.
+```
+[LOAD_NETWORK:gangnam_station.net.xml]
+```
+
+**IMPORTANT: In web mode, do NOT use these PNG visualization tools:**
+- visualize_net_tool → use [LOAD_NETWORK] instead
+- visualize_edge_tool → use [HIGHLIGHT_EDGES] instead
+- visualize_policy_target_tool → use [HIGHLIGHT_EDGES] instead
+- visualize_edgedata_tool → the web heatmap system handles this
+
+You MAY still use:
+- analyze_road_details_tool → returns text data (useful for detailed analysis)
+- get_road_names_tool → utility for name conversion
+- get_edge_ids_from_road_name_tool → utility for getting edge IDs
 """
 
     def clear_cache(self):
