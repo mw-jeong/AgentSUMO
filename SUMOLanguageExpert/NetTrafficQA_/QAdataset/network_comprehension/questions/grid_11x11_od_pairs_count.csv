@@ -1,2 +1,0 @@
-network,type,question,ground_truth
-grid_11x11,od_pairs_count,How many possible origin-destination (O-D) pairs can be formed based on the identified source and sink junctions? Answer format: <integer> (e.g. 12),0

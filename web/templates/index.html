@@ -582,6 +582,48 @@
             margin-top: 4px;
         }
 
+        .file-upload-zone {
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+        }
+
+        .file-upload-zone:hover {
+            border-color: var(--primary-color);
+            background: rgba(99, 102, 241, 0.05);
+        }
+
+        .file-upload-zone.has-file {
+            border-color: #22c55e;
+            background: rgba(34, 197, 94, 0.05);
+        }
+
+        .file-upload-zone .upload-icon {
+            font-size: 24px;
+            color: #94a3b8;
+            margin-bottom: 6px;
+        }
+
+        .file-upload-zone.has-file .upload-icon {
+            color: #22c55e;
+        }
+
+        .file-upload-zone .upload-text {
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        .file-upload-zone.has-file .upload-text {
+            color: #e2e8f0;
+        }
+
+        .file-upload-zone input[type="file"] {
+            display: none;
+        }
+
         .sim-option-group {
             margin-bottom: 16px;
         }
@@ -2910,19 +2952,21 @@
                 <!-- Real OD Content -->
                 <div class="sim-options-content" id="sim-content-real">
                     <div class="sim-option-group">
-                        <div class="sim-option-label">OD 데이터 파일 경로 (필수)</div>
-                        <input type="text" class="sim-option-input" id="od-file-input"
-                            placeholder="/path/to/od_data.csv"
-                            oninput="updateOdFile(this.value)">
-                        <div class="sim-option-hint">CSV 형식의 OD 데이터 파일 경로를 입력하세요</div>
+                        <div class="sim-option-label">OD 데이터 파일 (필수)</div>
+                        <div class="file-upload-zone" id="od-upload-zone" onclick="document.getElementById('od-file-hidden').click()" ondragover="event.preventDefault(); this.style.borderColor='var(--primary-color)'" ondragleave="this.style.borderColor=''" ondrop="handleOdDrop(event)">
+                            <input type="file" id="od-file-hidden" accept=".csv" onchange="handleOdUpload(this.files[0])">
+                            <div class="upload-icon"><i class="fas fa-file-csv"></i></div>
+                            <div class="upload-text">CSV 파일을 드래그하거나 클릭하여 업로드</div>
+                        </div>
                     </div>
 
                     <div class="sim-option-group">
-                        <div class="sim-option-label">Zone Shapefile 경로 (선택)</div>
-                        <input type="text" class="sim-option-input" id="zone-file-input"
-                            placeholder="/path/to/zones.shp"
-                            oninput="updateZoneFile(this.value)">
-                        <div class="sim-option-hint">Zone 기반 OD일 경우 shapefile 경로를 입력하세요</div>
+                        <div class="sim-option-label">Zone Shapefile (선택)</div>
+                        <div class="file-upload-zone" id="shp-upload-zone" onclick="document.getElementById('shp-file-hidden').click()" ondragover="event.preventDefault(); this.style.borderColor='var(--primary-color)'" ondragleave="this.style.borderColor=''" ondrop="handleShpDrop(event)">
+                            <input type="file" id="shp-file-hidden" accept=".shp,.shx,.dbf,.prj,.cpg" multiple onchange="handleShpUpload(this.files)">
+                            <div class="upload-icon"><i class="fas fa-map"></i></div>
+                            <div class="upload-text">Shapefile (.shp, .shx, .dbf, .prj)을 드래그하거나 클릭</div>
+                        </div>
                     </div>
                 </div>
 
@@ -2955,14 +2999,67 @@
             updateSimSubmitButton();
         }
 
-        function updateOdFile(value) {
-            simOptionsState.odFile = value.trim() || null;
-            updateSimSubmitButton();
+        async function handleOdUpload(file) {
+            if (!file) return;
+            const zone = document.getElementById('od-upload-zone');
+            zone.querySelector('.upload-text').textContent = '업로드 중...';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const res = await fetch('/api/upload/od', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    simOptionsState.odFile = data.path;
+                    zone.classList.add('has-file');
+                    zone.querySelector('.upload-icon').innerHTML = '<i class="fas fa-check-circle"></i>';
+                    zone.querySelector('.upload-text').textContent = file.name;
+                    updateSimSubmitButton();
+                } else {
+                    zone.querySelector('.upload-text').textContent = '업로드 실패: ' + (data.error || '');
+                }
+            } catch (e) {
+                zone.querySelector('.upload-text').textContent = '업로드 실패';
+            }
         }
 
-        function updateZoneFile(value) {
-            simOptionsState.zoneFile = value.trim() || null;
-            updateSimSubmitButton();
+        function handleOdDrop(e) {
+            e.preventDefault();
+            e.currentTarget.style.borderColor = '';
+            const file = e.dataTransfer.files[0];
+            if (file) handleOdUpload(file);
+        }
+
+        async function handleShpUpload(files) {
+            if (!files || files.length === 0) return;
+            const zone = document.getElementById('shp-upload-zone');
+            zone.querySelector('.upload-text').textContent = '업로드 중...';
+
+            const formData = new FormData();
+            for (const f of files) formData.append('files', f);
+
+            try {
+                const res = await fetch('/api/upload/shapefile', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    simOptionsState.zoneFile = data.shp_path;
+                    zone.classList.add('has-file');
+                    zone.querySelector('.upload-icon').innerHTML = '<i class="fas fa-check-circle"></i>';
+                    zone.querySelector('.upload-text').textContent = data.files.join(', ');
+                    updateSimSubmitButton();
+                } else {
+                    zone.querySelector('.upload-text').textContent = '업로드 실패: ' + (data.error || '');
+                }
+            } catch (e) {
+                zone.querySelector('.upload-text').textContent = '업로드 실패';
+            }
+        }
+
+        function handleShpDrop(e) {
+            e.preventDefault();
+            e.currentTarget.style.borderColor = '';
+            handleShpUpload(e.dataTransfer.files);
         }
 
         function startAreaSelection(btn) {
@@ -3034,7 +3131,7 @@
                     btn.textContent = '선택 완료';
                 } else {
                     btn.disabled = true;
-                    btn.textContent = 'OD ��일 경로 입력 필요';
+                    btn.textContent = 'OD 파일 업로드 필요';
                 }
             }
         }
@@ -3064,7 +3161,7 @@
             } else {
                 // Real OD mode
                 if (!simOptionsState.odFile) {
-                    showToast('OD 파일 경로를 입력하세요', 'warning');
+                    showToast('OD 파일을 업로드하세요', 'warning');
                     return;
                 }
 
@@ -3078,7 +3175,8 @@
 
                 message += `\n\n이 설정으로 시뮬레이션을 실행해주세요.`;
 
-                const displayMessage = `실제 OD 데이터: ${simOptionsState.odFile}`;
+                const odFileName = simOptionsState.odFile.split('/').pop();
+                const displayMessage = `실제 OD 데이터: ${odFileName}`;
                 sendMessageDirectly(message, displayMessage);
             }
 

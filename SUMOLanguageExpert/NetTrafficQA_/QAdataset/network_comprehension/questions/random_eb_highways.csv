@@ -1,2 +1,0 @@
-network,type,question,ground_truth
-random,eb_highways,"List the edges that can be considered as eastbound (rightward) highways. Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E1, E6)",None

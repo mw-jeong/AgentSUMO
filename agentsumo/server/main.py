@@ -9,8 +9,10 @@ from mcp.server.fastmcp import FastMCP
 from typing import Dict, Any, List
 
 # Import core functionality (AgentSUMO branding)
-from agentsumo.server.baseline.network_generator import NetworkGenerator
+from agentsumo.server.baseline.osm_extractor import OsmExtractor
+from agentsumo.server.baseline.net_converter import NetConverter
 from agentsumo.server.baseline.trip_generator import TripGenerator
+from agentsumo.server.baseline.route_generator import RouteGenerator
 from agentsumo.server.baseline.simulation_runner import SimulationRunner
 
 # Import customization tools
@@ -32,8 +34,10 @@ from agentsumo.server.visualization.data_plotter import DataPlotter
 mcp = FastMCP("SUMO Baseline")
 
 # Initialize all components
-network_generator = NetworkGenerator()
+osm_extractor = OsmExtractor()
+net_converter = NetConverter()
 trip_generator = TripGenerator()
+route_generator = RouteGenerator()
 simulation_runner = SimulationRunner()
 
 network_editor = NetworkEditor()
@@ -49,50 +53,95 @@ edge_plotter = EdgePlotter()
 data_plotter = DataPlotter()
 
 
-# =============== CORE FUNCTIONALITY ===============
+# =============== PIPELINE TOOLS ===============
+# Full simulation pipeline:
+#   osm_extract → net_convert → trip_generate → route_generate → sumo_runner
+
 
 @mcp.tool()
-def net_generate(
-    city: str = None,
-    city_en: str = None,
-    radius: float = None,
+def osm_extract(
+    city_en: str,
     bbox: list = None,
-    trip_type: str = "",
-    od_type: str = None,
+    city: str = None,
+    radius: float = None,
     od_data_file: str = None,
     zone_shp_file: str = None,
+    column_mapping: dict = None,
     output_dir: str = "output/networks"
 ) -> Dict[str, Any]:
     """
-    Generate a SUMO network for traffic simulation.
+    [Step 1/5] Extract OpenStreetMap (OSM) road network data for a given area.
 
-    ⚠️ CRITICAL: ALWAYS provide city/city_en for file naming!
-    - city: Location name (e.g., "Gangnam Station", "강남역")
-    - city_en: English name for file (e.g., "gangnam_station")
-    - Without city info, file naming will fail!
+    This is the FIRST step in the simulation pipeline. It downloads or extracts
+    raw OSM data (.osm file) for the specified geographic area.
 
-    For direct bbox (from map selection):
-    - bbox: [west, south, east, north] (e.g., [127.0153, 37.4905, 127.0400, 37.5058])
-    - city_en: for file naming (e.g., "selected_area")
-    - trip_type: "RandomOD"
-    - bbox takes PRIORITY over city+radius!
+    Next step: Use net_convert() to convert the .osm file to SUMO .net.xml format.
 
-    For RandomOD simulation (city-based):
-    - city/city_en + radius (in km, not meters!)
-    - trip_type: "RandomOD"
+    === AREA SPECIFICATION (priority order) ===
+    1. bbox: Direct coordinates [west, south, east, north]
+       Example: [127.015, 37.490, 127.040, 37.506]
+    2. od_data_file: Auto-compute bbox from OD CSV coordinate columns
+       (use column_mapping if columns are not named O_lon, O_lat, D_lon, D_lat)
+    3. zone_shp_file: Auto-compute bbox from shapefile geometry bounds
+    4. city + radius: Geocode city name and use radius in KILOMETERS (not meters!)
+       Example: city="Gangnam Station", radius=1.5
 
-    For RealOD-coordinate:
-    - trip_type: "RealOD", od_type: "coordinate"
-    - od_data_file: CSV with O_lon, D_lon, O_lat, D_lat
+    === PARAMETERS ===
+    - city_en (REQUIRED): English name for file naming. Example: "gangnam", "manhattan_midtown"
+    - bbox: [west, south, east, north] bounding box coordinates
+    - city: City/location name for geocoding (e.g., "강남역", "Times Square")
+    - radius: Radius in km (used with city parameter)
+    - od_data_file: Path to OD CSV file (bbox auto-computed from coordinate ranges)
+    - zone_shp_file: Path to zone shapefile (bbox auto-computed from geometry)
+    - column_mapping: Column name mapping for non-standard OD CSV files.
+      Keys are standard names, values are actual column names in the CSV.
+      Example: {"O_lon": "pickup_lng", "O_lat": "pickup_lat", "D_lon": "dropoff_lng", "D_lat": "dropoff_lat"}
 
-    For RealOD-zone:
-    - trip_type: "RealOD", od_type: "zone"
-    - zone_shp_file: shapefile path
+    === PIPELINE CONTEXT ===
+    RandomOD:     osm_extract(bbox/city+radius) → net_convert → trip_generate → route_generate → sumo_runner
+    RealOD-coord: osm_extract(od_data_file, column_mapping) → net_convert → trip_generate → route_generate → sumo_runner
+    RealOD-zone:  osm_extract(zone_shp_file) → net_convert → trip_generate → route_generate → sumo_runner
+
+    === RETURNS ===
+    - osm_file: Path to extracted .osm file (pass to net_convert)
+    - bbox: Computed bounding box (pass to net_convert for boundary trimming)
+    - tag: File naming tag derived from city_en
     """
-    return network_generator.generate(
-        city=city, city_en=city_en, radius=radius, bbox=bbox, trip_type=trip_type,
-        od_type=od_type, od_data_file=od_data_file, zone_shp_file=zone_shp_file,
-        output_dir=output_dir
+    return osm_extractor.extract(
+        city_en=city_en, bbox=bbox, city=city, radius=radius,
+        od_data_file=od_data_file, zone_shp_file=zone_shp_file,
+        column_mapping=column_mapping, output_dir=output_dir
+    )
+
+
+@mcp.tool()
+def net_convert(
+    osm_file: str,
+    city_en: str = None,
+    bbox: list = None,
+    output_dir: str = "output/networks"
+) -> Dict[str, Any]:
+    """
+    [Step 2/5] Convert OSM data to SUMO network format (.net.xml).
+
+    Converts the raw .osm file from osm_extract() into a SUMO-compatible
+    road network using netconvert. Applies road type filtering and UTM projection.
+
+    Previous step: osm_extract() to get .osm file and bbox.
+    Next step: trip_generate() to create traffic demand on this network.
+
+    === PARAMETERS ===
+    - osm_file (REQUIRED): Path to .osm file (from osm_extract result)
+    - city_en: English name for output file naming (auto-derived from osm_file if omitted)
+    - bbox: Bounding box [west, south, east, north] for boundary trimming.
+      Pass the bbox from osm_extract result to trim roads at area boundaries.
+      If omitted, roads may extend beyond the intended area.
+
+    === RETURNS ===
+    - net_file: Path to generated .net.xml file (pass to trip_generate and sumo_runner)
+    """
+    return net_converter.convert(
+        osm_file=osm_file, city_en=city_en, bbox=bbox, output_dir=output_dir
     )
 
 
@@ -104,42 +153,94 @@ def trip_generate(
     od_data_file: str = None,
     zone_shp_file: str = None,
     traffic_condition: str = None,
+    column_mapping: dict = None,
     output_dir: str = "output/trips"
 ) -> Dict[str, Any]:
     """
-    Generate trips for SUMO simulation.
-    
-    IMPORTANT: For RealOD-zone simulation, use:
-    - trip_type: "RealOD"
-    - od_type: "zone"
-    - zone_shp_file: path to shapefile
-    
-    For RealOD-coordinate simulation, use:
-    - trip_type: "RealOD" 
-    - od_type: "coordinate"
-    - od_data_file: path to CSV with O_lon, D_lon, O_lat, D_lat columns
-    
-    For RandomOD simulation, use:
-    - trip_type: "RandomOD"
-    - traffic_condition: REQUIRED - Choose from "light" (low traffic), "medium" (moderate traffic), or "heavy" (high traffic)
+    [Step 3/5] Generate trip demand (trips.xml) for SUMO simulation.
+
+    Creates origin-destination trip definitions. This tool ONLY generates trips —
+    route assignment is done separately by route_generate().
+
+    Previous step: net_convert() to get .net.xml file.
+    Next step: route_generate() to assign routes to trips.
+
+    === THREE MODES ===
+
+    1. RandomOD — Random trip generation:
+       - trip_type: "RandomOD"
+       - traffic_condition (REQUIRED): "light" | "medium" | "heavy"
+         * light: ~20% of edge count (rural, off-peak)
+         * medium: ~80% of edge count (typical urban)
+         * heavy: ~150% of edge count (rush hour, dense urban)
+
+    2. RealOD-coordinate — Real OD from coordinate CSV:
+       - trip_type: "RealOD", od_type: "coordinate"
+       - od_data_file: Path to CSV file
+       - Default columns: O_lon, O_lat, D_lon, D_lat, O_time_relative
+       - Use column_mapping if your CSV has different column names
+
+    3. RealOD-zone — Real OD from zone CSV + shapefile:
+       - trip_type: "RealOD", od_type: "zone"
+       - od_data_file: Path to OD CSV file
+       - zone_shp_file: Path to zone shapefile (.shp)
+       - Default columns: h3_lv9_O, h3_lv9_D, O_time_relative
+       - Default shapefile ID column: h3_indx
+       - Use column_mapping to override any of these
+
+    === COLUMN MAPPING ===
+    For non-standard CSV files, provide column_mapping to map standard names to actual column names.
+
+    Coordinate mode mapping keys:
+      "O_lon", "O_lat", "D_lon", "D_lat", "O_time_relative"
+    Zone mode mapping keys:
+      "zone_O", "zone_D", "O_time_relative", "zone_id_column"
+
+    Example: {"O_lon": "pickup_lng", "O_lat": "pickup_lat", "D_lon": "dropoff_lng", "D_lat": "dropoff_lat", "O_time_relative": "start_sec"}
+
+    === RETURNS ===
+    - trip_file: Path to generated .trips.xml file (pass to route_generate)
+    - trip_count: Number of trips generated
     """
-    # For RandomOD trips, traffic_condition is required
     if trip_type == "RandomOD" and traffic_condition is None:
         return {
             "status": "error",
-            "message": "traffic_condition is required for RandomOD trip generation. Please specify: 'light', 'medium', or 'heavy'",
-            "available_options": ["light", "medium", "heavy"],
-            "description": {
-                "light": "Low traffic density (rural areas, off-peak hours)",
-                "medium": "Moderate traffic density (typical urban traffic)", 
-                "heavy": "High traffic density (rush hour, dense urban areas)"
-            }
+            "message": "traffic_condition is required for RandomOD. Choose: 'light', 'medium', or 'heavy'",
+            "available_options": ["light", "medium", "heavy"]
         }
-    
+
     return trip_generator.generate(
         trip_type=trip_type, net_file=net_file, od_type=od_type,
         od_data_file=od_data_file, zone_shp_file=zone_shp_file,
-        traffic_condition=traffic_condition, output_dir=output_dir
+        traffic_condition=traffic_condition, column_mapping=column_mapping,
+        output_dir=output_dir
+    )
+
+
+@mcp.tool()
+def route_generate(
+    net_file: str,
+    trip_file: str,
+    output_dir: str = "output/trips"
+) -> Dict[str, Any]:
+    """
+    [Step 4/5] Generate routes from trips using SUMO's duarouter.
+
+    Assigns shortest-path routes to each trip based on the road network.
+    Converts trips.xml → routes.rou.xml which is required for simulation.
+
+    Previous step: trip_generate() to get .trips.xml file.
+    Next step: sumo_runner() to run the simulation with net_file and route_file.
+
+    === PARAMETERS ===
+    - net_file (REQUIRED): Path to SUMO network file (.net.xml, from net_convert)
+    - trip_file (REQUIRED): Path to trip file (.trips.xml, from trip_generate)
+
+    === RETURNS ===
+    - route_file: Path to generated .rou.xml file (pass to sumo_runner)
+    """
+    return route_generator.generate(
+        net_file=net_file, trip_file=trip_file, output_dir=output_dir
     )
 
 
@@ -154,16 +255,25 @@ def sumo_runner(
     policy_type: str = None
 ):
     """
-    Run SUMO simulation with enhanced error handling and monitoring.
-    
-    Args:
-        net_file: Network file path (tag will be extracted from filename)
-        trip_file: Trip file path (optional)
-        route_file: Route file path (optional)
-        duration: Simulation duration in seconds
-        output_dir: Output directory for simulation results
-        additional_files: List of additional XML files to include
-        policy_type: Policy type for batch simulation file naming
+    [Step 5/5] Run SUMO traffic simulation using TraCI.
+
+    Executes the simulation with the generated network and routes.
+    Captures vehicle position frames for post-simulation replay visualization.
+
+    Previous step: route_generate() to get .rou.xml file.
+
+    === PARAMETERS ===
+    - net_file (REQUIRED): SUMO network file (.net.xml, from net_convert)
+    - route_file: Route file (.rou.xml, from route_generate) — preferred over trip_file
+    - trip_file: Trip file (.trips.xml) — use only if route_file is unavailable
+    - duration: Simulation duration in seconds (default: 3600 = 1 hour)
+    - additional_files: List of additional XML files (e.g., traffic light programs)
+    - policy_type: Set to "baseline" to exclude additional files
+
+    === RETURNS ===
+    - output_files: List of result file paths (tripinfo, edgedata, emission)
+    - replay_file: JSON file for web visualization replay
+    - simulation_time: Wall-clock execution time in seconds
     """
     return simulation_runner.run(
         net_file=net_file, trip_file=trip_file, route_file=route_file,
@@ -187,9 +297,9 @@ def edge_edit_tool(
     """
     Delete specific road segments from the network file.
 
-    ⚠️🚨 CRITICAL: After using this tool, you MUST regenerate trip files!
+    ⚠️🚨 CRITICAL: After using this tool, you MUST regenerate trips and routes!
     Route files contain explicit edge lists - if those edges are deleted, the route file becomes INVALID!
-    Workflow: edge_edit → trip_generate → sumo_runner (REQUIRED!)
+    Workflow: edge_edit → trip_generate → route_generate → sumo_runner (REQUIRED!)
 
     🌟 REALISTIC USAGE: Specify reference_location + radius_km for partial road closure!
 
@@ -610,21 +720,47 @@ def xml_to_sqlite_tool(
     - Specific edge analysis (e.g., "강남역 교차로 혼잡도는?")
     - Comparative analysis (e.g., "정책 전후 density 변화는?")
     - Temporal analysis (e.g., "시간대별 속도 변화는?")
+    - Road-level aggregation (e.g., "테헤란로 전체 평균 혼잡도는?")
 
     DATABASE SCHEMA (IMPORTANT):
     - simulations: (simulation_id, created_at, vehicle_count, net_file, route_file, description)
-    - trips: (simulation_id, trip_id, duration, routeLength, waitingTime, timeLoss, depart, arrival,
-              departLane, arrivalLane, departPos, arrivalPos, departSpeed, arrivalSpeed, departDelay,
-              waitingCount, stopTime, rerouteNo, vType, speedFactor, vaporized,
-              CO2_abs, CO_abs, HC_abs, NOx_abs, PMx_abs, fuel_abs, electricity_abs, all_attributes)
-      * 주요 속성은 개별 컬럼으로 저장, 나머지는 all_attributes JSON 컬럼에 저장
+    - edge_info: (simulation_id, edge_id, road_name, length, num_lanes, speed_limit)
+      * Network topology from .net.xml — enables road-level analysis
+      * road_name: Human-readable street name (e.g., "테헤란로", "9th Avenue")
+      * length: Edge length in meters
+      * num_lanes: Number of lanes
+      * speed_limit: Speed limit in km/h
+    - vehicle_info: (simulation_id, vehicle_id, vehicle_type, fuel_type, origin_edge, destination_edge, origin_road, destination_road)
+      * Per-vehicle metadata from tripinfo + network — enables OD and fleet analysis
+      * vehicle_type: SUMO vType (e.g., "passenger", "truck")
+      * fuel_type: Classified from emissionClass — "gasoline", "diesel", "electric", "unknown"
+      * origin_edge / destination_edge: First/last edge IDs
+      * origin_road / destination_road: Human-readable road names (from edge_info)
+    - trips: (simulation_id, trip_id, duration, routeLength, waitingTime, timeLoss, depart, arrival, ...)
     - edge_metrics: (simulation_id, edge_id, interval_begin, interval_end, speed, density, waitingTime,
-                     timeLoss, occupancy, entered, left, arrived, departed, laneChangedFrom, laneChangedTo, all_attributes)
-      * 비집계 방식: 모든 interval 데이터를 그대로 저장 (시간대별 분석 가능)
-      * 주요 속성은 개별 컬럼으로 저장, 나머지는 all_attributes JSON 컬럼에 저장
+                     timeLoss, occupancy, entered, left, ...)
       * PRIMARY KEY: (simulation_id, edge_id, interval_begin)
 
     KEY: Table name is 'edge_metrics', NOT 'edgedata'!
+
+    === ROAD-LEVEL ANALYSIS WITH edge_info ===
+    For road-level congestion analysis (instead of edge-level), JOIN edge_info:
+
+    -- Road-level weighted density (RECOMMENDED for congestion ranking)
+    SELECT ei.road_name,
+           ROUND(SUM(em.density * ei.length) / SUM(ei.length), 2) AS weighted_density,
+           ROUND(SUM(ei.length), 1) AS total_length_m
+    FROM edge_metrics em
+    JOIN edge_info ei ON em.simulation_id = ei.simulation_id AND em.edge_id = ei.edge_id
+    WHERE em.simulation_id = '1_baseline' AND ei.road_name IS NOT NULL
+    GROUP BY ei.road_name
+    ORDER BY weighted_density DESC LIMIT 10;
+
+    -- Filter out micro-segments (< 10m)
+    WHERE ei.length > 10
+
+    -- Query by road name (NO need for get_edge_ids_from_road_name_tool!)
+    WHERE ei.road_name = '테헤란로'
 
     DESIGN: Single unified DB with simulation_id for comparative studies
     - Same network's simulations → Same DB file

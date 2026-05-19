@@ -1,18 +1,23 @@
 """
 Filesystem MCP Client for AgentSUMO
 
-Connects to the official Filesystem MCP Server for file-based analysis.
-Used in SQLite ablation study (xml_only condition) to provide raw XML file access.
+Connects to the official Filesystem MCP Server for file-based operations.
+Supports multiple allowed directories for guide reading and file editing.
 
 Usage:
-    async with FilesystemMCPClient(allowed_directory="/path/to/xml/files") as client:
+    # Single directory
+    async with FilesystemMCPClient(allowed_directories="/path/to/dir") as client:
         tools = await client.list_tools()
         result = await client.call_tool("read_file", {"path": "/path/to/file.xml"})
+
+    # Multiple directories
+    async with FilesystemMCPClient(allowed_directories=["/path/to/guides", "/path/to/output"]) as client:
+        tools = await client.list_tools()
 """
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
-from typing import Any, Optional, List
+from typing import Any, Optional, List, Union
 import asyncio
 import logging
 
@@ -23,23 +28,21 @@ class FilesystemMCPClient:
     """
     Filesystem MCP Server와 통신하는 클라이언트
 
-    npx -y @modelcontextprotocol/server-filesystem <allowed_directory>
+    npx -y @modelcontextprotocol/server-filesystem <dir1> [dir2] [dir3] ...
 
     Tools provided:
     - read_file: Read file contents
+    - write_file: Write content to a file
     - read_multiple_files: Read multiple files at once
     - list_directory: List directory contents
     - search_files: Search for files by pattern
     - get_file_info: Get file metadata
-
-    Features:
-    - Read-only file access within allowed directory
-    - XML file parsing by LLM (for ablation comparison with SQLite)
+    - create_directory: Create a new directory
     """
 
     def __init__(
         self,
-        allowed_directory: str,
+        allowed_directories: Union[str, List[str]],
         connection_timeout: float = 15.0,
         tool_timeout: float = 30.0
     ):
@@ -47,11 +50,14 @@ class FilesystemMCPClient:
         Initialize Filesystem MCP Client.
 
         Args:
-            allowed_directory: Directory to allow access to (absolute path)
+            allowed_directories: Directory or list of directories to allow access to (absolute paths)
             connection_timeout: Connection timeout in seconds
             tool_timeout: Tool execution timeout in seconds
         """
-        self.allowed_directory = allowed_directory
+        if isinstance(allowed_directories, str):
+            self.allowed_directories = [allowed_directories]
+        else:
+            self.allowed_directories = allowed_directories
         self.connection_timeout = connection_timeout
         self.tool_timeout = tool_timeout
 
@@ -60,7 +66,7 @@ class FilesystemMCPClient:
         self._session_context_manager = None
         self._connected = False
 
-        logger.info(f"FilesystemMCPClient 초기화 (dir: {allowed_directory})")
+        logger.info(f"FilesystemMCPClient 초기화 (dirs: {self.allowed_directories})")
 
     async def __aenter__(self):
         """Context manager entry - Connect to server"""
@@ -89,7 +95,7 @@ class FilesystemMCPClient:
             args=[
                 "-y",
                 "@modelcontextprotocol/server-filesystem",
-                self.allowed_directory
+                *self.allowed_directories
             ],
             env=None
         )
@@ -216,7 +222,7 @@ class FilesystemMCPClient:
         """Get client statistics"""
         return {
             "connected": self._connected,
-            "allowed_directory": self.allowed_directory,
+            "allowed_directories": self.allowed_directories,
             "connection_timeout": self.connection_timeout,
             "tool_timeout": self.tool_timeout
         }

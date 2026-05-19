@@ -1,2 +1,0 @@
-network,type,question,ground_truth
-random,wb_highways,"List the edges that can be considered as westbound (leftward) highways. Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E3, E8)",None

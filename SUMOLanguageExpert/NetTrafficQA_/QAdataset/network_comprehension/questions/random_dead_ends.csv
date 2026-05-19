@@ -1,2 +1,0 @@
-network,type,question,ground_truth
-random,dead_ends,"Which edge(s) in this network are dead-ends (i.e., they have no outgoing edges)?",None

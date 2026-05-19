@@ -1,2 +1,0 @@
-network,type,question,ground_truth
-grid_11x11,ramp_metering_potential,"List the edges where ramp metering could potentially be installed on the highway (typically at highway entrances). Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E5, E12)",None

@@ -49,7 +49,7 @@ class AgentSUMO:
         enable_sumo_mcp: bool = True,
         enable_sqlite_mcp: bool = None,
         enable_filesystem_mcp: bool = False,
-        filesystem_root: Optional[str] = None,
+        filesystem_directories: Optional[List[str]] = None,
         inject_state: bool = True  # [임시] SUMOLanguageExpert용 - 나중에 제거
     ):
         """
@@ -64,7 +64,7 @@ class AgentSUMO:
             enable_sumo_mcp: SUMO MCP 활성화 여부 (False면 SQLite만 사용)
             enable_sqlite_mcp: SQLite MCP 활성화 여부 (None이면 db_path 존재 시 자동 활성화)
             enable_filesystem_mcp: Filesystem MCP 활성화 여부 (True면 파일 접근 도구 제공)
-            filesystem_root: Filesystem MCP가 접근할 디렉토리 경로 (enable_filesystem_mcp=True 시 필수)
+            filesystem_directories: Filesystem MCP가 접근할 디렉토리 경로 목록 (enable_filesystem_mcp=True 시 필수)
             inject_state: [임시] SUMOLanguageExpert 실험용 - 나중에 제거 예정
                          State context를 유저 메시지에 주입할지 여부 (기본: True)
                          Text-to-SQL 실험처럼 state가 불필요한 경우 False로 설정
@@ -76,7 +76,7 @@ class AgentSUMO:
         self._enable_sumo_mcp = enable_sumo_mcp  # SUMO MCP 활성화 여부
         self._enable_sqlite_mcp = enable_sqlite_mcp  # SQLite MCP 활성화 여부
         self._enable_filesystem_mcp = enable_filesystem_mcp  # Filesystem MCP 활성화 여부
-        self._filesystem_root = filesystem_root  # Filesystem MCP 접근 디렉토리
+        self._filesystem_directories = filesystem_directories  # Filesystem MCP 접근 디렉토리 목록
         self._inject_state = inject_state  # [임시] State 주입 여부 - SUMOLanguageExpert용
         # Claude API 초기화
         self.claude = anthropic.Anthropic(
@@ -235,12 +235,12 @@ class AgentSUMO:
         # 3. Filesystem MCP 연결 (enable_filesystem_mcp=True일 때만)
         filesystem_tools = []
 
-        if self._enable_filesystem_mcp and self._filesystem_root:
+        if self._enable_filesystem_mcp and self._filesystem_directories:
             try:
                 from agentsumo.client.filesystem_mcp_client import FilesystemMCPClient
 
-                logger.info(f"Filesystem MCP Server 연결 중... (dir: {self._filesystem_root})")
-                self.mcp_clients["filesystem"] = FilesystemMCPClient(self._filesystem_root)
+                logger.info(f"Filesystem MCP Server 연결 중... (dirs: {self._filesystem_directories})")
+                self.mcp_clients["filesystem"] = FilesystemMCPClient(self._filesystem_directories)
                 await self.mcp_clients["filesystem"].__aenter__()
 
                 filesystem_tools = await self.mcp_clients["filesystem"].list_tools()
@@ -249,7 +249,7 @@ class AgentSUMO:
             except Exception as e:
                 logger.error(f"Filesystem MCP 연결 실패: {e}. 계속 진행합니다.")
         elif self._enable_filesystem_mcp:
-            logger.warning("⚠️ Filesystem MCP 활성화했지만 filesystem_root가 지정되지 않았습니다.")
+            logger.warning("⚠️ Filesystem MCP 활성화했지만 filesystem_directories가 지정되지 않았습니다.")
 
         # 4. Tools 통합
         all_mcp_tools = sumo_tools + sqlite_tools + filesystem_tools
@@ -688,14 +688,14 @@ class AgentSUMO:
                     logger.debug(f"   원본 내용: {content_str[:500]}")
                     return
             
-            if tool_name == "net_generate":
+            if tool_name == "net_convert":
                 net_file = result_dict.get("net_file")
-                logger.debug(f"🔍 net_generate 결과: {result_dict}")
-                
+                logger.debug(f"🔍 net_convert 결과: {result_dict}")
+
                 if not net_file:
-                    logger.warning(f"⚠️ net_generate: net_file이 None입니다. 전체 결과: {result_dict}")
+                    logger.warning(f"⚠️ net_convert: net_file이 None입니다. 전체 결과: {result_dict}")
                     return
-                
+
                 self.simulation_state["current_network"] = net_file
                 # Set baseline if not already set (first network generation)
                 if not self.simulation_state.get("baseline_network"):
@@ -703,8 +703,11 @@ class AgentSUMO:
                     logger.info(f"📌 Baseline network set: {net_file}")
                 else:
                     logger.info(f"🔄 Current network updated: {net_file}")
-                
+
             elif tool_name == "trip_generate":
+                self.simulation_state["current_trips"] = result_dict.get("trip_file")
+
+            elif tool_name == "route_generate":
                 self.simulation_state["current_routes"] = result_dict.get("route_file")
                 
             elif tool_name in ["reduce_lanes_tool", "edge_edit_tool", "speed_limit_edit_tool"]:
