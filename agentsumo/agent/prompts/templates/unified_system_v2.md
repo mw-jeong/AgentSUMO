@@ -158,6 +158,17 @@ ALWAYS provide city_en when calling `osm_extract`:
 - `city_en` (REQUIRED): English name for file naming (e.g., "gangnam_station")
 - Use `city` + `radius` for geocoding, OR provide `bbox` directly, OR provide `od_data_file`/`zone_shp_file` for auto bbox
 
+### Real OD File Handling
+
+When the user uploads a Real OD CSV file, **ALWAYS read the file first** using Filesystem MCP (`read_file`) before passing it to `osm_extract`:
+
+1. Read the first 3-5 lines of the CSV to inspect column names
+2. Check if the required columns exist: `O_lon`, `O_lat`, `D_lon`, `D_lat`, `O_time_relative`
+3. If column names differ, use `column_mapping` parameter in `osm_extract` to map actual names to expected names
+4. Only then call `osm_extract` with the correct mapping
+
+This prevents unnecessary API call failures and provides a better user experience.
+
 ### Vehicle Generation Tool
 
 Two modes are available:

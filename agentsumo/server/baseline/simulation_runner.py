@@ -212,9 +212,17 @@ class SimulationRunner:
                 if not edges_attr:
                     errors.append(f"[{fname}] <rerouter id='{rid}'> missing required 'edges' attribute")
                 else:
+                    # SUMO requires space-separated edge IDs; semicolons cause fatal error
+                    if ";" in edges_attr:
+                        errors.append(
+                            f"[{fname}] <rerouter id='{rid}'> edges attribute uses semicolons — "
+                            f"SUMO requires SPACE-separated edge IDs. "
+                            f"Replace ';' with ' ' in: edges=\"{edges_attr}\""
+                        )
                     # Level 2: Check edge IDs exist
                     if edge_ids:
-                        for eid in edges_attr.split(";"):
+                        import re
+                        for eid in re.split(r'[;\s]+', edges_attr):
                             eid = eid.strip()
                             if eid and eid not in edge_ids:
                                 errors.append(
@@ -442,12 +450,13 @@ class SimulationRunner:
             sumo_binary,
             "-c", str(config_file),
             "--device.emissions.probability", "1.0",
+            "--device.rerouting.probability", "1.0",
             "--no-warnings"
         ]
 
         if enable_rerouting:
-            sumo_cmd.extend(["--device.rerouting.probability", "1.0"])
-            logger.info("Rerouter detected in additional files — rerouting device enabled")
+            sumo_cmd.append("--ignore-route-errors")
+            logger.info("Rerouter detected — ignore-route-errors enabled")
 
         logger.info(f"Running SUMO simulation (TraCI): {config_file.name}")
 

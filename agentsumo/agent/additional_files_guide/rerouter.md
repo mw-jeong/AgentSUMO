@@ -23,7 +23,7 @@ The `--device.rerouting.probability 1.0` flag is automatically applied by `sumo_
 | Attribute | Required | Type | Description |
 |-----------|----------|------|-------------|
 | id | Yes | string | Unique identifier (e.g., "rerouter_construction") |
-| edges | Yes | string (;-separated) | Edge IDs where the rerouter is installed |
+| edges | Yes | string (space-separated) | Edge IDs where the rerouter is installed |
 | probability | No | float (0.0-1.0) | Probability of rerouting. Default: 1.0 |
 | vTypes | No | string (space-separated) | Vehicle types affected. Default: all |
 
@@ -120,7 +120,7 @@ Scenario: Close multiple road segments simultaneously.
 
 ```xml
 <additional>
-  <rerouter id="rerouter_area_closure" edges="edge_abc123;edge_def456;edge_ghi789" probability="1.0">
+  <rerouter id="rerouter_area_closure" edges="edge_abc123 edge_def456 edge_ghi789" probability="1.0">
     <interval begin="0" end="3600">
       <closingReroute id="edge_abc123"/>
       <closingReroute id="edge_def456"/>
