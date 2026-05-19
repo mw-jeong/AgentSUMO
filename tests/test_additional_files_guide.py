@@ -184,7 +184,7 @@ def test_rerouter_xml_examples():
 </additional>""",
         # Example 5: Multiple roads
         """<additional>
-  <rerouter id="rerouter_area_closure" edges="edge_abc123;edge_def456;edge_ghi789" probability="1.0">
+  <rerouter id="rerouter_area_closure" edges="edge_abc123 edge_def456 edge_ghi789" probability="1.0">
     <interval begin="0" end="3600">
       <closingReroute id="edge_abc123"/>
       <closingReroute id="edge_def456"/>
@@ -372,6 +372,13 @@ def _validate_additional_files(additional_files, net_file, duration):
             edges_attr = rerouter.get("edges")
             if not edges_attr:
                 errors.append(f"[{fname}] <rerouter id='{rid}'> missing required 'edges' attribute")
+            else:
+                if ";" in edges_attr:
+                    errors.append(
+                        f"[{fname}] <rerouter id='{rid}'> edges attribute uses semicolons — "
+                        f"SUMO requires SPACE-separated edge IDs. "
+                        f"Replace ';' with ' ' in: edges=\"{edges_attr}\""
+                    )
 
             for interval in rerouter.findall("interval"):
                 begin = interval.get("begin")
@@ -580,6 +587,26 @@ def test_validation_negative_time():
         os.unlink(tmp)
 
 
+def test_validation_semicolon_in_edges():
+    """Semicolons in rerouter edges attribute should be caught."""
+    xml = """<?xml version="1.0"?>
+<additional>
+  <rerouter id="r1" edges="e1;e2;e3">
+    <interval begin="0" end="3600">
+      <closingReroute id="e1"/>
+    </interval>
+  </rerouter>
+</additional>"""
+    tmp = _write_tmp_xml(xml)
+    try:
+        errors = _validate_additional_files([tmp], None, 3600)
+        assert any("semicolon" in e.lower() or "SPACE-separated" in e for e in errors), \
+            f"Should detect semicolons in edges attribute, got: {errors}"
+        print("PASS: Semicolons in edges attribute detected")
+    finally:
+        os.unlink(tmp)
+
+
 # ============================================================
 # Run all tests
 # ============================================================
@@ -617,6 +644,7 @@ if __name__ == "__main__":
         test_validation_vss_missing_lanes,
         test_validation_valid_vss,
         test_validation_negative_time,
+        test_validation_semicolon_in_edges,
     ]
 
     passed = 0

@@ -2066,6 +2066,8 @@
                     <option value="road_closure">Road Closure</option>
                     <option value="lane_reduction">Lane Reduction</option>
                     <option value="speed_limit">Speed Limit</option>
+                    <option value="rerouter">Rerouter (Time-based)</option>
+                    <option value="vss">Variable Speed Sign</option>
                 </select>
                 <button class="edge-panel-submit" onclick="applyEdgePolicy()">
                     <i class="fas fa-paper-plane"></i> Apply
@@ -2810,6 +2812,12 @@
                 // [LOAD_NETWORK:file]
                 const loadNetMatch = rawText.match(/\[LOAD_NETWORK:([^\]]+)\]/);
 
+                // [EDGE_SELECT] — Agent requests user to select edges on map
+                const hasEdgeSelect = rawText.includes('[EDGE_SELECT]');
+
+                // [UPLOAD_OD] — Agent requests user to upload OD file
+                const hasUploadOD = rawText.includes('[UPLOAD_OD]');
+
                 // ---- Strip ALL markers from display text ----
                 const cleanText = rawText
                     .replace(/\[SIM_OPTIONS(?::\w+:\d+)?\]/g, '')
@@ -2819,6 +2827,8 @@
                     .replace(/\[HIGHLIGHT_ROAD:[^\]]+\]/g, '')
                     .replace(/\[HIGHLIGHT_EDGES:[^\]]+\]/g, '')
                     .replace(/\[LOAD_NETWORK:[^\]]+\]/g, '')
+                    .replace(/\[EDGE_SELECT\]/g, '')
+                    .replace(/\[UPLOAD_OD\]/g, '')
                     .trim();
 
                 // ---- Build message element ----
@@ -2873,6 +2883,27 @@
                     messageDiv.appendChild(mapSelectDiv);
                 }
 
+                // [EDGE_SELECT] — activate edge selection mode on map
+                if (hasEdgeSelect) {
+                    if (!edgeSelectMode) {
+                        setTimeout(() => toggleEdgeSelectMode(), 300);
+                    }
+                    const edgeSelectDiv = document.createElement('div');
+                    edgeSelectDiv.className = 'map-select-prompt';
+                    edgeSelectDiv.innerHTML = `
+                        <button class="sim-option-btn area-select" onclick="if(!edgeSelectMode) toggleEdgeSelectMode();">
+                            <i class="fas fa-mouse-pointer"></i>
+                            <span>지도에서 도로 선택</span>
+                        </button>
+                    `;
+                    messageDiv.appendChild(edgeSelectDiv);
+                }
+
+                // [UPLOAD_OD] — show inline OD upload UI
+                if (hasUploadOD) {
+                    messageDiv.appendChild(createODUploadUI());
+                }
+
                 wrapper.appendChild(avatar);
                 wrapper.appendChild(messageDiv);
                 container.appendChild(wrapper);
@@ -2915,6 +2946,10 @@
                     <div class="sim-options-title">
                         <i class="fas fa-sliders-h"></i>
                         시뮬레이션 설정
+                    </div>
+                    <div class="sim-options-tabs">
+                        <button class="sim-options-tab active" onclick="switchSimTab(this, 'random')">Random OD</button>
+                        <button class="sim-options-tab" onclick="switchSimTab(this, 'real')">Real OD</button>
                     </div>
                 </div>
 
@@ -2999,9 +3034,38 @@
             updateSimSubmitButton();
         }
 
-        async function handleOdUpload(file) {
+        // Standalone OD upload UI — triggered by [UPLOAD_OD] marker
+        let _odUploadCounter = 0;
+        function createODUploadUI() {
+            const uid = ++_odUploadCounter;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'sim-option-group';
+            wrapper.style.marginTop = '12px';
+            wrapper.innerHTML = `
+                <div class="file-upload-zone" id="od-upload-inline-${uid}"
+                     onclick="document.getElementById('od-file-inline-${uid}').click()"
+                     ondragover="event.preventDefault(); this.style.borderColor='var(--primary-color)'"
+                     ondragleave="this.style.borderColor=''"
+                     ondrop="handleInlineOdDrop(event, ${uid})">
+                    <input type="file" id="od-file-inline-${uid}" accept=".csv"
+                           onchange="handleOdUpload(this.files[0], 'od-upload-inline-${uid}', true)">
+                    <div class="upload-icon"><i class="fas fa-file-csv"></i></div>
+                    <div class="upload-text">CSV 파일을 드래그하거나 클릭하여 업로드</div>
+                </div>
+            `;
+            return wrapper;
+        }
+
+        function handleInlineOdDrop(e, uid) {
+            e.preventDefault();
+            e.currentTarget.style.borderColor = '';
+            const file = e.dataTransfer.files[0];
+            if (file) handleOdUpload(file, `od-upload-inline-${uid}`, true);
+        }
+
+        async function handleOdUpload(file, zoneId = 'od-upload-zone', sendToAgent = false) {
             if (!file) return;
-            const zone = document.getElementById('od-upload-zone');
+            const zone = document.getElementById(zoneId);
             zone.querySelector('.upload-text').textContent = '업로드 중...';
 
             const formData = new FormData();
@@ -3016,6 +3080,14 @@
                     zone.querySelector('.upload-icon').innerHTML = '<i class="fas fa-check-circle"></i>';
                     zone.querySelector('.upload-text').textContent = file.name;
                     updateSimSubmitButton();
+
+                    // When triggered by [UPLOAD_OD] marker, auto-send to agent
+                    if (sendToAgent) {
+                        sendMessageDirectly(
+                            `[OD 파일 업로드 완료]\n파일명: ${file.name}\n경로: ${data.path}\n크기: ${data.size || 'unknown'}`,
+                            `OD 파일 업로드: ${file.name}`
+                        );
+                    }
                 } else {
                     zone.querySelector('.upload-text').textContent = '업로드 실패: ' + (data.error || '');
                 }
@@ -3817,7 +3889,9 @@
             const policyLabels = {
                 'road_closure': '도로 차단 (Road Closure)',
                 'lane_reduction': '차선 축소 (Lane Reduction)',
-                'speed_limit': '속도 제한 변경 (Speed Limit Change)'
+                'speed_limit': '속도 제한 변경 (Speed Limit Change)',
+                'rerouter': '우회 경로 설정 (Rerouter)',
+                'vss': '가변 속도 제한 (Variable Speed Sign)'
             };
 
             const agentMessage = `[사용자가 지도에서 도로 구간을 선택하여 정책 적용을 요청합니다]

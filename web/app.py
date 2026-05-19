@@ -1355,7 +1355,7 @@ def create_app() -> FastAPI:
                 return JSONResponse(content={"message": "No output directory", "deleted": 0})
 
             preserve_files = {"vehicle_types.add.xml"}
-            clean_folders = ["networks", "trips", "simulations", "analysis", "reports", "visualizations"]
+            clean_folders = ["networks", "trips", "simulations", "analysis", "reports", "visualizations", "additional"]
 
             deleted_count = 0
             preserved_count = 0
@@ -1411,7 +1411,7 @@ def create_app() -> FastAPI:
             deleted_count = 0
             if output_dir:
                 preserve_files = {"vehicle_types.add.xml"}
-                clean_folders = ["networks", "trips", "simulations", "analysis", "reports", "visualizations"]
+                clean_folders = ["networks", "trips", "simulations", "analysis", "reports", "visualizations", "additional"]
                 for folder_name in clean_folders:
                     folder = output_dir / folder_name
                     if not folder.exists():
