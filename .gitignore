@@ -1,7 +1,7 @@
-# API Keys & Tokens (공유를 위해 주석 처리)
-# claude_api.txt
-# mapbox_token.txt
-# sumo_home.txt
+# API Keys & Tokens
+claude_api.txt
+mapbox_token.txt
+sumo_home.txt
 
 # Python
 __pycache__/
@@ -17,8 +17,8 @@ ENV/
 # Claude Code
 .claude/
 
-# Output files (시뮬레이션 결과) - 공유를 위해 주석 처리
-# output/
+# Output files (simulation results)
+agentsumo/output/
 
 # IDE
 .idea/
@@ -36,3 +36,15 @@ ENV/
 # Environment
 .env
 .env.local
+
+# Excluded directories (not part of core AgentSUMO)
+SUMOLanguageExpert/
+experiments_ceus/
+references/
+data/
+sqlite-mcp-server/
+
+# Web template backups
+web/templates/*backup*
+web/templates/landing.html
+web/templates/main_dark.html

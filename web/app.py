@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Optional
 
 import sumolib
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
@@ -98,7 +98,10 @@ async def get_agent() -> AgentSUMO:
                 enable_debug=False,
                 interface="web",
                 enable_filesystem_mcp=True,
-                filesystem_root=str(AgentSUMOConfig.PROJECT_ROOT / "agentsumo" / "output")
+                filesystem_directories=[
+                    str(AgentSUMOConfig.PROJECT_ROOT / "agentsumo" / "agent" / "additional_files_guide"),
+                    str(AgentSUMOConfig.PROJECT_ROOT / "agentsumo" / "output")
+                ]
             )
             await _agent.start()
             logger.info("AgentSUMO ready!")
@@ -1293,6 +1296,55 @@ def create_app() -> FastAPI:
         except Exception as e:
             logger.error(f"Error listing SUMO config files: {e}")
             return JSONResponse(content={"error": str(e), "configs": []}, status_code=500)
+
+    @app.post("/api/upload/od")
+    async def upload_od_file(file: UploadFile = File(...)):
+        """Upload OD data CSV file"""
+        try:
+            upload_dir = AgentSUMOConfig.PROJECT_ROOT / "agentsumo" / "output" / "uploads" / "od"
+            upload_dir.mkdir(parents=True, exist_ok=True)
+
+            dest = upload_dir / file.filename
+            content = await file.read()
+            dest.write_bytes(content)
+
+            logger.info(f"OD file uploaded: {file.filename} ({len(content)/1024:.1f} KB)")
+            return JSONResponse(content={
+                "status": "success",
+                "filename": file.filename,
+                "path": str(dest),
+                "size": len(content)
+            })
+        except Exception as e:
+            logger.error(f"OD upload failed: {e}")
+            return JSONResponse(content={"error": str(e)}, status_code=500)
+
+    @app.post("/api/upload/shapefile")
+    async def upload_shapefile(files: list[UploadFile] = File(...)):
+        """Upload shapefile (multiple files: .shp, .shx, .dbf, .prj, etc.)"""
+        try:
+            upload_dir = AgentSUMOConfig.PROJECT_ROOT / "agentsumo" / "output" / "uploads" / "shp"
+            upload_dir.mkdir(parents=True, exist_ok=True)
+
+            uploaded = []
+            shp_path = None
+            for f in files:
+                dest = upload_dir / f.filename
+                content = await f.read()
+                dest.write_bytes(content)
+                uploaded.append(f.filename)
+                if f.filename.endswith(".shp"):
+                    shp_path = str(dest)
+
+            logger.info(f"Shapefile uploaded: {uploaded}")
+            return JSONResponse(content={
+                "status": "success",
+                "files": uploaded,
+                "shp_path": shp_path
+            })
+        except Exception as e:
+            logger.error(f"Shapefile upload failed: {e}")
+            return JSONResponse(content={"error": str(e)}, status_code=500)
 
     @app.post("/api/clean")
     async def clean_output():

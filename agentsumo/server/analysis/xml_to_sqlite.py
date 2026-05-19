@@ -5,7 +5,7 @@ XML to SQLite converter for SUMO simulation results.
 import sqlite3
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import logging
 import datetime
 import re
@@ -47,6 +47,8 @@ class XMLToSQLiteConverter:
             if not db_exists:
                 self._create_schema(conn)
             else:
+                # Ensure new tables exist in older DBs
+                self._ensure_new_tables(conn)
                 # Prevent duplicate imports of the same simulation data
                 try:
                     existing = conn.execute(
@@ -88,25 +90,34 @@ class XMLToSQLiteConverter:
                     pass  # Table might not exist yet, continue normally
 
             # Import data
+            edge_info_count = self._import_edge_info(conn, net_file, simulation_id)
             trip_count = self._import_tripinfo(conn, tripinfo_xml, simulation_id)
+            vehicle_info_count = self._import_vehicle_info(
+                conn, tripinfo_xml, net_file, simulation_id
+            )
             edge_count = self._import_edgedata(conn, edgedata_xml, edgedata_emission_xml, simulation_id)
-            
+
             # Save metadata
             conn.execute("""
                 INSERT INTO simulations VALUES (?, ?, ?, ?, ?, ?)
             """, (simulation_id, datetime.datetime.now().isoformat(), trip_count, net_file, route_file, description))
-            
+
             if not db_exists:
                 self._create_indexes(conn)
-            
+
             conn.commit()
             conn.close()
-            
+
             return {
                 "status": "success",
                 "db_file": output_db,
                 "simulation_id": simulation_id,
-                "metadata": {"trip_count": trip_count, "edge_count": edge_count}
+                "metadata": {
+                    "trip_count": trip_count,
+                    "edge_count": edge_count,
+                    "edge_info_count": edge_info_count,
+                    "vehicle_info_count": vehicle_info_count
+                }
             }
         except Exception as e:
             # 에러 발생 시 연결 정리
@@ -129,6 +140,43 @@ class XMLToSQLiteConverter:
             
             return {"status": "error", "message": str(e)}
     
+    def _ensure_new_tables(self, conn):
+        """Create new tables if they don't exist (migration for older DBs)."""
+        tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+
+        if "edge_info" not in tables:
+            conn.execute("""CREATE TABLE edge_info (
+                simulation_id TEXT,
+                edge_id TEXT,
+                road_name TEXT,
+                length REAL,
+                num_lanes INTEGER,
+                speed_limit REAL,
+                PRIMARY KEY (simulation_id, edge_id)
+            )""")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_ei_road_name ON edge_info(road_name)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_ei_length ON edge_info(length)")
+            logger.info("Migrated: edge_info table created in existing DB")
+
+        if "vehicle_info" not in tables:
+            conn.execute("""CREATE TABLE vehicle_info (
+                simulation_id TEXT,
+                vehicle_id TEXT,
+                vehicle_type TEXT,
+                fuel_type TEXT,
+                origin_edge TEXT,
+                destination_edge TEXT,
+                origin_road TEXT,
+                destination_road TEXT,
+                PRIMARY KEY (simulation_id, vehicle_id)
+            )""")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_vi_fuel ON vehicle_info(fuel_type)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_vi_origin ON vehicle_info(origin_road)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_vi_dest ON vehicle_info(destination_road)")
+            logger.info("Migrated: vehicle_info table created in existing DB")
+
+        conn.commit()
+
     def _create_schema(self, conn):
         """Create schema - tripinfo/edgedata XML의 모든 속성을 개별 컬럼으로 저장"""
         conn.execute("CREATE TABLE simulations (simulation_id TEXT PRIMARY KEY, created_at TEXT, vehicle_count INTEGER, net_file TEXT, route_file TEXT, description TEXT)")
@@ -165,6 +213,30 @@ class XMLToSQLiteConverter:
             fuel_abs REAL,
             electricity_abs REAL,
             PRIMARY KEY (simulation_id, trip_id)
+        )""")
+
+        # vehicle_info 테이블: 차량 메타데이터 (type, fuel, OD)
+        conn.execute("""CREATE TABLE vehicle_info (
+            simulation_id TEXT,
+            vehicle_id TEXT,
+            vehicle_type TEXT,
+            fuel_type TEXT,
+            origin_edge TEXT,
+            destination_edge TEXT,
+            origin_road TEXT,
+            destination_road TEXT,
+            PRIMARY KEY (simulation_id, vehicle_id)
+        )""")
+
+        # edge_info 테이블: 네트워크 edge 속성 (road_name, length 등)
+        conn.execute("""CREATE TABLE edge_info (
+            simulation_id TEXT,
+            edge_id TEXT,
+            road_name TEXT,
+            length REAL,
+            num_lanes INTEGER,
+            speed_limit REAL,
+            PRIMARY KEY (simulation_id, edge_id)
         )""")
 
         # edge_metrics 테이블: edgedata XML의 모든 속성
@@ -213,6 +285,122 @@ class XMLToSQLiteConverter:
             PRIMARY KEY (simulation_id, edge_id, interval_begin)
         )""")
     
+    def _import_edge_info(self, conn, net_file: Optional[str], sim_id: str) -> int:
+        """Import edge metadata (road_name, length, etc.) from network file."""
+        if not net_file or not Path(net_file).exists():
+            logger.warning(f"net_file not available, skipping edge_info import")
+            return 0
+
+        try:
+            import sumolib
+            net = sumolib.net.readNet(net_file)
+        except Exception as e:
+            logger.warning(f"Failed to read net_file for edge_info: {e}")
+            return 0
+
+        count = 0
+        for edge in net.getEdges():
+            edge_id = edge.getID()
+            road_name = edge.getName() or None
+            length = round(edge.getLength(), 2)
+            num_lanes = edge.getLaneNumber()
+            speed_limit = round(edge.getSpeed() * 3.6, 1)  # m/s → km/h
+
+            conn.execute(
+                "INSERT OR IGNORE INTO edge_info VALUES (?, ?, ?, ?, ?, ?)",
+                (sim_id, edge_id, road_name, length, num_lanes, speed_limit)
+            )
+            count += 1
+
+        logger.info(f"Imported edge_info: {count} edges")
+        return count
+
+    def _import_vehicle_info(
+        self, conn, tripinfo_xml: str, net_file: Optional[str], sim_id: str
+    ) -> int:
+        """Import vehicle metadata from tripinfo XML + network file."""
+        # Build edge_id → road_name lookup from already-imported edge_info
+        road_name_map = {}
+        try:
+            rows = conn.execute(
+                "SELECT edge_id, road_name FROM edge_info WHERE simulation_id = ?",
+                (sim_id,)
+            ).fetchall()
+            road_name_map = {r[0]: r[1] for r in rows}
+        except Exception:
+            pass
+
+        # Build vType → fuel_type mapping from vehicle_types.add.xml
+        fuel_type_map = {}
+        if net_file:
+            vtype_file = Path(net_file).parent / "vehicle_types.add.xml"
+            if vtype_file.exists():
+                fuel_type_map = self._parse_vehicle_types(str(vtype_file))
+
+        count = 0
+        for event, elem in ET.iterparse(tripinfo_xml, events=('end',)):
+            if elem.tag == 'tripinfo':
+                vehicle_id = elem.get('id', '')
+                vtype = elem.get('vType', '')
+                depart_lane = elem.get('departLane', '')
+                arrival_lane = elem.get('arrivalLane', '')
+
+                # Extract edge from lane (e.g., "edge_id_0" → "edge_id")
+                origin_edge = depart_lane.rsplit('_', 1)[0] if depart_lane else None
+                dest_edge = arrival_lane.rsplit('_', 1)[0] if arrival_lane else None
+
+                origin_road = road_name_map.get(origin_edge) if origin_edge else None
+                dest_road = road_name_map.get(dest_edge) if dest_edge else None
+
+                fuel_type = fuel_type_map.get(vtype, self._infer_fuel_type(vtype))
+
+                conn.execute(
+                    "INSERT OR IGNORE INTO vehicle_info VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    (sim_id, vehicle_id, vtype, fuel_type,
+                     origin_edge, dest_edge, origin_road, dest_road)
+                )
+                count += 1
+                elem.clear()
+
+        logger.info(f"Imported vehicle_info: {count} vehicles")
+        return count
+
+    @staticmethod
+    def _parse_vehicle_types(vtype_file: str) -> dict:
+        """Parse vehicle_types.add.xml → {vType_id: fuel_type} mapping."""
+        fuel_map = {}
+        try:
+            tree = ET.parse(vtype_file)
+            for vtype in tree.findall('.//vType'):
+                vid = vtype.get('id', '')
+                emission_class = vtype.get('emissionClass', '')
+                fuel_map[vid] = XMLToSQLiteConverter._classify_fuel(emission_class)
+        except Exception:
+            pass
+        return fuel_map
+
+    @staticmethod
+    def _classify_fuel(emission_class: str) -> str:
+        """Classify fuel type from SUMO emissionClass string."""
+        ec = emission_class.lower()
+        if not ec or ec == 'zero' or 'energy' in ec or 'electric' in ec:
+            return 'electric'
+        if '_d_' in ec or 'diesel' in ec:
+            return 'diesel'
+        if '_g_' in ec or 'gasoline' in ec or 'petrol' in ec:
+            return 'gasoline'
+        return 'unknown'
+
+    @staticmethod
+    def _infer_fuel_type(vtype: str) -> str:
+        """Infer fuel type from vType name when vehicle_types.add.xml is unavailable."""
+        vt = vtype.lower()
+        if 'electric' in vt or 'ev' in vt or 'bev' in vt:
+            return 'electric'
+        if 'diesel' in vt:
+            return 'diesel'
+        return 'gasoline'
+
     def _import_tripinfo(self, conn, xml_file, sim_id):
         """Import trips - tripinfo XML의 모든 속성을 개별 컬럼으로 저장"""
         count = 0
@@ -397,6 +585,10 @@ class XMLToSQLiteConverter:
     
     def _create_indexes(self, conn):
         """Create indexes"""
+        # edge_info 인덱스
+        conn.execute("CREATE INDEX idx_ei_road_name ON edge_info(road_name)")
+        conn.execute("CREATE INDEX idx_ei_length ON edge_info(length)")
+
         # edge_metrics 인덱스
         conn.execute("CREATE INDEX idx_density ON edge_metrics(density DESC)")
         conn.execute("CREATE INDEX idx_sim_edge ON edge_metrics(simulation_id, edge_id)")
@@ -404,6 +596,11 @@ class XMLToSQLiteConverter:
         conn.execute("CREATE INDEX idx_speed ON edge_metrics(speed DESC)")
         conn.execute("CREATE INDEX idx_waitingTime ON edge_metrics(waitingTime DESC)")
         
+        # vehicle_info 인덱스
+        conn.execute("CREATE INDEX idx_vi_fuel ON vehicle_info(fuel_type)")
+        conn.execute("CREATE INDEX idx_vi_origin ON vehicle_info(origin_road)")
+        conn.execute("CREATE INDEX idx_vi_dest ON vehicle_info(destination_road)")
+
         # trips 인덱스
         conn.execute("CREATE INDEX idx_trips_duration ON trips(duration DESC)")
         conn.execute("CREATE INDEX idx_trips_timeLoss ON trips(timeLoss DESC)")

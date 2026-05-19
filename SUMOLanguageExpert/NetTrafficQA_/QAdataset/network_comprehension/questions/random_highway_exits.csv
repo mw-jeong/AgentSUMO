@@ -1,2 +1,0 @@
-network,type,question,ground_truth
-random,highway_exits,"Considering the entire network, which edges can be regarded as highway exits (i.e., highway edges that lead to non-highway outgoing edges)? Answer format: <edge_id1>, <edge_id2>, ... or 'None' (e.g. E7, E15)",None

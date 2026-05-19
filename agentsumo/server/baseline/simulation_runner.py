@@ -84,6 +84,22 @@ class SimulationRunner:
                 additional_files, output_path, None
             )
 
+            # Check if any additional file contains a rerouter
+            has_rerouter = self._has_rerouter(additional_files)
+
+            # Validate user-provided additional files before simulation
+            validation_errors = self._validate_additional_files(additional_files, net_file, duration)
+            if validation_errors:
+                return {
+                    "status": "validation_error",
+                    "output_files": [],
+                    "message": "Additional file validation failed. Fix the errors and retry.\n\n"
+                               + "\n".join(f"- {e}" for e in validation_errors),
+                    "errors": validation_errors,
+                    "simulation_time": 0.0,
+                    "metadata": {"error_type": "AdditionalFileValidationError"}
+                }
+
             # Generate additional.add.xml
             add_file = self._generate_additional_file(output_path, output_files, duration)
 
@@ -95,7 +111,8 @@ class SimulationRunner:
 
             # Run simulation via TraCI
             result = self._run_simulation_traci(
-                config_file, output_path, output_files, duration, prefix, timestamp
+                config_file, output_path, output_files, duration, prefix, timestamp,
+                enable_rerouting=has_rerouter
             )
 
             # Prepare result
@@ -136,6 +153,207 @@ class SimulationRunner:
             "trip_file": trip_file_name,
             "route_file": route_file_name
         }
+
+    @staticmethod
+    def _validate_additional_files(
+        additional_files: List[str], net_file: str, duration: int
+    ) -> List[str]:
+        """
+        Validate user-provided additional files before simulation.
+
+        Level 1: XML structure (well-formed, correct root, required attributes)
+        Level 2: Network consistency (edge/lane IDs exist in the network)
+
+        Returns:
+            List of error messages. Empty list means validation passed.
+        """
+        import xml.etree.ElementTree as _ET
+
+        if not additional_files:
+            return []
+
+        errors = []
+
+        # Build edge/lane lookup from network file
+        edge_ids = set()
+        edge_lane_counts = {}  # edge_id → num_lanes
+        if net_file and Path(net_file).exists():
+            try:
+                import sumolib
+                net = sumolib.net.readNet(net_file)
+                for edge in net.getEdges():
+                    eid = edge.getID()
+                    edge_ids.add(eid)
+                    edge_lane_counts[eid] = edge.getLaneNumber()
+            except Exception as e:
+                logger.warning(f"Could not read network for validation: {e}")
+
+        for file_path in additional_files:
+            fname = Path(file_path).name
+
+            # --- Level 1: XML structure ---
+            try:
+                tree = _ET.parse(file_path)
+                root = tree.getroot()
+            except _ET.ParseError as e:
+                errors.append(f"[{fname}] Invalid XML: {e}")
+                continue
+
+            if root.tag != "additional":
+                errors.append(f"[{fname}] Root element must be <additional>, got <{root.tag}>")
+                continue
+
+            # Validate rerouter elements
+            for rerouter in root.findall("rerouter"):
+                rid = rerouter.get("id")
+                if not rid:
+                    errors.append(f"[{fname}] <rerouter> missing required 'id' attribute")
+                edges_attr = rerouter.get("edges")
+                if not edges_attr:
+                    errors.append(f"[{fname}] <rerouter id='{rid}'> missing required 'edges' attribute")
+                else:
+                    # Level 2: Check edge IDs exist
+                    if edge_ids:
+                        for eid in edges_attr.split(";"):
+                            eid = eid.strip()
+                            if eid and eid not in edge_ids:
+                                errors.append(
+                                    f"[{fname}] <rerouter id='{rid}'> references non-existent edge '{eid}'"
+                                )
+
+                for interval in rerouter.findall("interval"):
+                    begin = interval.get("begin")
+                    end = interval.get("end")
+                    if begin is None or end is None:
+                        errors.append(f"[{fname}] <interval> in rerouter '{rid}' missing begin/end")
+                        continue
+                    try:
+                        b, e = float(begin), float(end)
+                        if b < 0:
+                            errors.append(f"[{fname}] interval begin={b} is negative")
+                        if e > duration:
+                            errors.append(
+                                f"[{fname}] interval end={e} exceeds simulation duration ({duration}s)"
+                            )
+                    except ValueError:
+                        errors.append(f"[{fname}] interval begin/end must be numeric")
+
+                    for cr in interval.findall("closingReroute"):
+                        cr_id = cr.get("id")
+                        if not cr_id:
+                            errors.append(f"[{fname}] <closingReroute> missing 'id' attribute")
+                        elif edge_ids and cr_id not in edge_ids:
+                            errors.append(
+                                f"[{fname}] <closingReroute> references non-existent edge '{cr_id}'"
+                            )
+
+                    for clr in interval.findall("closingLaneReroute"):
+                        lane_id = clr.get("id")
+                        if not lane_id:
+                            errors.append(f"[{fname}] <closingLaneReroute> missing 'id' attribute")
+                        elif edge_ids:
+                            # Lane ID format: {edge_id}_{index}
+                            parts = lane_id.rsplit("_", 1)
+                            if len(parts) != 2:
+                                errors.append(
+                                    f"[{fname}] Invalid lane ID format '{lane_id}' "
+                                    f"(expected '{{edge_id}}_{{index}}')"
+                                )
+                            else:
+                                edge_part, idx_part = parts
+                                if edge_part not in edge_ids:
+                                    errors.append(
+                                        f"[{fname}] <closingLaneReroute> references "
+                                        f"non-existent edge '{edge_part}'"
+                                    )
+                                elif edge_part in edge_lane_counts:
+                                    try:
+                                        idx = int(idx_part)
+                                        if idx >= edge_lane_counts[edge_part]:
+                                            errors.append(
+                                                f"[{fname}] Lane index {idx} exceeds lane count "
+                                                f"({edge_lane_counts[edge_part]}) for edge '{edge_part}'"
+                                            )
+                                    except ValueError:
+                                        errors.append(
+                                            f"[{fname}] Invalid lane index '{idx_part}' in '{lane_id}'"
+                                        )
+
+            # Validate variableSpeedSign elements
+            for vss in root.findall("variableSpeedSign"):
+                vss_id = vss.get("id")
+                if not vss_id:
+                    errors.append(f"[{fname}] <variableSpeedSign> missing required 'id' attribute")
+                lanes_attr = vss.get("lanes")
+                if not lanes_attr:
+                    errors.append(f"[{fname}] <variableSpeedSign id='{vss_id}'> missing required 'lanes' attribute")
+                else:
+                    # Level 2: Check lane IDs
+                    if edge_ids:
+                        for lane_id in lanes_attr.split():
+                            parts = lane_id.rsplit("_", 1)
+                            if len(parts) != 2:
+                                errors.append(
+                                    f"[{fname}] Invalid lane ID '{lane_id}' in VSS '{vss_id}'"
+                                )
+                            else:
+                                edge_part, idx_part = parts
+                                if edge_part not in edge_ids:
+                                    errors.append(
+                                        f"[{fname}] VSS '{vss_id}' references "
+                                        f"non-existent edge '{edge_part}'"
+                                    )
+                                elif edge_part in edge_lane_counts:
+                                    try:
+                                        idx = int(idx_part)
+                                        if idx >= edge_lane_counts[edge_part]:
+                                            errors.append(
+                                                f"[{fname}] Lane index {idx} exceeds lane count "
+                                                f"({edge_lane_counts[edge_part]}) for edge '{edge_part}'"
+                                            )
+                                    except ValueError:
+                                        errors.append(
+                                            f"[{fname}] Invalid lane index '{idx_part}' in '{lane_id}'"
+                                        )
+
+                for step in vss.findall("step"):
+                    time_val = step.get("time")
+                    if time_val is None:
+                        errors.append(f"[{fname}] <step> in VSS '{vss_id}' missing 'time' attribute")
+                    else:
+                        try:
+                            t = float(time_val)
+                            if t < 0:
+                                errors.append(f"[{fname}] step time={t} is negative in VSS '{vss_id}'")
+                        except ValueError:
+                            errors.append(f"[{fname}] step time must be numeric in VSS '{vss_id}'")
+
+                    speed_val = step.get("speed")
+                    if speed_val is not None:
+                        try:
+                            s = float(speed_val)
+                            if s > 100:
+                                errors.append(
+                                    f"[{fname}] VSS '{vss_id}' speed={s} m/s ({s*3.6:.0f} km/h) "
+                                    f"is unusually high — did you use km/h instead of m/s?"
+                                )
+                        except ValueError:
+                            errors.append(f"[{fname}] step speed must be numeric in VSS '{vss_id}'")
+
+        return errors
+
+    @staticmethod
+    def _has_rerouter(additional_files: List[str]) -> bool:
+        """Check if any additional file contains a rerouter element."""
+        import xml.etree.ElementTree as ET
+        for f in (additional_files or []):
+            try:
+                tree = ET.parse(f)
+                if tree.find('.//rerouter') is not None:
+                    return True
+            except Exception:
+                continue
+        return False
 
     def _generate_additional_file(self, output_path: Path, output_files: Dict[str, str], duration: int) -> str:
         """Generate additional.add.xml file for simulation."""
@@ -208,7 +426,8 @@ class SimulationRunner:
         output_files: Dict[str, str],
         duration: int = 3600,
         prefix: str = "simulation",
-        timestamp: str = ""
+        timestamp: str = "",
+        enable_rerouting: bool = False
     ) -> Any:
         """
         Run SUMO simulation using TraCI.
@@ -225,6 +444,10 @@ class SimulationRunner:
             "--device.emissions.probability", "1.0",
             "--no-warnings"
         ]
+
+        if enable_rerouting:
+            sumo_cmd.extend(["--device.rerouting.probability", "1.0"])
+            logger.info("Rerouter detected in additional files — rerouting device enabled")
 
         logger.info(f"Running SUMO simulation (TraCI): {config_file.name}")
 

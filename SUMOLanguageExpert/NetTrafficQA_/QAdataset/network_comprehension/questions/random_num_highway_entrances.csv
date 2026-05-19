@@ -1,2 +1,0 @@
-network,type,question,ground_truth
-random,num_highway_entrances,How many highway entrance edges are there in the network? Answer format: <integer> (e.g. 4),0

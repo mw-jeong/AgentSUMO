@@ -1,2 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<configuration><input><net-file value="disrupted.net.xml" /><route-files value="disrupted.rou.xml" /><additional-files value="additional.add.xml,vehicle_types.add.xml" /></input><time><begin value="0" /><end value="3600" /></time><output><tripinfo-output value="disrupted.net_tripinfo_20260130_114317.xml" /></output><report><verbose value="true" /><no-step-log value="true" /></report></configuration>
