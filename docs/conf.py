@@ -64,8 +64,8 @@ html_css_files = ["custom.css"]
 
 html_theme_options = {
     "logo": {
-        "image_light": "_static/logo_light.png",
-        "image_dark": "_static/logo_dark.png",
+        "image_light": "_static/logo_light_backup.png",
+        "image_dark": "_static/logo_dark_backup.png",
         "alt_text": "AgentSUMO",
     },
     "github_url": "https://github.com/mw-jeong/AgentSUMO",
