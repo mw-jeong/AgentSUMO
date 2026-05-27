@@ -1,0 +1,9 @@
+sphinx>=7.3
+pydata-sphinx-theme>=0.15
+myst-parser>=3.0
+sphinx-copybutton>=0.5
+sphinxcontrib-mermaid>=0.9
+sphinx-design>=0.6
+sphinx-togglebutton>=0.3
+sphinx-notfound-page>=1.0
+linkify-it-py>=2.0

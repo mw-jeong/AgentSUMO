@@ -1,0 +1,348 @@
+/*
+ * AgentSUMO documentation theme overrides.
+ * Colors mirror web/templates/index.html (lines 27-46) so the docs and
+ * the product share a single visual identity.
+ */
+
+/* =========================================================================
+ * Dark mode (default) — verbatim from web/templates/index.html
+ * ========================================================================= */
+html[data-theme="dark"] {
+  /* Greens */
+  --as-sumo:           #5b8c00;
+  --as-sumo-light:     #7ab800;
+  --as-neon:           #39ff8a;
+  --as-sumo-glow:      rgba(91, 140, 0, 0.25);
+
+  /* Backgrounds */
+  --as-bg-primary:     #080a0c;
+  --as-bg-secondary:   #0c0f12;
+  --as-bg-tertiary:    #111518;
+
+  /* Text */
+  --as-text-primary:   #dce8e3;
+  --as-text-secondary: #8aa69c;
+  --as-text-muted:     #556e66;
+
+  /* States */
+  --as-warning:        #ffb84d;
+  --as-danger:         #ff5a5a;
+  --as-border:         rgba(91, 140, 0, 0.15);
+  --as-accent-light:   rgba(91, 140, 0, 0.08);
+  --as-accent-medium:  rgba(91, 140, 0, 0.12);
+
+  /* PyData token mapping */
+  --pst-color-primary:        var(--as-sumo);
+  --pst-color-secondary:      var(--as-sumo-light);
+  --pst-color-success:        var(--as-sumo-light);
+  --pst-color-warning:        var(--as-warning);
+  --pst-color-danger:         var(--as-danger);
+  --pst-color-info:           var(--as-sumo-light);
+  --pst-color-background:     var(--as-bg-primary);
+  --pst-color-on-background:  var(--as-bg-secondary);
+  --pst-color-surface:        var(--as-bg-tertiary);
+  --pst-color-on-surface:     var(--as-text-primary);
+  --pst-color-text-base:      var(--as-text-primary);
+  --pst-color-text-muted:     var(--as-text-secondary);
+  --pst-color-border:         var(--as-border);
+  --pst-color-shadow:         rgba(0, 0, 0, 0.5);
+  --pst-color-link:           var(--as-sumo-light);
+  --pst-color-link-hover:     var(--as-neon);
+  --pst-color-inline-code:    var(--as-neon);
+  --pst-color-inline-code-links: var(--as-neon);
+  --pst-color-target:         var(--as-sumo-glow);
+  --pst-color-table-row-hover-bg: var(--as-accent-light);
+}
+
+/* =========================================================================
+ * Light mode — same hues, contrast-adjusted for AA on white
+ * ========================================================================= */
+html[data-theme="light"] {
+  --as-sumo:           #466e00;
+  --as-sumo-light:     #5b8c00;
+  --as-neon:           #2e7d5a;
+  --as-sumo-glow:      rgba(91, 140, 0, 0.18);
+
+  --as-bg-primary:     #ffffff;
+  --as-bg-secondary:   #f7faf6;
+  --as-bg-tertiary:    #eef3eb;
+
+  --as-text-primary:   #111518;
+  --as-text-secondary: #3f5147;
+  --as-text-muted:     #6b7c72;
+
+  --as-warning:        #d97706;
+  --as-danger:         #dc2626;
+  --as-border:         rgba(70, 110, 0, 0.18);
+  --as-accent-light:   rgba(70, 110, 0, 0.06);
+  --as-accent-medium:  rgba(70, 110, 0, 0.10);
+
+  --pst-color-primary:        var(--as-sumo);
+  --pst-color-secondary:      var(--as-sumo-light);
+  --pst-color-success:        var(--as-sumo);
+  --pst-color-warning:        var(--as-warning);
+  --pst-color-danger:         var(--as-danger);
+  --pst-color-info:           var(--as-sumo-light);
+  --pst-color-background:     var(--as-bg-primary);
+  --pst-color-on-background:  var(--as-bg-secondary);
+  --pst-color-surface:        var(--as-bg-tertiary);
+  --pst-color-on-surface:     var(--as-text-primary);
+  --pst-color-text-base:      var(--as-text-primary);
+  --pst-color-text-muted:     var(--as-text-secondary);
+  --pst-color-border:         var(--as-border);
+  --pst-color-shadow:         rgba(0, 0, 0, 0.08);
+  --pst-color-link:           var(--as-sumo);
+  --pst-color-link-hover:     var(--as-sumo-light);
+  --pst-color-inline-code:    var(--as-neon);
+  --pst-color-inline-code-links: var(--as-neon);
+  --pst-color-target:         var(--as-sumo-glow);
+  --pst-color-table-row-hover-bg: var(--as-accent-light);
+}
+
+/* =========================================================================
+ * Code blocks
+ * ========================================================================= */
+html[data-theme="dark"] div.highlight,
+html[data-theme="dark"] pre {
+  background-color: var(--as-bg-primary) !important;
+  border: 1px solid var(--as-border);
+}
+html[data-theme="light"] div.highlight,
+html[data-theme="light"] pre {
+  background-color: var(--as-bg-secondary) !important;
+  border: 1px solid var(--as-border);
+}
+code.literal {
+  font-family: ui-monospace, SFMono-Regular, "Menlo", "Monaco", "Consolas", monospace;
+  color: var(--pst-color-inline-code);
+  background-color: var(--as-accent-light);
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+}
+
+/* =========================================================================
+ * Admonitions — left-border accent in our palette
+ * ========================================================================= */
+.admonition.note,
+.admonition.seealso {
+  border-left-color: var(--as-sumo-light) !important;
+}
+.admonition.tip,
+.admonition.hint,
+.admonition.important {
+  border-left-color: var(--as-neon) !important;
+}
+.admonition.warning,
+.admonition.caution,
+.admonition.attention {
+  border-left-color: var(--as-warning) !important;
+}
+.admonition.danger,
+.admonition.error {
+  border-left-color: var(--as-danger) !important;
+}
+
+/* =========================================================================
+ * Tables
+ * ========================================================================= */
+table.docutils thead tr {
+  background-color: var(--as-bg-tertiary);
+}
+html[data-theme="dark"] table.docutils tbody tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+html[data-theme="light"] table.docutils tbody tr:nth-child(even) {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+table.docutils td,
+table.docutils th {
+  border-color: var(--as-border) !important;
+}
+
+/* =========================================================================
+ * Custom scrollbar (dark mode, mirrors the web app)
+ * ========================================================================= */
+html[data-theme="dark"] ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+html[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: transparent;
+}
+html[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(91, 140, 0, 0.15);
+  border-radius: 3px;
+}
+html[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(91, 140, 0, 0.3);
+}
+
+/* =========================================================================
+ * Sphinx-design card hover accent
+ * ========================================================================= */
+.sd-card:hover {
+  border-color: var(--as-sumo-light) !important;
+  box-shadow: 0 0 0 1px var(--as-sumo-glow);
+}
+
+/* =========================================================================
+ * Authors list
+ * ========================================================================= */
+ul.author-list {
+  list-style: none;
+  padding-left: 0;
+}
+ul.author-list > li {
+  margin-bottom: 0.65rem;
+  line-height: 1.6;
+}
+
+/* =========================================================================
+ * Header (navbar) height
+ *
+ * PyData default is 4rem. Bumped to 6rem (≈1.5×) so the navbar has more
+ * breathing room. The logo stays compact (height 2rem, natural width) so
+ * it doesn't dominate the bar.
+ * ========================================================================= */
+:root {
+  --pst-header-height: 6rem;
+}
+.navbar-brand img.logo__image {
+  max-height: 2rem;
+  width: auto;
+}
+
+/* =========================================================================
+ * Hero header (landing-page banner)
+ * Light/dark variants handled by PyData's .only-light / .only-dark classes.
+ * ========================================================================= */
+.hero-header {
+  margin: -1rem 0 1.5rem;
+  background: transparent;
+  display: block;
+  line-height: 0;
+}
+.hero-header .hero-img,
+.hero-header img.only-light,
+.hero-header img.only-dark {
+  max-width: 100%;
+  display: block;
+  background-color: transparent !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin: 0;
+}
+
+/* =========================================================================
+ * Institution logos (under Authors list on landing page)
+ *
+ * PyData Sphinx Theme forces every <img> to have a white/text-colored
+ * background and padding (to make transparent PNGs visible in dark mode).
+ * Our logos are designed with transparent backgrounds — we override the
+ * theme default with !important to preserve the artwork as-is.
+ * ========================================================================= */
+.institution-logos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2.5rem;
+  margin: 1.25rem 0 1.5rem;
+  background: transparent;
+}
+.institution-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  background: transparent;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.institution-logo:hover {
+  transform: translateY(-1px);
+  opacity: 0.85;
+}
+.institution-logo img,
+.institution-logo img.only-light,
+.institution-logo img.only-dark,
+.institution-logo img:not(.only-dark, .dark-light) {
+  max-height: 56px;
+  width: auto;
+  display: block;
+  background-color: transparent !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+}
+
+/* =========================================================================
+ * Inline kbd
+ * ========================================================================= */
+kbd {
+  background-color: var(--as-bg-tertiary);
+  border: 1px solid var(--as-border);
+  border-radius: 3px;
+  padding: 0.1em 0.4em;
+  font-family: ui-monospace, monospace;
+  font-size: 0.85em;
+}
+
+/* =========================================================================
+ * Sidebar — clearer hierarchy between section captions and pages
+ * =========================================================================
+ * PyData renders each `:caption:` on its own toctree as a small uppercase
+ * header. We make that distinction louder and visually separate section
+ * landing pages (the `index` of each section) from child pages.
+ */
+
+/* Section caption ("Getting Started", "Overview", ...) */
+.bd-sidebar-primary .caption-text,
+.bd-sidebar-primary p.caption {
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: var(--as-sumo-light) !important;
+  opacity: 0.85;
+  margin-top: 1.2rem;
+  margin-bottom: 0.3rem;
+  padding-left: 0.6rem;
+  border-left: 2px solid var(--as-sumo);
+}
+
+/* All sidebar nav items: reset default cramped spacing */
+.bd-sidebar-primary nav.bd-links li > a {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}
+
+/* Top-level item (a section's landing page if it shows, or root entries):
+ * a touch bolder so users see the page-vs-section split. */
+.bd-sidebar-primary nav.bd-links > ul > li > a {
+  font-weight: 600;
+  color: var(--pst-color-text-base);
+}
+
+/* Nested items (children of a section) — slightly lighter and indented */
+.bd-sidebar-primary nav.bd-links > ul ul a {
+  font-weight: 400;
+  color: var(--pst-color-text-muted);
+  padding-left: 1.4rem !important;
+}
+
+/* Hover + active states use our primary olive */
+.bd-sidebar-primary nav.bd-links a:hover {
+  color: var(--as-sumo-light) !important;
+  background-color: var(--as-accent-light);
+}
+.bd-sidebar-primary nav.bd-links li.current > a,
+.bd-sidebar-primary nav.bd-links a.current {
+  color: var(--as-neon) !important;
+  font-weight: 700;
+  background-color: var(--as-accent-medium);
+  border-left: 3px solid var(--as-neon);
+}
+
+/* Separator between captioned blocks */
+.bd-sidebar-primary nav.bd-links p.caption ~ p.caption {
+  border-top: 1px dashed var(--as-border);
+  padding-top: 0.6rem;
+}

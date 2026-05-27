@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>교통 시뮬레이션 리포트 - {{ simulation.simulation_id }}</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --success: #16a34a;
+            --warning: #ca8a04;
+            --danger: #dc2626;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-600: #4b5563;
+            --gray-800: #1f2937;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--gray-100);
+            color: var(--gray-800);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--primary), #1d4ed8);
+            color: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        header h1 { font-size: 1.75rem; margin-bottom: 0.5rem; }
+        header .meta { opacity: 0.9; font-size: 0.9rem; }
+        header .meta span { margin-right: 1.5rem; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .card h2 {
+            font-size: 1rem;
+            color: var(--gray-600);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .stat {
+            text-align: center;
+            padding: 0.75rem;
+            background: var(--gray-50);
+            border-radius: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--gray-800);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--gray-600);
+            margin-top: 0.25rem;
+        }
+
+        .stat-value.good { color: var(--success); }
+        .stat-value.warning { color: var(--warning); }
+        .stat-value.bad { color: var(--danger); }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--gray-600);
+            font-size: 0.875rem;
+        }
+
+        @media print {
+            body { background: white; }
+            .container { padding: 0; }
+            .card { box-shadow: none; border: 1px solid var(--gray-200); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>교통 시뮬레이션 분석 리포트</h1>
+            <div class="meta">
+                <span><strong>ID:</strong> {{ simulation.simulation_id }}</span>
+                <span><strong>정책:</strong> {{ simulation.policy_type }}</span>
+                <span><strong>생성:</strong> {{ simulation.created_at }}</span>
+            </div>
+        </header>
+
+        <!-- 요약 카드 -->
+        <div class="grid">
+            <div class="card">
+                <h2>🚗 차량 통계</h2>
+                <div class="stat-grid">
+                    <div class="stat">
+                        <div class="stat-value">{{ "{:,}".format(trips.total_trips) }}</div>
+                        <div class="stat-label">총 차량 수</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value">{{ "%.1f"|format(trips.avg_duration / 60) }}분</div>
+                        <div class="stat-label">평균 이동시간</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value {% if trips.avg_waiting_time > 60 %}bad{% elif trips.avg_waiting_time > 30 %}warning{% else %}good{% endif %}">
+                            {{ "%.1f"|format(trips.avg_waiting_time) }}초
+                        </div>
+                        <div class="stat-label">평균 대기시간</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value {% if trips.avg_time_loss > 120 %}bad{% elif trips.avg_time_loss > 60 %}warning{% else %}good{% endif %}">
+                            {{ "%.1f"|format(trips.avg_time_loss) }}초
+                        </div>
+                        <div class="stat-label">평균 시간손실</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>🛣️ 도로 통계</h2>
+                <div class="stat-grid">
+                    <div class="stat">
+                        <div class="stat-value">{{ "{:,}".format(edges.total_edges) }}</div>
+                        <div class="stat-label">총 도로 구간</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value">{{ "%.1f"|format(edges.avg_speed * 3.6) }} km/h</div>
+                        <div class="stat-label">평균 속도</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value {% if edges.avg_density > 50 %}bad{% elif edges.avg_density > 30 %}warning{% else %}good{% endif %}">
+                            {{ "%.1f"|format(edges.avg_density) }}
+                        </div>
+                        <div class="stat-label">평균 밀도 (veh/km)</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value">{{ "%.1f"|format(edges.max_density) }}</div>
+                        <div class="stat-label">최대 밀도</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>🌱 환경 영향</h2>
+                <div class="stat-grid">
+                    <div class="stat">
+                        <div class="stat-value">{{ "%.1f"|format(trips.total_co2 / 1000) }} kg</div>
+                        <div class="stat-label">총 CO2 배출</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value">{{ "%.1f"|format(trips.avg_co2 / 1000) }} kg</div>
+                        <div class="stat-label">차량당 CO2</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value">{{ "%.1f"|format(trips.total_fuel) }} L</div>
+                        <div class="stat-label">총 연료 소비</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value">{{ "%.2f"|format(trips.avg_fuel) }} L</div>
+                        <div class="stat-label">차량당 연료</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>AgentSUMO 시뮬레이션 리포트 | 생성: {{ generated_at }}</p>
+        </footer>
+    </div>
+</body>
+</html>

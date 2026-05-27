@@ -1,0 +1,54 @@
+# API Keys & Tokens
+claude_api.txt
+mapbox_token.txt
+sumo_home.txt
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+.Python
+.venv/
+venv/
+ENV/
+
+# Claude Code
+.claude/
+
+# Output files (simulation results)
+agentsumo/output/
+output/
+
+# Sphinx documentation build
+docs/_build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+
+# Excluded directories (not part of core AgentSUMO)
+SUMOLanguageExpert/
+experiments_ceus/
+references/
+data/
+sqlite-mcp-server/
+
+# Web template backups
+web/templates/*backup*
+web/templates/landing.html
+web/templates/main_dark.html
