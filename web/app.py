@@ -699,6 +699,38 @@ def create_app() -> FastAPI:
                 result.sort(key=lambda x: x["density"], reverse=True)
                 return result[:limit]
 
+            def get_time_series(sim_id, sample_interval=10):
+                """Get time-series data from network_state, sampled every N seconds."""
+                try:
+                    # Check if table exists
+                    tables = [r[0] for r in conn.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table' AND name='network_state'"
+                    ).fetchall()]
+                    if not tables:
+                        return None
+
+                    rows = conn.execute("""
+                        SELECT time, running, halting, waiting, meanSpeed, meanSpeedRelative
+                        FROM network_state
+                        WHERE simulation_id=? AND CAST(time AS INTEGER) % ? = 0
+                        ORDER BY time
+                    """, (sim_id, sample_interval)).fetchall()
+
+                    if not rows:
+                        return None
+
+                    return {
+                        "time": [r['time'] for r in rows],
+                        "running": [r['running'] for r in rows],
+                        "halting": [r['halting'] for r in rows],
+                        "waiting": [r['waiting'] for r in rows],
+                        "meanSpeed": [round(r['meanSpeed'] * 3.6, 1) if r['meanSpeed'] else 0 for r in rows],
+                        "meanSpeedRelative": [round(r['meanSpeedRelative'], 3) if r['meanSpeedRelative'] else 0 for r in rows]
+                    }
+                except Exception as e:
+                    logger.warning(f"Failed to get time series for {sim_id}: {e}")
+                    return None
+
             # Build response
             kpi_a = get_kpi(sim_a)
             if not kpi_a:
@@ -713,6 +745,10 @@ def create_app() -> FastAPI:
                 "has_compare": sim_b is not None
             }
 
+            ts_a = get_time_series(sim_a)
+            if ts_a:
+                data["time_series_a"] = ts_a
+
             if sim_b:
                 kpi_b = get_kpi(sim_b)
                 if kpi_b:
@@ -720,6 +756,9 @@ def create_app() -> FastAPI:
                     data["kpi_b"] = kpi_b
                     data["duration_dist_b"] = get_duration_distribution(sim_b)
                     data["top_congested_b"] = get_top_congested(sim_b)
+                    ts_b = get_time_series(sim_b)
+                    if ts_b:
+                        data["time_series_b"] = ts_b
 
             conn.close()
             return JSONResponse(content=data)
@@ -1063,8 +1102,8 @@ def create_app() -> FastAPI:
             if not sims_dir:
                 return JSONResponse(content={"replays": [], "count": 0})
 
-            # Load DB: map net_file stem to description
-            netfile_to_desc = {}
+            # Load DB: map timestamp to description via tripinfo filenames
+            timestamp_to_desc = {}
             try:
                 output_dir = get_output_dir()
                 if output_dir:
@@ -1075,15 +1114,40 @@ def create_app() -> FastAPI:
                             conn = sqlite3.connect(str(db_files[0]))
                             try:
                                 rows = conn.execute(
-                                    "SELECT net_file, description FROM simulations WHERE description IS NOT NULL"
+                                    "SELECT simulation_id, description FROM simulations WHERE description IS NOT NULL"
                                 ).fetchall()
-                                for net_file, desc in rows:
-                                    if net_file:
-                                        stem = Path(net_file).stem  # e.g. "selected_area.net"
-                                        netfile_to_desc[stem] = desc
+                                sim_id_to_desc = {sid: desc for sid, desc in rows}
+                            except Exception:
+                                sim_id_to_desc = {}
+                            conn.close()
+
+                            # Match tripinfo files to simulation_ids via created_at order
+                            # tripinfo files are named: {prefix}_tripinfo_{timestamp}.xml
+                            # Replay files share the same timestamp
+                            tripinfo_files = sorted(
+                                sims_dir.glob("*_tripinfo_*.xml"),
+                                key=lambda p: p.stat().st_mtime
+                            )
+                            sim_ids_ordered = sorted(
+                                sim_id_to_desc.keys(),
+                                key=lambda sid: sim_id_to_desc.get(sid, sid)
+                            )
+                            # Match by chronological order: DB created_at vs file mtime
+                            try:
+                                conn2 = sqlite3.connect(str(db_files[0]))
+                                ordered_sims = conn2.execute(
+                                    "SELECT simulation_id, description FROM simulations ORDER BY created_at"
+                                ).fetchall()
+                                conn2.close()
+                                for i, tf in enumerate(tripinfo_files):
+                                    # Extract timestamp from tripinfo filename
+                                    tp = tf.name.split('_tripinfo_')
+                                    if len(tp) >= 2:
+                                        ts = tp[1].replace('.xml', '')
+                                        if i < len(ordered_sims):
+                                            timestamp_to_desc[ts] = ordered_sims[i][1] or ordered_sims[i][0]
                             except Exception:
                                 pass
-                            conn.close()
             except Exception:
                 pass
 
@@ -1096,8 +1160,8 @@ def create_app() -> FastAPI:
                         timestamp = parts[1].replace('.json', '')
                         size_mb = f.stat().st_size / 1024 / 1024
 
-                        # Match by net_file stem == replay base_name
-                        display_name = netfile_to_desc.get(base_name, f"{base_name} ({timestamp})")
+                        # Match by shared timestamp between replay and tripinfo
+                        display_name = timestamp_to_desc.get(timestamp, f"{base_name} ({timestamp})")
 
                         replays.append({
                             "name": display_name,

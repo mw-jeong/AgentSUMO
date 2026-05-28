@@ -163,7 +163,7 @@ Route files contain explicit edge lists (e.g., `<route edges="edge1 edge2 edge3.
 
 **After sumo_runner:**
 1. DB is automatically created - use `read_query` for analysis
-2. Call `db_based_simulation_report_tool` only when user requests a report
+2. Call `simulation_report_tool` only when user requests a report
 3. DO NOT call xml_to_sqlite_tool manually - it is automatically called after each sumo_runner execution!
 4. DO NOT run multiple simulations unnecessarily - only run baseline and policy scenarios as needed!
 
