@@ -19,6 +19,10 @@ ENV/
 
 # Output files (simulation results)
 agentsumo/output/
+output/
+
+# Sphinx documentation build
+docs/_build/
 
 # IDE
 .idea/

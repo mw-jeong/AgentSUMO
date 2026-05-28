@@ -1,8 +1,18 @@
 # AgentSUMO
 
+[![Docs](https://readthedocs.org/projects/agentsumo/badge/?version=latest)](https://agentsumo.readthedocs.io/en/latest/?badge=latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)
+
 AI-Powered SUMO Traffic Simulation Platform
 
 Claude LLM과 Model Context Protocol(MCP)을 결합한 대화형 교통 시뮬레이션 자동화 플랫폼
+
+**[Documentation](https://agentsumo.readthedocs.io)** ·
+[Installation](https://agentsumo.readthedocs.io/en/latest/installation.html) ·
+[Tools](https://agentsumo.readthedocs.io/en/latest/mcp_servers/agentsumo/index.html) ·
+[Schema](https://agentsumo.readthedocs.io/en/latest/database/index.html) ·
+[Tutorials](https://agentsumo.readthedocs.io/en/latest/tutorials/index.html)
 
 ## 개요
 
@@ -62,6 +72,15 @@ AgentSUMO/
 - SQL 쿼리 기반 상세 분석
 - 시나리오 비교
 - HTML 리포트 생성
+
+## Documentation
+
+전체 문서는 **[agentsumo.readthedocs.io](https://agentsumo.readthedocs.io)** 에서 확인하실 수 있습니다.
+
+- [Installation](https://agentsumo.readthedocs.io/en/latest/installation.html) — SUMO, Python 3.12, 환경 설정
+- [Tools](https://agentsumo.readthedocs.io/en/latest/mcp_servers/agentsumo/index.html) — 24개 도구 상세 reference
+- [Schema](https://agentsumo.readthedocs.io/en/latest/database/index.html) — `simulations.db` ER 다이어그램과 컬럼 표
+- [Tutorials](https://agentsumo.readthedocs.io/en/latest/tutorials/index.html) — 페이퍼 케이스 스터디 walkthrough
 
 ## 빠른 시작
 
