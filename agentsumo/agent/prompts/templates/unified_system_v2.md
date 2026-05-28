@@ -119,8 +119,9 @@ osm_extract → net_convert → trip_generate → route_generate → sumo_runner
 
 **After sumo_runner:**
 1. Call `xml_to_sqlite_tool` with tripinfo, edgedata, and edgedata_emission XML files. Always provide `simulation_id` and `description`.
+   **IMPORTANT: Also pass `summary_xml`** from sumo_runner's result `summary_xml` field (top-level). Without this, dashboard time-series charts will be empty.
 2. Only after `xml_to_sqlite_tool` returns, use `read_query` (SQLite MCP) for analysis.
-3. Call `db_based_simulation_report_tool` only when user explicitly requests a report.
+3. Call `simulation_report_tool` only when user explicitly requests a report.
 4. Do NOT run multiple simulations unnecessarily — only run baseline and policy scenarios as needed.
 
 ### Route File Compatibility
@@ -178,6 +179,33 @@ Two modes are available:
 **Road Name Mode (`use_geocoding=False`)** — Use when the user explicitly mentions road names for policy experiments targeting specific roads.
 
 If a location falls outside the network bounds, explain the situation and suggest either expanding the network or choosing a location within bounds.
+
+### Flow Generation (Event/Multi-OD Scenarios)
+
+When generating flows for event evacuation, multi-OD scenarios, or any situation requiring multiple origin-destination pairs:
+
+**MANDATORY: Always validate coordinates BEFORE generating flows.**
+
+1. **First**, call `validate_od_coordinates_tool` with ALL candidate origin/destination coordinates and the current net_file.
+   - This returns: in_network status, nearest_edge, distance for EACH coordinate.
+   - Cost: one tool call. Prevents dozens of failed flow_generation_tool calls.
+
+2. **Then**, review the validation results:
+   - `"status": "ok"` → safe to use
+   - `"status": "out_of_network_but_edge_found"` → usable but warn the user it is at the network boundary
+   - `"status": "no_edge_found"` → DO NOT attempt flow generation. Drop this coordinate or suggest alternatives.
+
+3. **Only then**, call `flow_generation_tool` for each validated pair.
+   - Use coordinate mode (`source_lat/lon`, `dest_lat/lon`) when coordinates are known.
+   - Use `number` parameter for total vehicle count per pair.
+   - Chain calls: pass previous output `route_file` as next input to accumulate flows.
+
+**Common failure patterns to avoid:**
+- Geocoding place names that are outside the network radius (e.g., "양재역" in a 2km COEX-centered network)
+- Using coordinates in parks, rivers, or areas with no road edges nearby
+- Not checking if a shortest path exists between source and destination edges
+
+**Web search for scenario design:** Use `web_search_tool` to look up venue capacity, parking info, or geographic context before designing OD distributions.
 
 ### Additional File Editing (Guide-based)
 

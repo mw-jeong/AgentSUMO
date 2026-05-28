@@ -25,7 +25,8 @@ class XMLToSQLiteConverter:
         simulation_id: str = None,
         net_file: str = None,
         route_file: str = None,
-        description: str = None
+        description: str = None,
+        summary_xml: str = None
     ) -> Dict[str, Any]:
         """Convert XML to SQLite with simulation_id"""
         conn = None
@@ -96,6 +97,7 @@ class XMLToSQLiteConverter:
                 conn, tripinfo_xml, net_file, simulation_id
             )
             edge_count = self._import_edgedata(conn, edgedata_xml, edgedata_emission_xml, simulation_id)
+            summary_count = self._import_summary(conn, summary_xml, simulation_id) if summary_xml else 0
 
             # Save metadata
             conn.execute("""
@@ -116,7 +118,8 @@ class XMLToSQLiteConverter:
                     "trip_count": trip_count,
                     "edge_count": edge_count,
                     "edge_info_count": edge_info_count,
-                    "vehicle_info_count": vehicle_info_count
+                    "vehicle_info_count": vehicle_info_count,
+                    "summary_count": summary_count
                 }
             }
         except Exception as e:
@@ -174,6 +177,27 @@ class XMLToSQLiteConverter:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_vi_origin ON vehicle_info(origin_road)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_vi_dest ON vehicle_info(destination_road)")
             logger.info("Migrated: vehicle_info table created in existing DB")
+
+        if "network_state" not in tables:
+            conn.execute("""CREATE TABLE network_state (
+                simulation_id TEXT,
+                time REAL,
+                loaded INTEGER,
+                inserted INTEGER,
+                running INTEGER,
+                waiting INTEGER,
+                ended INTEGER,
+                arrived INTEGER,
+                halting INTEGER,
+                meanSpeed REAL,
+                meanSpeedRelative REAL,
+                meanTravelTime REAL,
+                meanWaitingTime REAL,
+                teleports INTEGER,
+                collisions INTEGER,
+                PRIMARY KEY (simulation_id, time)
+            )""")
+            logger.info("Migrated: network_state table created in existing DB")
 
         conn.commit()
 
@@ -284,7 +308,27 @@ class XMLToSQLiteConverter:
             electricity_perVeh REAL,
             PRIMARY KEY (simulation_id, edge_id, interval_begin)
         )""")
-    
+
+        # network_state 테이블: summary.xml의 시간별 네트워크 집계
+        conn.execute("""CREATE TABLE network_state (
+            simulation_id TEXT,
+            time REAL,
+            loaded INTEGER,
+            inserted INTEGER,
+            running INTEGER,
+            waiting INTEGER,
+            ended INTEGER,
+            arrived INTEGER,
+            halting INTEGER,
+            meanSpeed REAL,
+            meanSpeedRelative REAL,
+            meanTravelTime REAL,
+            meanWaitingTime REAL,
+            teleports INTEGER,
+            collisions INTEGER,
+            PRIMARY KEY (simulation_id, time)
+        )""")
+
     def _import_edge_info(self, conn, net_file: Optional[str], sim_id: str) -> int:
         """Import edge metadata (road_name, length, etc.) from network file."""
         if not net_file or not Path(net_file).exists():
@@ -582,7 +626,41 @@ class XMLToSQLiteConverter:
                 elem.clear()
 
         return count
-    
+
+    def _import_summary(self, conn, summary_xml: str, sim_id: str) -> int:
+        """Import summary.xml — network-wide time-series metrics."""
+        if not summary_xml or not Path(summary_xml).exists():
+            logger.warning(f"summary_xml not available, skipping import")
+            return 0
+
+        count = 0
+        # Column order must match CREATE TABLE:
+        # simulation_id, time, loaded, inserted, running, waiting, ended,
+        # arrived, halting, meanSpeed, meanSpeedRelative, meanTravelTime,
+        # meanWaitingTime, teleports, collisions
+        int_fields_pre = ['loaded', 'inserted', 'running', 'waiting', 'ended', 'arrived', 'halting']
+        float_fields = ['meanSpeed', 'meanSpeedRelative', 'meanTravelTime', 'meanWaitingTime']
+        int_fields_post = ['teleports', 'collisions']
+
+        for event, elem in ET.iterparse(summary_xml, events=("end",)):
+            if elem.tag == "step":
+                time_val = float(elem.get("time", 0))
+
+                pre_vals = [int(elem.get(f, 0)) for f in int_fields_pre]
+                real_vals = [round(float(elem.get(f, 0)), 4) if elem.get(f) is not None else None for f in float_fields]
+                post_vals = [int(elem.get(f, 0)) for f in int_fields_post]
+
+                conn.execute(
+                    """INSERT OR IGNORE INTO network_state VALUES
+                       (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (sim_id, time_val, *pre_vals, *real_vals, *post_vals)
+                )
+                count += 1
+                elem.clear()
+
+        logger.info(f"Imported network_state: {count} time steps")
+        return count
+
     def _create_indexes(self, conn):
         """Create indexes"""
         # edge_info 인덱스
@@ -607,6 +685,9 @@ class XMLToSQLiteConverter:
         conn.execute("CREATE INDEX idx_trips_sim ON trips(simulation_id)")
         conn.execute("CREATE INDEX idx_trips_depart ON trips(depart)")
         conn.execute("CREATE INDEX idx_trips_arrival ON trips(arrival)")
+
+        # network_state 인덱스
+        conn.execute("CREATE INDEX idx_ss_sim ON network_state(simulation_id)")
 
 
 def extract_tag_from_xml(xml_file: str) -> str:

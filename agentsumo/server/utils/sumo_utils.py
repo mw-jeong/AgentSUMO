@@ -11,7 +11,8 @@ Includes:
 import os
 import subprocess
 import xml.etree.ElementTree as ET
-from typing import List, Optional, Tuple, Dict
+from collections import deque, defaultdict
+from typing import List, Optional, Tuple, Dict, Set
 import sumolib
 import logging
 from geopy.geocoders import Nominatim
@@ -20,6 +21,68 @@ from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 from agentsumo.server.settings.settings import sumo_environment
 
 logger = logging.getLogger("agentsumo.server.sumo_utils")
+
+# Cache for largest connected component edge sets, keyed by net_file path
+_largest_component_cache: Dict[str, Set[str]] = {}
+
+
+def _get_largest_component_edges(net) -> Set[str]:
+    """
+    Compute the largest weakly connected component of a SUMO network.
+
+    Uses BFS on nodes treating all edges as undirected. Returns the set of
+    edge IDs belonging to the largest component. Internal edges (junction
+    edges starting with ':') are excluded from the component calculation
+    but edges in the largest component are returned.
+
+    Args:
+        net: sumolib.net.Net object (already loaded)
+
+    Returns:
+        Set[str]: Edge IDs in the largest weakly connected component
+    """
+    # Only consider non-internal edges for component detection
+    edges = [e for e in net.getEdges() if not e.getID().startswith(':')]
+
+    # Build node adjacency (undirected — weakly connected)
+    adj: Dict[str, Set[str]] = defaultdict(set)
+    for edge in edges:
+        fn = edge.getFromNode().getID()
+        tn = edge.getToNode().getID()
+        adj[fn].add(tn)
+        adj[tn].add(fn)
+
+    # BFS to find all components, track the largest
+    visited: Set[str] = set()
+    largest: Set[str] = set()
+
+    for start in adj:
+        if start in visited:
+            continue
+        component: Set[str] = set()
+        queue = deque([start])
+        while queue:
+            n = queue.popleft()
+            if n in visited:
+                continue
+            visited.add(n)
+            component.add(n)
+            for nb in adj[n]:
+                if nb not in visited:
+                    queue.append(nb)
+        if len(component) > len(largest):
+            largest = component
+
+    # Convert node set → edge ID set
+    component_edges = {e.getID() for e in edges if e.getFromNode().getID() in largest}
+
+    logger.info(
+        f"Connected component 분석: 전체 {len(edges)}개 edge 중 "
+        f"최대 component {len(component_edges)}개 edge "
+        f"({len(component_edges)/len(edges)*100:.1f}%)"
+    )
+
+    return component_edges
 
 
 # =============== GEOCODING UTILITIES ===============
@@ -229,59 +292,78 @@ def find_nearest_edge(
     radius: float = 0.3
 ) -> Optional[Tuple[str, float]]:
     """
-    Find the nearest edge to a geographic coordinate using SUMO's getNeighboringEdges.
-    
-    This function implements the approach from SUMO documentation:
-    https://sumo.dlr.de/docs/Tools/Sumolib.html#locate-nearby-edges-based-on-the-geo-coordinate
-    
+    Find the nearest edge to a geographic coordinate, filtered to the largest
+    connected component of the network.
+
+    Edges on disconnected islands (parking lots, park paths, service roads)
+    are excluded so that any two edges returned by this function are guaranteed
+    to be in the same weakly connected component — eliminating "shortest path
+    not found" failures caused by disconnected network fragments.
+
     Args:
         net_file: SUMO network file path
         lat: Latitude (WGS84)
         lon: Longitude (WGS84)
         radius: Search radius in kilometers (default: 0.3 = 300 meters)
-        
+
     Returns:
         Tuple[str, float]: (edge_id, distance_in_meters) or None if no edge found
-        
-    Examples:
-        >>> edge_id, distance = find_nearest_edge("gangnam.net.xml", 37.498, 127.028)
-        >>> print(f"Nearest edge: {edge_id}, distance: {distance:.2f}m")
-        Nearest edge: 123456789#0, distance: 45.32m
-    
-    Note:
-        Requires pyproj to be installed. rtree is strongly recommended for larger networks.
     """
     try:
         net = sumolib.net.readNet(net_file)
-        
+
+        # Get or compute the largest connected component (cached per net_file)
+        abs_path = os.path.abspath(net_file)
+        if abs_path not in _largest_component_cache:
+            _largest_component_cache[abs_path] = _get_largest_component_edges(net)
+        largest_component = _largest_component_cache[abs_path]
+
         # Convert lat/lon to network coordinates (x, y)
         x, y = net.convertLonLat2XY(lon, lat)
-        
+
         # Convert radius from km to meters (SUMO uses meters internally)
         radius_m = radius * 1000
-        
+
         # Get neighboring edges within radius
         edges = net.getNeighboringEdges(x, y, radius_m)
-        
+
         if not edges or len(edges) == 0:
             logger.warning(
                 f"좌표 ({lat}, {lon}) 주변 {radius}km 내에 edge를 찾을 수 없습니다. "
                 f"radius를 늘려보세요."
             )
             return None
-        
+
+        # Filter to largest connected component only
+        filtered = [(edge, dist) for edge, dist in edges if edge.getID() in largest_component]
+
+        if not filtered:
+            logger.warning(
+                f"좌표 ({lat}, {lon}) 주변 edge가 모두 disconnected component에 속합니다. "
+                f"필터링 전 {len(edges)}개 → 필터링 후 0개. 원본 중 최근접을 사용합니다."
+            )
+            filtered = list(edges)
+
         # Sort by distance and pick the closest edge
-        distances_and_edges = sorted([(dist, edge) for edge, dist in edges], key=lambda x: x[0])
+        distances_and_edges = sorted([(dist, edge) for edge, dist in filtered], key=lambda x: x[0])
         dist, closest_edge = distances_and_edges[0]
-        
+
         edge_id = closest_edge.getID()
-        logger.info(
-            f"✅ 최근접 edge 발견: {edge_id} "
-            f"(좌표: {lat}, {lon}, 거리: {dist:.2f}m)"
-        )
-        
+        skipped = len(edges) - len(filtered)
+        if skipped > 0:
+            logger.info(
+                f"✅ 최근접 edge 발견: {edge_id} "
+                f"(좌표: {lat}, {lon}, 거리: {dist:.2f}m, "
+                f"disconnected {skipped}개 edge 제외)"
+            )
+        else:
+            logger.info(
+                f"✅ 최근접 edge 발견: {edge_id} "
+                f"(좌표: {lat}, {lon}, 거리: {dist:.2f}m)"
+            )
+
         return (edge_id, dist)
-        
+
     except ImportError as e:
         logger.error(
             "pyproj 라이브러리가 필요합니다. 설치: pip install pyproj"
@@ -290,6 +372,56 @@ def find_nearest_edge(
     except Exception as e:
         logger.error(f"최근접 edge 탐색 실패: {e}")
         return None
+
+
+def find_nearest_edges_ranked(
+    net_file: str,
+    lat: float,
+    lon: float,
+    radius: float = 0.3,
+    max_candidates: int = 5
+) -> List[Tuple[str, float]]:
+    """
+    Return multiple candidate edges ranked by distance, filtered to the largest
+    connected component. Used by generate_flow() for fallback retry when the
+    closest edge fails path computation.
+
+    Args:
+        net_file: SUMO network file path
+        lat: Latitude (WGS84)
+        lon: Longitude (WGS84)
+        radius: Search radius in kilometers (default: 0.3)
+        max_candidates: Maximum number of candidates to return (default: 5)
+
+    Returns:
+        List of (edge_id, distance_in_meters), sorted by distance ascending.
+        Empty list if no edges found.
+    """
+    try:
+        net = sumolib.net.readNet(net_file)
+
+        abs_path = os.path.abspath(net_file)
+        if abs_path not in _largest_component_cache:
+            _largest_component_cache[abs_path] = _get_largest_component_edges(net)
+        largest_component = _largest_component_cache[abs_path]
+
+        x, y = net.convertLonLat2XY(lon, lat)
+        radius_m = radius * 1000
+        edges = net.getNeighboringEdges(x, y, radius_m)
+
+        if not edges:
+            return []
+
+        filtered = [(edge, dist) for edge, dist in edges if edge.getID() in largest_component]
+        if not filtered:
+            filtered = list(edges)
+
+        ranked = sorted([(dist, edge) for edge, dist in filtered], key=lambda x: x[0])
+        return [(edge.getID(), dist) for dist, edge in ranked[:max_candidates]]
+
+    except Exception as e:
+        logger.error(f"최근접 edge 후보 탐색 실패: {e}")
+        return []
 
 
 def run_attribute_stats(input_path: str) -> str:

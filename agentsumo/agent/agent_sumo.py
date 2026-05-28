@@ -569,33 +569,45 @@ class AgentSUMO:
             "role": "assistant",
             "content": response.content  # Tool use 포함
         })
-        
+
         self.conversation_history.append({
             "role": "user",
             "content": tool_results  # Tool 결과
         })
-        
-        # 결과와 함께 ���시 Claude 호���
-        final_response = self._call_claude()
-        
+
+        # 결과와 함께 다시 Claude 호출
+        # _call_claude() 실패 시 history가 오염되므로 복구 필요
+        try:
+            final_response = self._call_claude()
+        except Exception as e:
+            # Claude API 호출 실패 — tool_use + tool_result은 이미 history에 있으므로
+            # 빈 assistant 응답을 추가하여 history 일관성 유지
+            logger.error(f"Tool 처리 후 Claude API 호출 실패: {e}")
+            error_text = f"도구 실행은 완료되었으나 응답 생성 중 오류가 발생했습니다: {str(e)}"
+            self.conversation_history.append({
+                "role": "assistant",
+                "content": [{"type": "text", "text": error_text}]
+            })
+            raise
+
         # Debug: Raw response 출력
         if self.debug:
             self._debug_print_response(final_response)
-        
+
         # Tool use가 연쇄적으로 일어날 수 있음
         if final_response.stop_reason == "tool_use":
             return await self._handle_tool_use(final_response, _depth=_depth + 1)
-        
+
         # 최종 텍스트 응답 (모든 content blocks 처리, thinking 포함!)
         final_text = self._extract_text_from_response(final_response)
-        
+
         self.conversation_history.append({
             "role": "assistant",
             "content": final_response.content
         })
-        
+
         logger.info(f"🤖 AgentSUMO: {final_text[:100]}...")
-        
+
         return final_text
     
     async def _route_tool_call(self, tool_name: str, tool_input: dict):
@@ -883,8 +895,7 @@ class AgentSUMO:
                     print(f"    Text: {preview}...")
                 
                 elif block.type == "thinking":
-                    preview = block.thinking[:200] if len(block.thinking) > 200 else block.thinking
-                    print(f"    Thinking: {preview}...")
+                    print(f"    Thinking: {block.thinking}")
                 
                 elif block.type == "tool_use":
                     print(f"    Tool: {block.name}")

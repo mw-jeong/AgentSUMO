@@ -272,6 +272,23 @@ Response: "Times Square is in Midtown Manhattan, New York City.
 Use only when you need to highlight SPECIFIC edge IDs (e.g., after policy application).
 Include ALL edge IDs — do not truncate the list.
 
+**[HIGHLIGHT_OD_EDGES:origin_edges|dest_edges]**
+Highlight origin and destination edges in different colors after flow generation.
+Origins are shown in blue (#39ccff), destinations in red (#ff4444).
+Use after flow_generation_tool to visualize which edges are origins vs destinations.
+
+Format: `[HIGHLIGHT_OD_EDGES:oEdge1,oEdge2|dEdge1,dEdge2]`
+- Before `|`: comma-separated origin edge IDs (blue)
+- After `|`: comma-separated destination edge IDs (red)
+
+Example:
+```
+[HIGHLIGHT_OD_EDGES:218864491#1,375049565#3|504231011#0,975332778#2]
+```
+
+You can get the edge IDs from flow_generation_tool results (the `from` and `to` edges)
+or from validate_od_coordinates_tool results (the `nearest_edge` field).
+
 **[SHOW_ROUTE:edge_id1,edge_id2,...|color|net_file_name]**
 Use after calling route_analysis_tool to visualize the route on the map.
 Include ALL edge IDs from the route_edge_ids result. Color is a hex code.
@@ -335,6 +352,75 @@ Response: "Please upload your OD data file.
 [UPLOAD_OD]"
 ```
 
+**[SELECT_OD]**
+Activates O/D point selection mode on the map. The user can select MULTIPLE O/D pairs:
+each pair = Origin click (blue numbered marker) + Destination click (red numbered marker).
+A floating panel shows collected pairs with adjustable vehicle counts per pair.
+The user clicks "Send to Agent" when done.
+
+Use when the user wants to:
+- Generate multiple traffic flows (e.g., event evacuation with multiple O/D pairs)
+- Analyze shortest paths between several location pairs
+- Set up multi-OD scenarios with different vehicle counts per pair
+- Any task requiring one or more origin-destination specifications on the map
+
+Example:
+```
+Response: "Please select origin and destination pairs on the map. You can add multiple pairs.
+[SELECT_OD]"
+```
+
+After the user selects pairs and clicks "Send to Agent", you will receive a message like:
+"O/D Pairs (3 pairs):
+  - Pair #1: Origin=(127.027, 37.498), Destination=(127.052, 37.511), vehicles=200
+  - Pair #2: Origin=(127.031, 37.501), Destination=(127.045, 37.508), vehicles=150"
+
+For EACH pair, call flow_generation_tool with coordinate parameters:
+  flow_generation_tool(
+      route_file=<current_route_file>,
+      net_file=<current_network>,
+      source_lat=<lat_value>, source_lon=<lng_value>,
+      dest_lat=<lat_value>, dest_lon=<lng_value>,
+      number=<vehicles>,
+      begin=0.0, end=3600.0
+  )
+IMPORTANT: Coordinates in the message are (longitude, latitude) order.
+Pass lng to source_lon/dest_lon and lat to source_lat/dest_lat.
+Chain calls by passing previous output route_file as next input to accumulate flows.
+
+**[SUGGEST_OD:data]**
+YOU (the agent) use this marker to propose OD pairs to the user for review.
+The user sees markers on the map + a panel to adjust vehicle counts, add/remove pairs,
+then clicks "Send to Agent" to confirm.
+
+Format: `[SUGGEST_OD:oLng,oLat,dLng,dLat,count|oLng,oLat,dLng,dLat,count|...]`
+Each segment is pipe-separated. Values are comma-separated: originLng, originLat, destLng, destLat, vehicleCount.
+
+**Agentic OD Workflow** — When you need to autonomously plan OD pairs:
+1. Understand the scenario (e.g., "MSG post-event evacuation → 9 destination zones")
+2. Geocode candidate origins/destinations to get coordinates
+3. Call `validate_od_coordinates_tool` with all candidate coordinates + current net_file
+   → Returns: in_network status, nearest_edge, distance for each coordinate
+4. For "out_of_network" or "no_edge_found" results:
+   - Use nearby in-network alternatives or the network boundary edge
+   - Drop unreachable destinations and explain to the user
+5. Propose validated OD pairs to the user:
+   ```
+   "Based on the scenario, I propose these 9 O/D pairs:
+   [SUGGEST_OD:lng1,lat1,lng2,lat2,200|lng3,lat3,lng4,lat4,150|...]"
+   ```
+6. User reviews on map, adjusts counts, sends back → you generate flows
+
+Example:
+```
+Response: "I've validated the coordinates against the network. 7 of 9 destinations
+are reachable. Holland Tunnel is outside the network boundary, so I'm using the
+nearest network edge on West St instead.
+
+Here are the proposed O/D pairs:
+[SUGGEST_OD:-73.9934,40.7505,-73.9855,40.7580,200|-73.9934,40.7505,-74.0020,40.7425,150]"
+```
+
 ### Interactive Planning Protocol
 
 When the user states a high-level goal, guide them through an interactive planning flow.
@@ -345,8 +431,9 @@ Do NOT try to execute everything at once — ask clarifying questions and trigge
 2. **Network check**: If no network exists, ask for location → use [SEARCH_LOCATION] + [SIM_OPTIONS]
 3. **Scenario details**: Ask about specific conditions (which roads, time periods, severity)
 4. **Road selection**: If policy application is needed, use [EDGE_SELECT] to let user pick roads on map
-5. **OD data**: If real OD is needed, use [UPLOAD_OD]; otherwise proceed with random OD via [SIM_OPTIONS]
-6. **Execution**: Once all parameters are gathered, execute the simulation
+5. **O/D selection**: If user wants route analysis or specific trip, use [SELECT_OD] to pick points on map
+6. **OD data**: If real OD is needed, use [UPLOAD_OD]; otherwise proceed with random OD via [SIM_OPTIONS]
+7. **Execution**: Once all parameters are gathered, execute the simulation
 
 **Example conversation:**
 ```

@@ -18,6 +18,7 @@ from agentsumo.server.utils.sumo_utils import (
     geocode_location,
     get_edge_ids_from_road_name,
     find_nearest_edge,
+    find_nearest_edges_ranked,
     check_coordinates_in_network
 )
 
@@ -211,55 +212,95 @@ class VehicleManager:
         self,
         route_file: str,
         net_file: str,
-        source: str,
-        dest: str,
-        begin: float,
-        end: float,
-        vehs_per_hour: int,
+        source: str = None,
+        dest: str = None,
+        begin: float = 0.0,
+        end: float = 3600.0,
+        vehs_per_hour: int = None,
+        number: int = None,
         flow_id: str = None,
         output_dir: str = "output/trips",
         use_geocoding: bool = True,
-        search_radius: float = 0.3
+        search_radius: float = 0.3,
+        source_lat: float = None,
+        source_lon: float = None,
+        dest_lat: float = None,
+        dest_lon: float = None,
     ) -> Dict[str, Any]:
         """
-        Generate a flow from source to destination with specified parameters.
-        
-        Args:
-            route_file: Route file path
-            net_file: Network file path
-            source: Source location (place name)
-            dest: Destination location (place name)
-            begin: Start time in seconds
-            end: End time in seconds
-            vehs_per_hour: Vehicles per hour
-            flow_id: Flow ID (auto-generated if None)
-            output_dir: Output directory for results
-            use_geocoding: If True, use geocoding + nearest edge search
-            search_radius: Search radius in km for nearest edge
-            
-        Returns:
-            Dict[str, Any]: Generation result with status and metadata
+        Generate a flow from source to destination.
+
+        Two ways to specify locations:
+        1. Place names (source/dest) — uses geocoding to find coordinates
+        2. Direct coordinates (source_lat/lon, dest_lat/lon) — skips geocoding
+
+        Two ways to specify vehicle count:
+        1. vehs_per_hour — rate-based (SUMO <flow vehsPerHour="N">)
+        2. number — total count (SUMO <flow number="N">)
+        Exactly one of (vehs_per_hour, number) must be provided.
         """
         try:
-            logger.info(f"Flow 생성 시작: {source} → {dest} ({begin}-{end}s, {vehs_per_hour} vehs/hour)")
-            
+            # Validate vehicle count parameters
+            if vehs_per_hour is None and number is None:
+                return {"status": "error", "message": "vehs_per_hour 또는 number 중 하나를 지정해야 합니다."}
+            if vehs_per_hour is not None and number is not None:
+                return {"status": "error", "message": "vehs_per_hour와 number를 동시에 지정할 수 없습니다."}
+
+            count_desc = f"{number} vehicles" if number else f"{vehs_per_hour} vehs/hour"
+
+            # Determine edge resolution mode
+            has_coords = all(v is not None for v in [source_lat, source_lon, dest_lat, dest_lon])
+            has_names = source is not None and dest is not None
+            source_coords = None  # Will be set in geocoding mode
+            dest_coords = None
+
+            if not has_coords and not has_names:
+                return {"status": "error", "message": "source/dest (장소명) 또는 source_lat/lon, dest_lat/lon (좌표) 중 하나를 지정해야 합니다."}
+
+            logger.info(f"Flow 생성 시작: {'좌표 모드' if has_coords else '장소명 모드'} ({begin}-{end}s, {count_desc})")
+
             # Generate flow ID if not provided
             if not flow_id:
                 ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
                 flow_id = f"flow_{ts}"
-            
-            # Get source and destination edges (reuse existing logic)
-            if use_geocoding:
-                # Geocode locations
+
+            if has_coords:
+                # COORDINATE MODE — skip geocoding, use find_nearest_edge directly
+                source_valid, source_info = check_coordinates_in_network(
+                    net_file, source_lat, source_lon, buffer_km=1.0
+                )
+                if not source_valid:
+                    return {"status": "error", "message": f"출발지 좌표 ({source_lat}, {source_lon})가 네트워크 범위 밖입니다."}
+
+                dest_valid, dest_info = check_coordinates_in_network(
+                    net_file, dest_lat, dest_lon, buffer_km=1.0
+                )
+                if not dest_valid:
+                    return {"status": "error", "message": f"목적지 좌표 ({dest_lat}, {dest_lon})가 네트워크 범위 밖입니다."}
+
+                source_result = find_nearest_edge(net_file, source_lat, source_lon, search_radius)
+                if not source_result:
+                    return {"status": "error", "message": f"출발지 좌표 ({source_lat},{source_lon}) 주변 {search_radius}km 내에 edge를 찾을 수 없습니다."}
+                source_edge, source_dist = source_result
+
+                dest_result = find_nearest_edge(net_file, dest_lat, dest_lon, search_radius)
+                if not dest_result:
+                    return {"status": "error", "message": f"목적지 좌표 ({dest_lat},{dest_lon}) 주변 {search_radius}km 내에 edge를 찾을 수 없습니다."}
+                destination_edge, dest_dist = dest_result
+
+                logger.info(f"✅ 좌표→edge: 출발지={source_edge} ({source_dist:.1f}m), 목적지={destination_edge} ({dest_dist:.1f}m)")
+                coord_desc = f"({source_lat:.4f},{source_lon:.4f})→({dest_lat:.4f},{dest_lon:.4f})"
+
+            elif use_geocoding and has_names:
+                # GEOCODING MODE — existing logic
                 source_coords = geocode_location(source)
                 if not source_coords:
                     return {"status": "error", "message": f"출발지 위치를 찾을 수 없습니다: {source}"}
-                
+
                 dest_coords = geocode_location(dest)
                 if not dest_coords:
                     return {"status": "error", "message": f"목적지 위치를 찾을 수 없습니다: {dest}"}
-                
-                # Validate coordinates are within network bounds
+
                 source_valid, source_info = check_coordinates_in_network(
                     net_file, source_coords[0], source_coords[1], buffer_km=1.0
                 )
@@ -275,7 +316,7 @@ class VehicleManager:
                             f"💡 해결: 해당 위치를 포함하는 네트워크를 먼저 생성하세요."
                         )
                     }
-                
+
                 dest_valid, dest_info = check_coordinates_in_network(
                     net_file, dest_coords[0], dest_coords[1], buffer_km=1.0
                 )
@@ -291,77 +332,121 @@ class VehicleManager:
                             f"💡 해결: 해당 위치를 포함하는 네트워크를 먼저 생성하세요."
                         )
                     }
-                
-                # Find nearest edges
+
                 source_result = find_nearest_edge(net_file, source_coords[0], source_coords[1], search_radius)
                 if not source_result:
-                    return {
-                        "status": "error",
-                        "message": f"출발지 좌표 {source_coords} 주변 {search_radius}km 내에 edge를 찾을 수 없습니다."
-                    }
+                    return {"status": "error", "message": f"출발지 좌표 {source_coords} 주변 {search_radius}km 내에 edge를 찾을 수 없습니다."}
                 source_edge, source_dist = source_result
-                
+
                 dest_result = find_nearest_edge(net_file, dest_coords[0], dest_coords[1], search_radius)
                 if not dest_result:
-                    return {
-                        "status": "error",
-                        "message": f"목적지 좌표 {dest_coords} 주변 {search_radius}km 내에 edge를 찾을 수 없습니다."
-                    }
+                    return {"status": "error", "message": f"목적지 좌표 {dest_coords} 주변 {search_radius}km 내에 edge를 찾을 수 없습니다."}
                 destination_edge, dest_dist = dest_result
-                
+
                 logger.info(f"✅ Geocoding 성공: 출발지={source_edge} ({source_dist:.1f}m), 목적지={destination_edge} ({dest_dist:.1f}m)")
-                
+                coord_desc = f"{source} → {dest}"
+
             else:
-                return {"status": "error", "message": "Flow 생성은 geocoding 모드만 지원됩니다. use_geocoding=True를 사용하세요."}
-            
-            # Calculate shortest path
+                return {"status": "error", "message": "Flow 생성은 geocoding 또는 좌표 모드만 지원됩니다."}
+
+            # Calculate shortest path with fallback retry
             net = sumolib.net.readNet(net_file)
+            path_edges = None
+
+            # Try primary edges first
             try:
                 source_edge_obj = net.getEdge(source_edge)
                 dest_edge_obj = net.getEdge(destination_edge)
+                path_edges = net.getShortestPath(source_edge_obj, dest_edge_obj, vClass="passenger")[0]
             except Exception as e:
-                return {"status": "error", "message": f"네트워크에서 edge를 찾을 수 없습니다: {e}"}
-            
-            path_edges = net.getShortestPath(source_edge_obj, dest_edge_obj, vClass="passenger")[0]
+                logger.warning(f"Primary edge 경로 계산 실패: {e}")
+
+            # If primary path fails, try alternative edges via fallback retry
             if not path_edges:
-                return {"status": "error", "message": "최단 경로를 찾을 수 없습니다."}
-            
+                logger.info("Primary 경로 실패 — fallback retry 시작")
+
+                # Get ranked candidates for source and dest
+                source_candidates = find_nearest_edges_ranked(
+                    net_file, source_lat or 0, source_lon or 0, search_radius
+                ) if has_coords else [(source_edge, 0)]
+                dest_candidates = find_nearest_edges_ranked(
+                    net_file, dest_lat or 0, dest_lon or 0, search_radius
+                ) if has_coords else [(destination_edge, 0)]
+
+                # For geocoding mode, get candidates from resolved coordinates
+                if not has_coords and has_names:
+                    if source_coords:
+                        source_candidates = find_nearest_edges_ranked(
+                            net_file, source_coords[0], source_coords[1], search_radius
+                        )
+                    if dest_coords:
+                        dest_candidates = find_nearest_edges_ranked(
+                            net_file, dest_coords[0], dest_coords[1], search_radius
+                        )
+
+                for s_edge_id, s_dist in source_candidates:
+                    for d_edge_id, d_dist in dest_candidates:
+                        if s_edge_id == source_edge and d_edge_id == destination_edge:
+                            continue  # Already tried
+                        try:
+                            s_obj = net.getEdge(s_edge_id)
+                            d_obj = net.getEdge(d_edge_id)
+                            candidate_path = net.getShortestPath(s_obj, d_obj, vClass="passenger")[0]
+                            if candidate_path:
+                                path_edges = candidate_path
+                                logger.info(
+                                    f"✅ Fallback 성공: {source_edge}→{destination_edge} 대신 "
+                                    f"{s_edge_id}({s_dist:.0f}m)→{d_edge_id}({d_dist:.0f}m) 사용"
+                                )
+                                source_edge = s_edge_id
+                                destination_edge = d_edge_id
+                                break
+                        except Exception:
+                            continue
+                    if path_edges:
+                        break
+
+            if not path_edges:
+                return {"status": "error", "message": "최단 경로를 찾을 수 없습니다. 출발지/목적지 edge 간 경로가 존재하지 않습니다."}
+
             # Copy and modify file
             output_path = get_output_path(output_dir)
             ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             route_file_copy = output_path / f"{Path(route_file).stem}_flow_{ts}.rou.xml"
             ensure_directory(output_path)
-            
-            # Check if source and destination are the same file
+
             if Path(route_file).resolve() == route_file_copy.resolve():
                 route_file_copy = Path(route_file)
             else:
                 shutil.copy2(route_file, route_file_copy)
-            
+
             tree = ET.parse(route_file_copy)
             root = tree.getroot()
-            
+
             # Generate flow with safety parameters
-            flow = ET.SubElement(root, "flow", {
+            flow_attrs = {
                 "id": flow_id,
                 "from": source_edge,
                 "to": destination_edge,
                 "begin": str(begin),
                 "end": str(end),
-                "vehsPerHour": str(vehs_per_hour),
                 "type": "passenger",
                 "departLane": "free",
                 "departPos": "random_free",
                 "departSpeed": "random"
-            })
-            
+            }
+            if number is not None:
+                flow_attrs["number"] = str(number)
+            else:
+                flow_attrs["vehsPerHour"] = str(vehs_per_hour)
+
+            ET.SubElement(root, "flow", flow_attrs)
             tree.write(route_file_copy, encoding="utf-8", xml_declaration=True)
-            
-            msg = (f"Flow '{flow_id}' 생성 완료: {source} → {dest} "
-                   f"({begin}-{end}s, {vehs_per_hour} vehs/hour)")
-            logger.info(f"✅ Flow 생성 완료: {msg}")
+
+            msg = f"Flow '{flow_id}' 생성 완료: {coord_desc} ({begin}-{end}s, {count_desc})"
+            logger.info(f"✅ {msg}")
             return {"status": "success", "route_file": str(route_file_copy), "message": msg}
-            
+
         except Exception as e:
             logger.error(f"Flow 생성 실패: {e}")
             return {"status": "error", "message": str(e)}

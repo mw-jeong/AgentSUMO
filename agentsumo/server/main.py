@@ -22,8 +22,6 @@ from agentsumo.server.customization.traffic_lights import TrafficLightManager
 
 # Import analysis functionality
 from agentsumo.server.analysis.result_parser import ResultParser
-from agentsumo.server.analysis.report_generator import ReportGenerator
-from agentsumo.server.analysis.qa_system import QASystem
 
 # Import visualization functionality
 from agentsumo.server.visualization.network_plotter import NetworkPlotter
@@ -271,7 +269,8 @@ def sumo_runner(
     - policy_type: Set to "baseline" to exclude additional files
 
     === RETURNS ===
-    - output_files: List of result file paths (tripinfo, edgedata, emission)
+    - output_files: List of result file paths [tripinfo, edgedata, edgedata_emission]
+    - summary_xml: Path to summary.xml file. ALWAYS pass this to xml_to_sqlite_tool(summary_xml=...) for dashboard time-series charts.
     - replay_file: JSON file for web visualization replay
     - simulation_time: Wall-clock execution time in seconds
     """
@@ -542,61 +541,173 @@ def vehicle_generation_tool(
 def flow_generation_tool(
     route_file: str,
     net_file: str,
-    source: str,
-    dest: str,
-    begin: float,
-    end: float,
-    vehs_per_hour: int,
+    source: str = None,
+    dest: str = None,
+    begin: float = 0.0,
+    end: float = 3600.0,
+    vehs_per_hour: int = None,
+    number: int = None,
     flow_id: str = None,
     output_dir: str = "output/trips",
     use_geocoding: bool = True,
-    search_radius: float = 0.3
+    search_radius: float = 0.3,
+    source_lat: float = None,
+    source_lon: float = None,
+    dest_lat: float = None,
+    dest_lon: float = None,
 ):
     """
-    Generate a flow from source to destination with specified parameters.
-    
-    This tool creates SUMO flows with safety parameters to prevent vehicle insertion failures:
-    - departLane="free": Selects the least congested lane
-    - departPos="random_free": Places vehicles at random free positions
-    - departSpeed="random": Uses realistic departure speeds
-    
-    Perfect for MSG evacuation scenarios and other large-scale vehicle generation needs.
-    
+    Generate a SUMO flow from source to destination.
+
+    Two ways to specify locations:
+    1. Place names (source/dest) — uses geocoding to find coordinates
+    2. Direct coordinates (source_lat/lon, dest_lat/lon) — skips geocoding.
+       Use this when coordinates are already known (e.g., from map O/D selection).
+
+    Two ways to specify vehicle count (exactly one required):
+    1. vehs_per_hour — rate-based generation (SUMO <flow vehsPerHour="N">)
+    2. number — total vehicle count over [begin,end] (SUMO <flow number="N">)
+
+    Safety parameters applied: departLane="free", departPos="random_free", departSpeed="random"
+
+    IMPORTANT: When calling multiple times for multi-OD scenarios, pass the previous call's
+    route_file output as the next call's route_file input to accumulate all flows in one file.
+
     Args:
-        route_file: Route file path
+        route_file: Route file path (pass previous output for chained calls)
         net_file: Network file path
-        source: Source location (place name, e.g., "Madison Square Garden")
-        dest: Destination location (place name, e.g., "North Point")
-        begin: Start time in seconds (e.g., 0.0)
-        end: End time in seconds (e.g., 1800.0)
-        vehs_per_hour: Vehicles per hour (e.g., 260)
+        source: Source location place name (e.g., "Madison Square Garden")
+        dest: Destination location place name (e.g., "Lincoln Tunnel")
+        begin: Start time in seconds (default: 0.0)
+        end: End time in seconds (default: 3600.0)
+        vehs_per_hour: Vehicles per hour — mutually exclusive with number
+        number: Total vehicle count — mutually exclusive with vehs_per_hour
         flow_id: Flow ID (auto-generated if None)
         output_dir: Output directory for results
-        use_geocoding: If True, use geocoding + nearest edge search (default: True)
+        use_geocoding: Use geocoding for place name resolution (default: True)
         search_radius: Search radius in km for nearest edge (default: 0.3)
-    
+        source_lat: Source latitude (WGS84) — use with source_lon for coordinate mode
+        source_lon: Source longitude (WGS84) — use with source_lat for coordinate mode
+        dest_lat: Destination latitude (WGS84) — use with dest_lon for coordinate mode
+        dest_lon: Destination longitude (WGS84) — use with dest_lat for coordinate mode
+
     Examples:
-        MSG evacuation flow:
-        flow_generation_tool(
-            route_file="routes.rou.xml",
-            net_file="manhattan.net.xml",
-            source="Madison Square Garden",
-            dest="North Point",
-            begin=0.0,
-            end=1800.0,
-            vehs_per_hour=260
-        )
-        
-        Multiple flows for different time periods:
-        flow_generation_tool(source="MSG", dest="North", begin=0, end=1800, vehs_per_hour=260)
-        flow_generation_tool(source="MSG", dest="North", begin=1800, end=3600, vehs_per_hour=160)
-        flow_generation_tool(source="MSG", dest="North", begin=3600, end=7200, vehs_per_hour=40)
+        Place name mode (geocoding):
+        flow_generation_tool(route_file="r.rou.xml", net_file="n.net.xml",
+            source="Madison Square Garden", dest="Lincoln Tunnel",
+            begin=0, end=1800, vehs_per_hour=260)
+
+        Coordinate mode (from map selection):
+        flow_generation_tool(route_file="r.rou.xml", net_file="n.net.xml",
+            source_lat=40.7505, source_lon=-73.9934,
+            dest_lat=40.7580, dest_lon=-73.9855,
+            begin=0, end=3600, number=200)
     """
     return vehicle_manager.generate_flow(
         route_file=route_file, net_file=net_file, source=source, dest=dest,
-        begin=begin, end=end, vehs_per_hour=vehs_per_hour, flow_id=flow_id,
-        output_dir=output_dir, use_geocoding=use_geocoding, search_radius=search_radius
+        begin=begin, end=end, vehs_per_hour=vehs_per_hour, number=number,
+        flow_id=flow_id, output_dir=output_dir,
+        use_geocoding=use_geocoding, search_radius=search_radius,
+        source_lat=source_lat, source_lon=source_lon,
+        dest_lat=dest_lat, dest_lon=dest_lon,
     )
+
+
+@mcp.tool()
+def validate_od_coordinates_tool(
+    net_file: str,
+    coordinates: list,
+    search_radius: float = 0.5
+):
+    """
+    Validate a list of coordinates against the SUMO network.
+
+    Use this BEFORE generating flows to check which coordinates are within the network
+    and find the nearest edges. Essential for agentic OD planning — lets you verify
+    destinations are reachable before proposing them to the user.
+
+    Args:
+        net_file: SUMO network file path (.net.xml)
+        coordinates: List of coordinate dicts, each with:
+            - lat (float): Latitude (WGS84)
+            - lon (float): Longitude (WGS84)
+            - label (str, optional): Human-readable label (e.g., "Lincoln Tunnel")
+        search_radius: Search radius in km for nearest edge (default: 0.5)
+
+    Returns:
+        Dict with:
+            - network_bbox: [min_lon, min_lat, max_lon, max_lat]
+            - results: List of validation results per coordinate:
+                - label, lat, lon
+                - in_network: bool
+                - nearest_edge: edge ID (or null)
+                - distance_m: distance to nearest edge in meters (or null)
+                - status: "ok" | "out_of_network" | "no_edge_found"
+
+    Example:
+        validate_od_coordinates_tool(
+            net_file="manhattan.net.xml",
+            coordinates=[
+                {"lat": 40.7505, "lon": -73.9934, "label": "MSG"},
+                {"lat": 40.7425, "lon": -74.0099, "label": "Holland Tunnel"},
+                {"lat": 40.7060, "lon": -73.9969, "label": "Brooklyn Bridge"}
+            ]
+        )
+    """
+    from agentsumo.server.utils.sumo_utils import check_coordinates_in_network, find_nearest_edge
+
+    if not coordinates or not isinstance(coordinates, list):
+        return {"status": "error", "message": "coordinates must be a non-empty list of {lat, lon, label?} dicts"}
+
+    # Get network bbox once
+    first = coordinates[0]
+    _, net_info = check_coordinates_in_network(
+        net_file, first.get("lat", 0), first.get("lon", 0), buffer_km=100
+    )
+    network_bbox = net_info.get("bbox", [])
+
+    results = []
+    for coord in coordinates:
+        lat = coord.get("lat")
+        lon = coord.get("lon")
+        label = coord.get("label", f"({lat},{lon})")
+
+        if lat is None or lon is None:
+            results.append({"label": label, "lat": lat, "lon": lon, "status": "error", "message": "missing lat/lon"})
+            continue
+
+        # Check if in network
+        is_valid, info = check_coordinates_in_network(net_file, lat, lon, buffer_km=0.5)
+
+        # Find nearest edge regardless of in_network status
+        edge_result = find_nearest_edge(net_file, lat, lon, radius=search_radius)
+
+        result = {
+            "label": label,
+            "lat": lat,
+            "lon": lon,
+            "in_network": info.get("is_within_bounds", False),
+            "in_network_with_buffer": is_valid,
+            "distance_from_center_km": info.get("distance_km"),
+        }
+
+        if edge_result:
+            edge_id, dist = edge_result
+            result["nearest_edge"] = edge_id
+            result["distance_m"] = round(dist, 1)
+            result["status"] = "ok" if is_valid else "out_of_network_but_edge_found"
+        else:
+            result["nearest_edge"] = None
+            result["distance_m"] = None
+            result["status"] = "no_edge_found"
+
+        results.append(result)
+
+    return {
+        "status": "success",
+        "network_bbox": network_bbox,
+        "results": results
+    }
 
 
 @mcp.tool()
@@ -660,47 +771,6 @@ def tls_adaptation_tool(
 
 # =============== ANALYSIS TOOLS ===============
 
-# DEPRECATED: SQLite MCP 도입으로 더 이상 사용하지 않음
-# DB가 자동 생성되므로 read_query로 분석
-# @mcp.tool()
-def result_analyzer_tool(
-    tripinfo_file: str,
-    edgedata_file: str,
-    edgedata_emission_file: str,
-    output_dir: str = "output/analysis"
-):
-    """
-    Parse SUMO simulation results (tripinfo, edgedata, edgedata_emission) into LLM-friendly JSON format.
-    
-    IMPORTANT: After running sumo_runner, extract the 3 output files from output_files list:
-    - output_files[0] → tripinfo_file
-    - output_files[1] → edgedata_file  
-    - output_files[2] → edgedata_emission_file
-    
-    This tool creates summary statistics using SUMO's attributeStats tool.
-    Returns:
-    - tripinfo_json: Vehicle trip statistics (duration, routeLength, emissions, etc.)
-    - edgedata_json: Road segment statistics (speed, density, waitingTime, etc.)
-    
-    🚨 NEXT STEP: After this tool, ALWAYS call simulation_report_tool with the returned JSON paths!
-    
-    For detailed queries (Top N, specific edges), use xml_to_sqlite_tool instead.
-    
-    Args:
-        tripinfo_file: Tripinfo XML file path (from sumo_runner output_files[0])
-        edgedata_file: Edgedata XML file path (from sumo_runner output_files[1])
-        edgedata_emission_file: Edgedata emission XML file path (from sumo_runner output_files[2])
-        output_dir: Output directory for JSON files (default: output/analysis)
-    
-    Returns:
-        Dict with tripinfo_json and edgedata_json file paths
-    """
-    return result_parser.analyze_results(
-        tripinfo_file=tripinfo_file, edgedata_file=edgedata_file,
-        edgedata_emission_file=edgedata_emission_file, output_dir=output_dir
-    )
-
-
 @mcp.tool()
 def xml_to_sqlite_tool(
     tripinfo_xml: str,
@@ -710,7 +780,8 @@ def xml_to_sqlite_tool(
     simulation_id: str = None,
     net_file: str = None,
     route_file: str = None,
-    description: str = None
+    description: str = None,
+    summary_xml: str = None
 ):
     """
     Convert SUMO XML results to SQLite database for advanced SQL-based analysis.
@@ -740,6 +811,10 @@ def xml_to_sqlite_tool(
     - edge_metrics: (simulation_id, edge_id, interval_begin, interval_end, speed, density, waitingTime,
                      timeLoss, occupancy, entered, left, ...)
       * PRIMARY KEY: (simulation_id, edge_id, interval_begin)
+    - network_state: (simulation_id, time, running, halting, waiting, meanSpeed, meanSpeedRelative, ...)
+      * Network-wide time-series from summary.xml — 1 row per simulation second
+      * Enables temporal analysis: congestion onset, performance curves, before/after comparison
+      * PRIMARY KEY: (simulation_id, time)
 
     KEY: Table name is 'edge_metrics', NOT 'edgedata'!
 
@@ -790,23 +865,21 @@ def xml_to_sqlite_tool(
             - "Lane reduction on Gangnam-daero (3 to 2 lanes)"
             - "Signal timing optimization at Seocho-daero intersection"
             - "Speed limit reduced to 30km/h on Teheran-ro"
+        summary_xml: Path to summary XML file from sumo_runner result's top-level "summary_xml" field.
+            IMPORTANT: Always provide this! Without it, dashboard time-series charts will be empty.
 
     Returns:
         Dict with db_file, simulation_id, and metadata
 
     Examples:
+        # After sumo_runner returns result with metadata.absolute_summary:
         xml_to_sqlite_tool(
             tripinfo_xml="gangnam_tripinfo.xml",
             edgedata_xml="gangnam_edgedata.xml",
             edgedata_emission_xml="gangnam_emission.xml",
             simulation_id="1_baseline",
-            description="Baseline simulation (Gangnam Station 1km)"
-        )
-
-        xml_to_sqlite_tool(
-            ...,
-            simulation_id="2_road_closure_teheran",
-            description="Road closure on Teheran-ro near Gangnam Station (7 segments)"
+            description="Baseline simulation (Gangnam Station 1km)",
+            summary_xml="/path/to/gangnam_summary.xml"
         )
     """
     from agentsumo.server.analysis.xml_to_sqlite import XMLToSQLiteConverter, extract_tag_from_xml
@@ -831,14 +904,15 @@ def xml_to_sqlite_tool(
         simulation_id=simulation_id,
         net_file=net_file,
         route_file=route_file,
-        description=description
+        description=description,
+        summary_xml=summary_xml
     )
 
     return result
 
 
 @mcp.tool()
-def db_based_simulation_report_tool(
+def simulation_report_tool(
     db_path: str,
     executive_summary: str = "",
     output_dir: str = "output/reports"
@@ -1220,77 +1294,6 @@ AgentSUMO · AI-Powered Traffic Simulation Platform · {now}
             "detail": traceback.format_exc()
         }
 
-
-# DEPRECATED: result_analyzer_tool 비활성화로 함께 비활성화
-# DB 기반 리포트는 db_based_simulation_report_tool 사용
-# @mcp.tool()
-def simulation_report_tool(
-    tripinfo_json: str,
-    edgedata_json: str,
-    output_dir: str = "output/reports"
-):
-    """
-    Generate comprehensive natural language simulation report from JSON data using Claude.
-    
-    🚨 CRITICAL: ALWAYS call this tool after result_analyzer_tool!
-    
-    This is THE PRIMARY WAY to generate professional traffic analysis reports.
-    DO NOT analyze simulation results manually - use this tool for accurate, 
-    expert-level traffic engineering analysis.
-    
-    WORKFLOW (MANDATORY):
-    1. sumo_runner → XML files
-    2. result_analyzer_tool → JSON files (tripinfo_json, edgedata_json)
-    3. THIS TOOL → Professional report with traffic engineering insights
-    
-    REQUIRES: ANTHROPIC_API_KEY environment variable
-    
-    This tool uses Claude (Sonnet 4.0) with traffic engineering expertise to:
-    - Analyze JSON data comprehensively
-    - Apply traffic flow theory and LOS standards
-    - Identify bottlenecks and root causes
-    - Provide actionable recommendations
-    
-    Args:
-        tripinfo_json: Tripinfo JSON file path
-        edgedata_json: Edgedata JSON file path
-        output_dir: Output directory for report files
-    
-    Returns:
-        Dict with report_file path and metadata
-    """
-    # Lazy initialization (API key required)
-    report_generator = ReportGenerator()
-    
-    return report_generator.generate_report(
-        tripinfo_json=tripinfo_json, edgedata_json=edgedata_json, output_dir=output_dir
-    )
-
-
-# DEPRECATED: JSON 기반 QA → SQLite read_query 사용
-# @mcp.tool()
-def simulation_qa_tool(
-    tripinfo_json: str,
-    edgedata_json: str,
-    question: str
-):
-    """
-    Answer questions about simulation results using JSON data.
-
-    NOTE: This is a basic rule-based QA system.
-    For detailed queries (Top N, specific edges, comparisons), use SQLite MCP with read_query tool.
-
-    Args:
-        tripinfo_json: Tripinfo JSON file path
-        edgedata_json: Edgedata JSON file path
-        question: Question about simulation results (in Korean or English)
-    """
-    from agentsumo.server.analysis.qa_system import QASystem
-    qa_system = QASystem()
-
-    return qa_system.answer_question(
-        tripinfo_json=tripinfo_json, edgedata_json=edgedata_json, question=question
-    )
 
 
 # =============== NETWORK & ROUTE ANALYSIS TOOLS ===============
@@ -1933,6 +1936,57 @@ def get_edge_ids_from_road_name_tool(
     from agentsumo.server.utils.sumo_utils import get_edge_ids_from_road_name
 
     return get_edge_ids_from_road_name(net_file, road_name)
+
+
+@mcp.tool()
+def web_search_tool(
+    query: str,
+    max_results: int = 5
+):
+    """
+    Search the web using DuckDuckGo. Use this to look up real-world information
+    that helps with simulation scenario design.
+
+    Useful for:
+    - Venue/facility capacity (e.g., "Madison Square Garden capacity")
+    - Geographic/infrastructure info (e.g., "bridges connecting Manhattan to Brooklyn")
+    - Traffic patterns and event schedules
+    - Road/highway specifications
+    - Any factual information needed to set realistic simulation parameters
+
+    Args:
+        query: Search query string. Be specific for better results.
+        max_results: Number of results to return (default: 5, max: 10)
+
+    Returns:
+        List of search results, each with title, url, and snippet.
+    """
+    try:
+        from ddgs import DDGS
+    except ImportError:
+        try:
+            from duckduckgo_search import DDGS
+        except ImportError:
+            import sys
+            return {"status": "error", "message": f"ddgs not installed. Run: {sys.executable} -m pip install ddgs"}
+
+    try:
+        max_results = min(max_results, 10)
+        results = DDGS().text(query, max_results=max_results)
+        return {
+            "status": "success",
+            "query": query,
+            "results": [
+                {
+                    "title": r.get("title", ""),
+                    "url": r.get("href", ""),
+                    "snippet": r.get("body", "")
+                }
+                for r in results
+            ]
+        }
+    except Exception as e:
+        return {"status": "error", "message": f"Search failed: {str(e)}"}
 
 
 # =============== SERVER STARTUP ===============

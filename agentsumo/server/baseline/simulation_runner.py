@@ -418,6 +418,7 @@ class SimulationRunner:
         # Output section
         output_tag = SubElement(cfg_root, "output")
         SubElement(output_tag, "tripinfo-output", {"value": output_files["tripinfo"]})
+        SubElement(output_tag, "summary-output", {"value": output_files["summary"]})
 
         # Report section
         report_tag = SubElement(cfg_root, "report")
@@ -587,6 +588,7 @@ class SimulationRunner:
         tripinfo_abs = str(output_path / output_files["tripinfo"])
         edgedata_abs = str(output_path / output_files["netstate_dump"])
         edgedata_emission_abs = str(output_path / output_files["netstate_dump_emission"])
+        summary_abs = str(output_path / output_files["summary"])
 
         replay_file = getattr(result, 'replay_file', None)
 
@@ -594,6 +596,7 @@ class SimulationRunner:
             return {
                 "status": "warning",
                 "output_files": [tripinfo_abs, edgedata_abs, edgedata_emission_abs],
+                "summary_xml": summary_abs,
                 "message": f"Simulation completed with warnings in {result.elapsed:.2f} seconds\n{result.stderr}",
                 "simulation_time": result.elapsed,
                 "metadata": {
@@ -601,6 +604,7 @@ class SimulationRunner:
                     "absolute_tripinfo": tripinfo_abs,
                     "absolute_edgedata": edgedata_abs,
                     "absolute_edgedata_emission": edgedata_emission_abs,
+                    "absolute_summary": summary_abs,
                     "return_code": result.returncode,
                     "stdout": result.stdout,
                     "stderr": result.stderr,
@@ -611,6 +615,7 @@ class SimulationRunner:
         return {
             "status": "success",
             "output_files": [tripinfo_abs, edgedata_abs, edgedata_emission_abs],
+            "summary_xml": summary_abs,
             "message": f"Simulation executed successfully in {result.elapsed:.2f} seconds.",
             "simulation_time": result.elapsed,
             "metadata": {
@@ -618,6 +623,7 @@ class SimulationRunner:
                 "absolute_tripinfo": tripinfo_abs,
                 "absolute_edgedata": edgedata_abs,
                 "absolute_edgedata_emission": edgedata_emission_abs,
+                "absolute_summary": summary_abs,
                 "return_code": result.returncode,
                 "replay_file": replay_file
             }

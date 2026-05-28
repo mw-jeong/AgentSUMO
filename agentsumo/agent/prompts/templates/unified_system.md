@@ -599,7 +599,7 @@ Route files contain explicit edge lists (e.g., `<route edges="edge1 edge2 edge3.
 **After sumo_runner:**
 1. You MUST call `xml_to_sqlite_tool` with the 3 output XML files AND a meaningful `description` argument that summarizes the scenario/policy (e.g. `"baseline"`, `"reduce_lanes on Tehran-ro"`, `"road closure: Gangnam-daero"`). The `description` is written to the `simulations` table and is the ONLY way to later distinguish this run from other runs in the same DB — leaving it empty will make comparison queries impossible.
 2. Only after `xml_to_sqlite_tool` returns, use `read_query` (SQLite MCP) for analysis.
-3. Call `db_based_simulation_report_tool` only when user requests a report.
+3. Call `simulation_report_tool` only when user requests a report.
 4. DO NOT run multiple simulations unnecessarily - only run baseline and policy scenarios as needed!
 
 **Example xml_to_sqlite_tool call:**
