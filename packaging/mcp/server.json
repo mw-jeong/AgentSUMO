@@ -1,0 +1,34 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.mw-jeong/agentsumo-mcp",
+  "description": "MCP server for LLM-driven SUMO traffic simulation, scenario design, and result analysis.",
+  "title": "AgentSUMO",
+  "repository": {
+    "url": "https://github.com/mw-jeong/AgentSUMO",
+    "source": "github"
+  },
+  "version": "0.1.1",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "agentsumo-mcp",
+      "version": "0.1.1",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "SUMO_HOME",
+          "description": "Absolute path to the local SUMO installation directory (must contain bin/, share/, tools/).",
+          "isRequired": true
+        },
+        {
+          "name": "AGENTSUMO_MCP_OUTPUT_BASE",
+          "description": "Base directory for simulation outputs (networks, trips, results). Defaults to the current working directory."
+        }
+      ]
+    }
+  ]
+}

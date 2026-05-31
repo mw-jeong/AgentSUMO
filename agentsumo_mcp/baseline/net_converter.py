@@ -11,10 +11,10 @@ import logging
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
-from agentsumo.server.settings.settings import sumo_environment, network_settings
-from agentsumo.server.utils.path_utils import get_output_path
+from agentsumo_mcp.settings.settings import sumo_environment, network_settings
+from agentsumo_mcp.utils.path_utils import get_output_path
 
-logger = logging.getLogger("agentsumo.server.net_converter")
+logger = logging.getLogger("agentsumo_mcp.net_converter")
 
 
 class NetConverter:

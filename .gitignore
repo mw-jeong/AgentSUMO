@@ -52,3 +52,6 @@ sqlite-mcp-server/
 web/templates/*backup*
 web/templates/landing.html
 web/templates/main_dark.html
+
+# Paper drafts (not tracked in code repo)
+Paper_writing/
