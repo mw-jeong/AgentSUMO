@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2223,15 +2223,15 @@
                 <div class="message bot-message-wrapper">
                     <img src="/static/agentsumo_pic.png" alt="AgentSUMO" class="bot-avatar">
                     <div class="bot-message">
-                        <p>안녕하세요! AgentSUMO입니다.</p>
-                        <p>저는 SUMO 교통 시뮬레이션 전문 AI 어시스턴트입니다.</p>
-                        <p><strong>제가 도울 수 있는 작업:</strong></p>
+                        <p>Hello! I'm AgentSUMO.</p>
+                        <p>I'm an AI assistant specialized in SUMO traffic simulation.</p>
+                        <p><strong>What I can help with</strong></p>
                         <ul>
-                            <li>도시 교통 네트워크 생성 및 시뮬레이션</li>
-                            <li>교통 정책 효과 분석</li>
-                            <li>시나리오 비교 및 최적화 전략 제안</li>
+                            <li>Building and simulating urban traffic networks</li>
+                            <li>Analyzing the effects of traffic policies</li>
+                            <li>Comparing scenarios and suggesting optimization strategies</li>
                         </ul>
-                        <p>어떤 시뮬레이션을 도와드릴까요?</p>
+                        <p>What simulation can I help you with?</p>
                     </div>
                 </div>
             </div>
@@ -3087,7 +3087,7 @@
                     mapSelectDiv.innerHTML = `
                         <button class="sim-option-btn area-select" onclick="startMapSelection(this)">
                             <i class="fas fa-map-marked-alt"></i>
-                            <span>지도에서 영역 선택</span>
+                            <span>Select Area on Map</span>
                         </button>
                     `;
                     messageDiv.appendChild(mapSelectDiv);
@@ -3103,7 +3103,7 @@
                     edgeSelectDiv.innerHTML = `
                         <button class="sim-option-btn area-select" onclick="if(!edgeSelectMode) toggleEdgeSelectMode();">
                             <i class="fas fa-mouse-pointer"></i>
-                            <span>지도에서 도로 선택</span>
+                            <span>Select Road on Map</span>
                         </button>
                     `;
                     messageDiv.appendChild(edgeSelectDiv);
@@ -3125,7 +3125,7 @@
                     odSelectDiv.innerHTML = `
                         <button class="sim-option-btn area-select" onclick="clearODSelection(); startODSelectMode();">
                             <i class="fas fa-map-pin"></i>
-                            <span>지도에서 O/D 쌍 선택 (다중 가능)</span>
+                            <span>Select O/D Pairs on Map (Multiple)</span>
                         </button>
                     `;
                     messageDiv.appendChild(odSelectDiv);
@@ -3141,7 +3141,7 @@
                     suggestDiv.innerHTML = `
                         <button class="sim-option-btn area-select" onclick="populateSuggestedOD('${suggestODMatch[1].replace(/'/g, "\\'")}')">
                             <i class="fas fa-map-marker-alt"></i>
-                            <span>제안된 O/D 쌍 지도에 표시</span>
+                            <span>Show Suggested O/D Pairs on Map</span>
                         </button>
                     `;
                     messageDiv.appendChild(suggestDiv);
@@ -3188,7 +3188,7 @@
                 <div class="sim-options-header">
                     <div class="sim-options-title">
                         <i class="fas fa-sliders-h"></i>
-                        시뮬레이션 설정
+                        Simulation Settings
                     </div>
                     <div class="sim-options-tabs">
                         <button class="sim-options-tab active" onclick="switchSimTab(this, 'random')">Random OD</button>
@@ -3199,30 +3199,30 @@
                 <!-- Random OD Content -->
                 <div class="sim-options-content active" id="sim-content-random">
                     <div class="sim-option-group">
-                        <div class="sim-option-label">영역 선택</div>
+                        <div class="sim-option-label">Area Selection</div>
                         <div class="sim-option-buttons">
                             <button class="sim-option-btn area-select" onclick="startAreaSelection(this)">
                                 <i class="fas fa-map-marked-alt"></i>
-                                <span>지도에서 선택</span>
+                                <span>Select on Map</span>
                             </button>
                         </div>
                     </div>
 
                     <div class="sim-option-group">
-                        <div class="sim-option-label">교통량</div>
+                        <div class="sim-option-label">Traffic Volume</div>
                         <div class="sim-option-buttons">
-                            <button class="sim-option-btn${tLight}" onclick="selectTraffic(this, 'light')">한산</button>
-                            <button class="sim-option-btn${tNormal}" onclick="selectTraffic(this, 'normal')">보통</button>
-                            <button class="sim-option-btn${tHeavy}" onclick="selectTraffic(this, 'heavy')">혼잡</button>
+                            <button class="sim-option-btn${tLight}" onclick="selectTraffic(this, 'light')">Light</button>
+                            <button class="sim-option-btn${tNormal}" onclick="selectTraffic(this, 'normal')">Normal</button>
+                            <button class="sim-option-btn${tHeavy}" onclick="selectTraffic(this, 'heavy')">Heavy</button>
                         </div>
                     </div>
 
                     <div class="sim-option-group">
-                        <div class="sim-option-label">시뮬레이션 시간</div>
+                        <div class="sim-option-label">Simulation Duration</div>
                         <div class="sim-option-buttons">
-                            <button class="sim-option-btn${d1800}" onclick="selectDuration(this, 1800)">30분</button>
-                            <button class="sim-option-btn${d3600}" onclick="selectDuration(this, 3600)">1시간</button>
-                            <button class="sim-option-btn${d7200}" onclick="selectDuration(this, 7200)">2시간</button>
+                            <button class="sim-option-btn${d1800}" onclick="selectDuration(this, 1800)">30 min</button>
+                            <button class="sim-option-btn${d3600}" onclick="selectDuration(this, 3600)">1 hour</button>
+                            <button class="sim-option-btn${d7200}" onclick="selectDuration(this, 7200)">2 hours</button>
                         </div>
                     </div>
                 </div>
@@ -3230,27 +3230,27 @@
                 <!-- Real OD Content -->
                 <div class="sim-options-content" id="sim-content-real">
                     <div class="sim-option-group">
-                        <div class="sim-option-label">OD 데이터 파일 (필수)</div>
+                        <div class="sim-option-label">OD Data File (Required)</div>
                         <div class="file-upload-zone" id="od-upload-zone" onclick="document.getElementById('od-file-hidden').click()" ondragover="event.preventDefault(); this.style.borderColor='var(--primary-color)'" ondragleave="this.style.borderColor=''" ondrop="handleOdDrop(event)">
                             <input type="file" id="od-file-hidden" accept=".csv" onchange="handleOdUpload(this.files[0])">
                             <div class="upload-icon"><i class="fas fa-file-csv"></i></div>
-                            <div class="upload-text">CSV 파일을 드래그하거나 클릭하여 업로드</div>
+                            <div class="upload-text">Drag a CSV file or click to upload</div>
                         </div>
                     </div>
 
                     <div class="sim-option-group">
-                        <div class="sim-option-label">Zone Shapefile (선택)</div>
+                        <div class="sim-option-label">Zone Shapefile (Optional)</div>
                         <div class="file-upload-zone" id="shp-upload-zone" onclick="document.getElementById('shp-file-hidden').click()" ondragover="event.preventDefault(); this.style.borderColor='var(--primary-color)'" ondragleave="this.style.borderColor=''" ondrop="handleShpDrop(event)">
                             <input type="file" id="shp-file-hidden" accept=".shp,.shx,.dbf,.prj,.cpg" multiple onchange="handleShpUpload(this.files)">
                             <div class="upload-icon"><i class="fas fa-map"></i></div>
-                            <div class="upload-text">Shapefile (.shp, .shx, .dbf, .prj)을 드래그하거나 클릭</div>
+                            <div class="upload-text">Drag Shapefile (.shp, .shx, .dbf, .prj) or click</div>
                         </div>
                     </div>
                 </div>
 
                 <div class="sim-options-submit">
                     <button onclick="submitSimOptions()" disabled id="sim-submit-btn">
-                        모든 옵션을 선택하세요
+                        Select all options
                     </button>
                 </div>
             `;
@@ -3293,7 +3293,7 @@
                     <input type="file" id="od-file-inline-${uid}" accept=".csv"
                            onchange="handleOdUpload(this.files[0], 'od-upload-inline-${uid}', true)">
                     <div class="upload-icon"><i class="fas fa-file-csv"></i></div>
-                    <div class="upload-text">CSV 파일을 드래그하거나 클릭하여 업로드</div>
+                    <div class="upload-text">Drag a CSV file or click to upload</div>
                 </div>
             `;
             return wrapper;
@@ -3309,7 +3309,7 @@
         async function handleOdUpload(file, zoneId = 'od-upload-zone', sendToAgent = false) {
             if (!file) return;
             const zone = document.getElementById(zoneId);
-            zone.querySelector('.upload-text').textContent = '업로드 중...';
+            zone.querySelector('.upload-text').textContent = 'Uploading...';
 
             const formData = new FormData();
             formData.append('file', file);
@@ -3327,15 +3327,15 @@
                     // When triggered by [UPLOAD_OD] marker, auto-send to agent
                     if (sendToAgent) {
                         sendMessageDirectly(
-                            `[OD 파일 업로드 완료]\n파일명: ${file.name}\n경로: ${data.path}\n크기: ${data.size || 'unknown'}`,
-                            `OD 파일 업로드: ${file.name}`
+                            `[OD File Upload Complete]\nFilename: ${file.name}\nPath: ${data.path}\nSize: ${data.size || 'unknown'}`,
+                            `OD file upload: ${file.name}`
                         );
                     }
                 } else {
-                    zone.querySelector('.upload-text').textContent = '업로드 실패: ' + (data.error || '');
+                    zone.querySelector('.upload-text').textContent = 'Upload failed: ' + (data.error || '');
                 }
             } catch (e) {
-                zone.querySelector('.upload-text').textContent = '업로드 실패';
+                zone.querySelector('.upload-text').textContent = 'Upload failed';
             }
         }
 
@@ -3349,7 +3349,7 @@
         async function handleShpUpload(files) {
             if (!files || files.length === 0) return;
             const zone = document.getElementById('shp-upload-zone');
-            zone.querySelector('.upload-text').textContent = '업로드 중...';
+            zone.querySelector('.upload-text').textContent = 'Uploading...';
 
             const formData = new FormData();
             for (const f of files) formData.append('files', f);
@@ -3364,10 +3364,10 @@
                     zone.querySelector('.upload-text').textContent = data.files.join(', ');
                     updateSimSubmitButton();
                 } else {
-                    zone.querySelector('.upload-text').textContent = '업로드 실패: ' + (data.error || '');
+                    zone.querySelector('.upload-text').textContent = 'Upload failed: ' + (data.error || '');
                 }
             } catch (e) {
-                zone.querySelector('.upload-text').textContent = '업로드 실패';
+                zone.querySelector('.upload-text').textContent = 'Upload failed';
             }
         }
 
@@ -3380,7 +3380,7 @@
         function startAreaSelection(btn) {
             // Enter draw mode for area selection
             toggleDrawMode();
-            showToast('지도에서 영역을 선택하세요', 'info');
+            showToast('Select an area on the map', 'info');
 
             // Store reference to update button later
             window.areaSelectBtn = btn;
@@ -3396,7 +3396,7 @@
                 window.areaSelectBtn.classList.add('selected');
                 window.areaSelectBtn.innerHTML = `
                     <i class="fas fa-check"></i>
-                    <span>선택됨</span>
+                    <span>Selected</span>
                     <span class="area-size">(${simOptionsState.areaSize})</span>
                 `;
             }
@@ -3430,23 +3430,23 @@
 
                 if (allSelected) {
                     btn.disabled = false;
-                    btn.textContent = '선택 완료';
+                    btn.textContent = 'Selection complete';
                 } else {
                     btn.disabled = true;
                     const missing = [];
-                    if (!simOptionsState.area) missing.push('영역');
-                    if (!simOptionsState.traffic) missing.push('교통량');
-                    if (!simOptionsState.duration) missing.push('시간');
-                    btn.textContent = `${missing.join(', ')} 선택 필요`;
+                    if (!simOptionsState.area) missing.push('Area');
+                    if (!simOptionsState.traffic) missing.push('Traffic');
+                    if (!simOptionsState.duration) missing.push('Duration');
+                    btn.textContent = `Select ${missing.join(', ')}`;
                 }
             } else {
                 // Real OD mode: need odFile
                 if (simOptionsState.odFile) {
                     btn.disabled = false;
-                    btn.textContent = '선택 완료';
+                    btn.textContent = 'Selection complete';
                 } else {
                     btn.disabled = true;
-                    btn.textContent = 'OD 파일 업로드 필요';
+                    btn.textContent = 'OD file upload required';
                 }
             }
         }
@@ -3455,43 +3455,43 @@
             if (simOptionsState.mode === 'random') {
                 // Random OD mode
                 if (!simOptionsState.area || !simOptionsState.traffic || !simOptionsState.duration) {
-                    showToast('모든 옵션을 선택하세요', 'warning');
+                    showToast('Select all options', 'warning');
                     return;
                 }
 
-                const trafficLabels = { light: '한산', normal: '보통', heavy: '혼잡' };
-                const durationLabels = { 1800: '30분', 3600: '1시간', 7200: '2시간' };
+                const trafficLabels = { light: 'Light', normal: 'Normal', heavy: 'Heavy' };
+                const durationLabels = { 1800: '30 min', 3600: '1 hour', 7200: '2 hours' };
 
-                const message = `[시뮬레이션 ���정 완료]
-- 영역: Bbox [${simOptionsState.area.map(v => v.toFixed(4)).join(', ')}] (${simOptionsState.areaSize})
-- 교통량: ${trafficLabels[simOptionsState.traffic]}
-- 시���: ${durationLabels[simOptionsState.duration]}
-- OD 유형: RandomOD
+                const message = `[Simulation Settings Complete]
+- Area: Bbox [${simOptionsState.area.map(v => v.toFixed(4)).join(', ')}] (${simOptionsState.areaSize})
+- Traffic: ${trafficLabels[simOptionsState.traffic]}
+- Duration: ${durationLabels[simOptionsState.duration]}
+- OD Type: RandomOD
 
-이 설정으로 시뮬레이션을 실행해주세요.`;
+Please run the simulation with these settings.`;
 
-                const displayMessage = `선택 완료`;
+                const displayMessage = `Selection complete`;
                 sendMessageDirectly(message, displayMessage);
 
             } else {
                 // Real OD mode
                 if (!simOptionsState.odFile) {
-                    showToast('OD 파일을 업로드하세요', 'warning');
+                    showToast('Upload an OD file', 'warning');
                     return;
                 }
 
-                let message = `[시뮬레이션 설정 완료]
-- OD 유형: RealOD
-- OD 파일: ${simOptionsState.odFile}`;
+                let message = `[Simulation Settings Complete]
+- OD Type: RealOD
+- OD File: ${simOptionsState.odFile}`;
 
                 if (simOptionsState.zoneFile) {
-                    message += `\n- Zone 파일: ${simOptionsState.zoneFile}`;
+                    message += `\n- Zone File: ${simOptionsState.zoneFile}`;
                 }
 
-                message += `\n\n이 설정으로 시뮬레이션을 실행해주세요.`;
+                message += `\n\nPlease run the simulation with these settings.`;
 
                 const odFileName = simOptionsState.odFile.split('/').pop();
-                const displayMessage = `실제 OD 데이터: ${odFileName}`;
+                const displayMessage = `Real OD data: ${odFileName}`;
                 sendMessageDirectly(message, displayMessage);
             }
 
@@ -4269,8 +4269,8 @@
                 return `  - Pair #${p.index}: Origin=(${oLng}, ${oLat}), Destination=(${dLng}, ${dLat}), vehicles=${p.vehicleCount}`;
             }).join('\n');
 
-            const agentMsg = `[사용자가 지도에서 출발지/도착지 쌍을 선택했습니다]\n\nO/D Pairs (${odPairs.length} pairs):\n${pairLines}\n\nPlease generate flows for each pair using the coordinates directly with flow_generation_tool (use source_lat/lon, dest_lat/lon, number parameters).`;
-            const displayMsg = `O/D 선택: ${odPairs.length} pairs (${odPairs.map(p => '#' + p.index + ': ' + p.vehicleCount + 'veh').join(', ')})`;
+            const agentMsg = `[User selected origin/destination pairs on the map]\n\nO/D Pairs (${odPairs.length} pairs):\n${pairLines}\n\nPlease generate flows for each pair using the coordinates directly with flow_generation_tool (use source_lat/lon, dest_lat/lon, number parameters).`;
+            const displayMsg = `O/D selection: ${odPairs.length} pairs (${odPairs.map(p => '#' + p.index + ': ' + p.vehicleCount + 'veh').join(', ')})`;
 
             sendMessageDirectly(agentMsg, displayMsg);
             showToast(`${odPairs.length} O/D pairs sent to agent`, 'success');
@@ -4488,23 +4488,23 @@
             const edgeNames = [...new Set(Array.from(selectedEdges.values()).map(e => e.name))];
 
             const policyLabels = {
-                'road_closure': '도로 차단 (Road Closure)',
-                'lane_reduction': '차선 축소 (Lane Reduction)',
-                'speed_limit': '속도 제한 변경 (Speed Limit Change)',
-                'rerouter': '우회 경로 설정 (Rerouter)',
-                'vss': '가변 속도 제한 (Variable Speed Sign)'
+                'road_closure': 'Road Closure',
+                'lane_reduction': 'Lane Reduction',
+                'speed_limit': 'Speed Limit Change',
+                'rerouter': 'Rerouter',
+                'vss': 'Variable Speed Sign'
             };
 
-            const agentMessage = `[사용자가 지도에서 도로 구간을 선택하여 정책 적용을 요청합니다]
+            const agentMessage = `[User selected road segments on the map and is requesting policy application]
 
-정책: ${policyLabels[policy]}
-선택된 Edge IDs: [${edgeIds.map(id => `"${id}"`).join(', ')}]
-도로명: ${edgeNames.join(', ')}
-선택 구간 수: ${edgeIds.length}
+Policy: ${policyLabels[policy]}
+Selected Edge IDs: [${edgeIds.map(id => `"${id}"`).join(', ')}]
+Road Names: ${edgeNames.join(', ')}
+Number of Segments: ${edgeIds.length}
 
-위 edge_ids에 "${policyLabels[policy]}" 정책을 적용해주세요.`;
+Please apply the "${policyLabels[policy]}" policy to the edge_ids above.`;
 
-            const displayMessage = `${policyLabels[policy]} → ${edgeNames.join(', ')} (${edgeIds.length} segments)`;
+            const displayMessage = `${policyLabels[policy]} -> ${edgeNames.join(', ')} (${edgeIds.length} segments)`;
 
             sendMessageDirectly(agentMessage, displayMessage);
             showToast('Policy request sent', 'success');
@@ -4607,21 +4607,21 @@
                         <div class="message bot-message-wrapper">
                             <img src="/static/agentsumo_pic.png" alt="AgentSUMO" class="bot-avatar">
                             <div class="bot-message">
-                                <p>세션이 리셋되었습니다. AgentSUMO를 다시 시작합니다.</p>
+                                <p>Session has been reset. Restarting AgentSUMO.</p>
                             </div>
                         </div>
                         <div class="message bot-message-wrapper">
                             <img src="/static/agentsumo_pic.png" alt="AgentSUMO" class="bot-avatar">
                             <div class="bot-message">
-                                <p>안녕하세요! AgentSUMO입니다.</p>
-                                <p>저는 SUMO 교통 시뮬레이션 전문 AI 어시스턴트입니다.</p>
-                                <p><strong>제가 도울 수 있는 작업:</strong></p>
+                                <p>Hello! I'm AgentSUMO.</p>
+                                <p>I'm an AI assistant specialized in SUMO traffic simulation.</p>
+                                <p><strong>What I can help with</strong></p>
                                 <ul>
-                                    <li>도시 교통 네트워크 생성 및 시뮬레이션</li>
-                                    <li>교통 정책 효과 분석</li>
-                                    <li>시나리오 비교 및 최적화 전략 제안</li>
+                                    <li>Building and simulating urban traffic networks</li>
+                                    <li>Analyzing the effects of traffic policies</li>
+                                    <li>Comparing scenarios and suggesting optimization strategies</li>
                                 </ul>
-                                <p>어떤 시뮬레이션을 도와드릴까요?</p>
+                                <p>What simulation can I help you with?</p>
                             </div>
                         </div>
                     `;
@@ -4740,7 +4740,7 @@
                 // Check if sim options panel is active (user clicked from options UI)
                 if (window.areaSelectBtn) {
                     onAreaSelected(selectedBbox, width, height);
-                    showToast(`영역 선택 완료: ${width.toFixed(1)}km x ${height.toFixed(1)}km`, 'success');
+                    showToast(`Area selected: ${width.toFixed(1)}km x ${height.toFixed(1)}km`, 'success');
                 } else {
                     showSelectionConfirm();
                 }
@@ -4878,21 +4878,21 @@
             const height = (selectedBbox[3] - selectedBbox[1]) * 111;
 
             // Send bbox info to agent
-            const agentMessage = `[사용자가 지도에서 시뮬레이션 영역을 선택했습니다]
+            const agentMessage = `[User selected a simulation area on the map]
 
-선택한 영역 정보:
+Selected area info:
 - Bbox: [${selectedBbox[0].toFixed(4)}, ${selectedBbox[1].toFixed(4)}, ${selectedBbox[2].toFixed(4)}, ${selectedBbox[3].toFixed(4)}]
-- 영역 크기: 약 ${width.toFixed(1)}km x ${height.toFixed(1)}km
+- Area size: about ${width.toFixed(1)}km x ${height.toFixed(1)}km
 
-📋 이전 대화에서 이미 결정된 옵션이 있는지 확인하세요:
+Check if any options were already decided in the previous conversation:
 - trip_type (RandomOD/RealOD)
 - traffic_condition (heavy/normal/light)
-- duration (시뮬레이션 시간)
+- duration (simulation duration)
 
-✅ 이미 결정된 옵션은 그대로 사용하고, 아직 결정되지 않은 옵션만 물어보세요.
-✅ 모든 옵션이 이미 결정되어 있다면 바로 시뮬레이션을 실행하세요.`;
+Use any options already decided, and only ask about the options that have not been decided yet.
+If all options have already been decided, run the simulation right away.`;
 
-            const displayMessage = `[지도에서 영역 선택 완료]`;
+            const displayMessage = `[Area selected on map]`;
 
             sendMessageDirectly(agentMessage, displayMessage);
             showToast('Area sent to agent!', 'success');
@@ -4948,11 +4948,11 @@
         function startMapSelection(btn) {
             _mapSelectBtn = btn;
             btn.classList.add('selected');
-            btn.innerHTML = '<i class="fas fa-crosshairs"></i> <span>지도에서 두 점을 클릭하세요...</span>';
+            btn.innerHTML = '<i class="fas fa-crosshairs"></i> <span>Click two points on the map...</span>';
 
             // Enter draw mode (same as startAreaSelection)
             toggleDrawMode();
-            showToast('지도에서 영역을 선택하세요', 'info');
+            showToast('Select an area on the map', 'info');
 
             // Flag so confirmSelection sends to agent
             window._mapSelectActive = true;
@@ -4971,22 +4971,22 @@
                 // Update the button in chat
                 if (_mapSelectBtn) {
                     _mapSelectBtn.classList.add('selected');
-                    _mapSelectBtn.innerHTML = `<i class="fas fa-check"></i> <span>선택 완료</span>`;
+                    _mapSelectBtn.innerHTML = `<i class="fas fa-check"></i> <span>Selection complete</span>`;
                     _mapSelectBtn.onclick = null;
                 }
 
                 // Send to agent
-                const agentMessage = `[사용자가 지도에서 시뮬레이션 영역을 선택했습니다]
+                const agentMessage = `[User selected a simulation area on the map]
 
-선택한 영역 정보:
+Selected area info:
 - Bbox: [${selectedBbox[0].toFixed(6)}, ${selectedBbox[1].toFixed(6)}, ${selectedBbox[2].toFixed(6)}, ${selectedBbox[3].toFixed(6)}]
-- 영역 크기: 약 ${width.toFixed(1)}km x ${height.toFixed(1)}km
+- Area size: about ${width.toFixed(1)}km x ${height.toFixed(1)}km
 
-이전에 확정된 시나리오 설정과 함께 시뮬레이션을 실행해주세요.`;
+Please run the simulation along with the previously confirmed scenario settings.`;
 
-                const displayMessage = `[지도에서 영역 선택 완료]`;
+                const displayMessage = `[Area selected on map]`;
                 sendMessageDirectly(agentMessage, displayMessage);
-                showToast('영역 선택 완료!', 'success');
+                showToast('Area selected!', 'success');
 
                 window._mapSelectActive = false;
             } else {

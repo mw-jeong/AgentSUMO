@@ -1,13 +1,13 @@
 """
 AgentSUMO - AI-Powered SUMO Traffic Simulation Platform
 
-Claude + MCP를 결합한 대화형 교통 시뮬레이션 자동화 플랫폼
+Conversational traffic simulation automation platform built on Claude and MCP.
 """
 
 __version__ = "0.1.0"
 __author__ = "AgentSUMO Team"
 
-# 주요 클래스들을 top-level로 export
+# Export key classes at the top level
 from .agent import AgentSUMO
 from .client import SUMOMCPClient
 from .core import AgentSUMOConfig

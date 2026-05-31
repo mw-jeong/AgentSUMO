@@ -11,37 +11,37 @@ import logging
 from datetime import datetime
 
 
-# 로거 설정
+# Logger setup
 logger = logging.getLogger("agentsumo.mcp_client")
 
 
 class MCPClientError(Exception):
-    """MCP Client 관련 에러"""
+    """MCP Client related error"""
     pass
 
 
 class MCPConnectionError(MCPClientError):
-    """MCP 연결 에러"""
+    """MCP connection error"""
     pass
 
 
 class MCPToolCallError(MCPClientError):
-    """MCP Tool 호출 에러"""
+    """MCP Tool invocation error"""
     pass
 
 
 class SUMOMCPClient:
     """
-    SUMO MCP Server와 통신하는 클라이언트
-    
+    Client that communicates with the SUMO MCP Server.
+
     Features:
-    - Timeout 설정
-    - 자동 재연결
-    - 상세한 에러 처리
-    - 로깅
+    - Timeout configuration
+    - Automatic reconnection
+    - Detailed error handling
+    - Logging
     - Health check
-    
-    사용법:
+
+    Usage:
         async with SUMOMCPClient(
             connection_timeout=10.0,
             tool_timeout=300.0,
@@ -62,28 +62,28 @@ class SUMOMCPClient:
     ):
         """
         Args:
-            python_path: Python 실행 파일 경로
-            connection_timeout: 연결 타임아웃 (초)
-            tool_timeout: Tool 실행 타임아웃 (초)
-            max_retries: 최대 재시도 횟수
-            retry_delay: 재시도 간격 (초)
-            enable_logging: 로깅 활성화 여부
+            python_path: Path to the Python executable
+            connection_timeout: Connection timeout in seconds
+            tool_timeout: Tool execution timeout in seconds
+            max_retries: Maximum number of retries
+            retry_delay: Delay between retries in seconds
+            enable_logging: Whether to enable logging
         """
         self.python_path = python_path
         self.connection_timeout = connection_timeout
         self.tool_timeout = tool_timeout
         self.max_retries = max_retries
         self.retry_delay = retry_delay
-        
-        # 로깅 설정
+
+        # Logging configuration
         if enable_logging:
             logging.basicConfig(
                 level=logging.INFO,
                 format='%(asctime)s [%(levelname)s] %(message)s',
                 datefmt='%Y-%m-%d %H:%M:%S'
             )
-        
-        # 상태 관리
+
+        # State management
         self.session: Optional[ClientSession] = None
         self._stdio_context_manager = None
         self._session_context_manager = None
@@ -91,151 +91,156 @@ class SUMOMCPClient:
         self._connection_attempts = 0
         self._last_error = None
         
-        # Server 파일 경로
-        project_root = Path(__file__).parent.parent
-        
-        # agentsumo.server.main 모듈 사용
-        self.server_module = "agentsumo.server.main"
-        self.server_file = project_root / "server" / "main.py"
-        
-        if not self.server_file.exists():
-            raise FileNotFoundError(
-                f"MCP Server 파일을 찾을 수 없습니다: {self.server_file}"
+        # Resolve which AgentSUMO MCP server module to launch.
+        # Prefer an in-repo development copy at agentsumo/server/main.py if it
+        # exists (dev-ko branch). Otherwise fall back to the packaged release
+        # `agentsumo_mcp` (main branch / `pip install agentsumo-mcp`).
+        import importlib.util
+        if importlib.util.find_spec("agentsumo.server.main") is not None:
+            self.server_module = "agentsumo.server.main"
+        elif importlib.util.find_spec("agentsumo_mcp.main") is not None:
+            self.server_module = "agentsumo_mcp.main"
+        else:
+            raise ModuleNotFoundError(
+                "Neither agentsumo.server.main nor agentsumo_mcp.main is "
+                "importable. Install the published server with "
+                "`pip install agentsumo-mcp`, or run from a checkout that "
+                "contains agentsumo/server/."
             )
-        
-        logger.info(f"SUMOMCPClient 초기화 완료 (Server: {self.server_module})")
+
+        logger.info(f"SUMOMCPClient initialized (server module: {self.server_module})")
     
     async def __aenter__(self):
-        """Context manager 진입"""
+        """Context manager entry"""
         await self._connect_with_retry()
         return self
-    
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Context manager 종료"""
+        """Context manager exit"""
         await self._disconnect()
-        
-        # 예외가 발생했다면 로깅
+
+        # Log if an exception occurred
         if exc_type is not None:
-            logger.error(f"Context manager에서 예외 발생: {exc_type.__name__}: {exc_val}")
-        
-        return False  # 예외를 다시 raise
-    
+            logger.error(f"Exception in context manager - {exc_type.__name__} - {exc_val}")
+
+        return False  # Re-raise the exception
+
     async def _connect_with_retry(self) -> None:
-        """재시도 로직을 포함한 연결"""
+        """Connection with retry logic"""
         for attempt in range(self.max_retries):
             try:
                 self._connection_attempts = attempt + 1
-                
+
                 if attempt > 0:
-                    logger.info(f"재연결 시도 {attempt + 1}/{self.max_retries}...")
+                    logger.info(f"Reconnect attempt {attempt + 1}/{self.max_retries}")
                     await asyncio.sleep(self.retry_delay)
-                
+
                 await self._connect()
-                logger.info(f"연결 성공 (시도 {self._connection_attempts}회)")
+                logger.info(f"Connected successfully on attempt {self._connection_attempts}")
                 return
-                
+
             except asyncio.TimeoutError:
-                self._last_error = f"연결 타임아웃 ({self.connection_timeout}초)"
-                logger.warning(f"시도 {attempt + 1} 실패: {self._last_error}")
-                
+                self._last_error = f"Connection timeout ({self.connection_timeout}s)"
+                logger.warning(f"Attempt {attempt + 1} failed - {self._last_error}")
+
             except Exception as e:
                 self._last_error = str(e)
-                logger.error(f"시도 {attempt + 1} 실패: {type(e).__name__}: {e}")
-        
-        # 모든 재시도 실패
+                logger.error(f"Attempt {attempt + 1} failed - {type(e).__name__} - {e}")
+
+        # All retries failed
         raise MCPConnectionError(
-            f"MCP Server 연결 실패 ({self.max_retries}회 시도). "
-            f"마지막 에러: {self._last_error}"
+            f"MCP Server connection failed after {self.max_retries} attempts. "
+            f"Last error - {self._last_error}"
         )
-    
+
     async def _connect(self) -> None:
-        """실제 연결 로직 (단일 시도)"""
+        """Actual connection logic (single attempt)"""
         if self._connected:
-            logger.warning("이미 연결되어 있습니다.")
+            logger.warning("Already connected.")
             return
-        
-        logger.info("MCP Server 연결 중...")
-        
-        # Server parameters (python -m 방식으로 모듈 실행)
-        # 환경변수 전달 (ANTHROPIC_API_KEY 등)
+
+        logger.info("Connecting to MCP Server")
+
+        # Server parameters (run module via python -m)
+        # Pass environment variables (ANTHROPIC_API_KEY etc.)
         import os
         env = os.environ.copy()
-        
+
         server_params = StdioServerParameters(
             command=self.python_path,
             args=["-m", self.server_module],
-            env=env  # 환경변수 전달 ✅
+            env=env  # Pass environment variables
         )
-        
-        # STDIO context manager (타임아웃 적용)
+
+        # STDIO context manager (with timeout)
         self._stdio_context_manager = stdio_client(server_params)
         read, write = await asyncio.wait_for(
             self._stdio_context_manager.__aenter__(),
             timeout=self.connection_timeout / 2
         )
-        
+
         # Session context manager
         self._session_context_manager = ClientSession(read, write)
         self.session = await self._session_context_manager.__aenter__()
-        
-        # 초기화 핸드셰이크 (타임아웃 적용)
+
+        # Initialization handshake (with timeout)
         await asyncio.wait_for(
             self.session.initialize(),
             timeout=self.connection_timeout / 2
         )
-        
+
         self._connected = True
-        logger.info("MCP Server 연결 완료!")
-    
+        logger.info("MCP Server connection established")
+
     async def _disconnect(self) -> None:
-        """연결 종료"""
+        """Close connection"""
         if not self._connected:
             return
-        
-        logger.info("MCP Server 연결 종료 중...")
-        
+
+        logger.info("Closing MCP Server connection")
+
         try:
-            # Session 종료
+            # Close session
             if self._session_context_manager:
                 await self._session_context_manager.__aexit__(None, None, None)
-            
-            # STDIO 종료
+
+            # Close STDIO
             if self._stdio_context_manager:
                 await self._stdio_context_manager.__aexit__(None, None, None)
-            
+
             self._connected = False
-            logger.info("연결 종료 완료")
-            
+            logger.info("Connection closed")
+
         except Exception as e:
-            logger.error(f"연결 종료 중 에러: {e}")
+            logger.error(f"Error while closing connection - {e}")
             self._connected = False
     
     async def list_tools(self) -> List[Any]:
         """
-        사용 가능한 도구 목록 조회
-        
+        Get the list of available tools.
+
         Returns:
-            List[Tool]: 도구 목록
-            
+            List[Tool]: List of tools
+
         Raises:
-            MCPConnectionError: 연결되어 있지 않은 경우
-            MCPClientError: 도구 목록 조회 실패
+            MCPConnectionError: If not connected
+            MCPClientError: If listing tools fails
         """
         if not self._connected or not self.session:
             raise MCPConnectionError(
-                "MCP Server에 연결되어 있지 않습니다. 'async with' 구문을 사용하세요."
+                "Not connected to MCP Server. Use the 'async with' construct."
             )
-        
+
         try:
-            logger.debug("도구 목록 조회 중...")
+            logger.debug("Listing tools")
             result = await self.session.list_tools()
-            logger.info(f"{len(result.tools)}개 도구 발견")
+            logger.info(f"Found {len(result.tools)} tools")
             return result.tools
-            
+
         except Exception as e:
-            logger.error(f"도구 목록 조회 실패: {e}")
-            raise MCPClientError(f"도구 목록 조회 실패: {e}") from e
-    
+            logger.error(f"Failed to list tools - {e}")
+            raise MCPClientError(f"Failed to list tools - {e}") from e
+
     async def call_tool(
         self,
         name: str,
@@ -243,81 +248,81 @@ class SUMOMCPClient:
         timeout: Optional[float] = None
     ) -> Any:
         """
-        도구 실행 (타임아웃 및 에러 처리 포함)
-        
+        Execute a tool (with timeout and error handling).
+
         Args:
-            name: 도구 이름
-            arguments: 도구 인자
-            timeout: 실행 타임아웃 (None이면 기본값 사용)
-            
+            name: Tool name
+            arguments: Tool arguments
+            timeout: Execution timeout (None uses the default)
+
         Returns:
-            도구 실행 결과
-            
+            Tool execution result
+
         Raises:
-            MCPConnectionError: 연결되어 있지 않은 경우
-            MCPToolCallError: 도구 실행 실패
-            asyncio.TimeoutError: 타임아웃 발생
+            MCPConnectionError: If not connected
+            MCPToolCallError: If tool execution fails
+            asyncio.TimeoutError: On timeout
         """
         if not self._connected or not self.session:
             raise MCPConnectionError(
-                "MCP Server에 연결되어 있지 않습니다. 'async with' 구문을 사용하세요."
+                "Not connected to MCP Server. Use the 'async with' construct."
             )
-        
+
         timeout = timeout or self.tool_timeout
-        
+
         try:
-            logger.debug(f"도구 실행: {name}")
-            logger.debug(f"  파라미터: {arguments}")
-            
-            # 타임아웃 적용
+            logger.debug(f"Calling tool - {name}")
+            logger.debug(f"  parameters - {arguments}")
+
+            # Apply timeout
             result = await asyncio.wait_for(
                 self.session.call_tool(name, arguments),
                 timeout=timeout
             )
-            
-            logger.debug(f"도구 실행 완료: {name}")
+
+            logger.debug(f"Tool completed - {name}")
             return result
-            
+
         except asyncio.TimeoutError:
-            error_msg = f"도구 실행 타임아웃: {name} ({timeout}초 초과)"
+            error_msg = f"Tool execution timeout - {name} (exceeded {timeout}s)"
             logger.error(error_msg)
             raise asyncio.TimeoutError(error_msg)
-            
+
         except Exception as e:
-            error_msg = f"도구 실행 실패: {name} - {type(e).__name__}: {e}"
+            error_msg = f"Tool execution failed - {name} - {type(e).__name__} - {e}"
             logger.error(error_msg)
             raise MCPToolCallError(error_msg) from e
-    
+
     async def health_check(self) -> bool:
         """
-        서버 상태 확인
-        
+        Check server status.
+
         Returns:
-            bool: 서버가 정상인 경우 True
+            bool: True if the server is healthy
         """
         try:
             if not self._connected:
                 return False
-            
-            # 간단한 도구 목록 조회로 health check
+
+            # Simple health check via list_tools
             tools = await asyncio.wait_for(
                 self.list_tools(),
                 timeout=5.0
             )
-            
-            logger.debug(f"Health check 성공 ({len(tools)}개 도구)")
+
+            logger.debug(f"Health check passed ({len(tools)} tools)")
             return True
-            
+
         except Exception as e:
-            logger.warning(f"Health check 실패: {e}")
+            logger.warning(f"Health check failed - {e}")
             return False
-    
+
     def get_stats(self) -> Dict[str, Any]:
         """
-        클라이언트 통계 정보
-        
+        Client statistics.
+
         Returns:
-            Dict: 통계 정보
+            Dict: Statistics
         """
         return {
             "connected": self._connected,
@@ -331,11 +336,11 @@ class SUMOMCPClient:
     
     @property
     def is_connected(self) -> bool:
-        """연결 상태 확인"""
+        """Check connection status"""
         return self._connected
 
 
-# =============== 유틸리티 함수 ===============
+# =============== Utility Functions ===============
 
 async def create_mcp_client(
     connection_timeout: float = 10.0,
@@ -343,23 +348,23 @@ async def create_mcp_client(
     max_retries: int = 3
 ) -> SUMOMCPClient:
     """
-    MCP Client를 생성하고 context manager로 반환
-    
-    사용법:
+    Create an MCP Client and return it as a context manager.
+
+    Usage:
         async with await create_mcp_client() as client:
             ...
-    
-    또는 더 간단하게:
+
+    Or more simply:
         async with SUMOMCPClient() as client:
             ...
-    
+
     Args:
-        connection_timeout: 연결 타임아웃 (초)
-        tool_timeout: Tool 실행 타임아웃 (초)
-        max_retries: 최대 재시도 횟수
-    
+        connection_timeout: Connection timeout in seconds
+        tool_timeout: Tool execution timeout in seconds
+        max_retries: Maximum number of retries
+
     Returns:
-        SUMOMCPClient: MCP Client 인스턴스
+        SUMOMCPClient: MCP Client instance
     """
     return SUMOMCPClient(
         connection_timeout=connection_timeout,
@@ -370,16 +375,16 @@ async def create_mcp_client(
 
 async def test_mcp_connection() -> bool:
     """
-    MCP 연결 빠른 테스트
-    
+    Quick MCP connection test.
+
     Returns:
-        bool: 연결 성공 시 True
+        bool: True on successful connection
     """
     try:
         async with SUMOMCPClient(connection_timeout=5.0) as client:
             tools = await client.list_tools()
-            print(f"✅ MCP 연결 테스트 성공! ({len(tools)}개 도구)")
+            print(f"MCP connection test passed ({len(tools)} tools)")
             return True
     except Exception as e:
-        print(f"❌ MCP 연결 테스트 실패: {e}")
+        print(f"MCP connection test failed - {e}")
         return False

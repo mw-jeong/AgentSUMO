@@ -1,9 +1,9 @@
 """
 AgentSUMO Web Application
 
-FastAPI 기반 웹 서버
-- REST API: 네트워크 목록, 상태 조회 등
-- WebSocket: 실시간 채팅
+FastAPI-based web server.
+- REST API: network list, status queries, etc.
+- WebSocket: real-time chat
 """
 
 import asyncio
@@ -1523,7 +1523,10 @@ def create_app() -> FastAPI:
             JSON with status of the launch
         """
         try:
-            from agentsumo.server.settings.settings import sumo_environment
+            try:
+                from agentsumo.server.settings.settings import sumo_environment
+            except ImportError:
+                from agentsumo_mcp.settings.settings import sumo_environment
             import platform
 
             # Find the config file

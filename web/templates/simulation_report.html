@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>교통 시뮬레이션 리포트 - {{ simulation.simulation_id }}</title>
+    <title>Traffic Simulation Report - {{ simulation.simulation_id }}</title>
     <style>
         :root {
             --primary: #2563eb;
@@ -113,91 +113,91 @@
 <body>
     <div class="container">
         <header>
-            <h1>교통 시뮬레이션 분석 리포트</h1>
+            <h1>Traffic Simulation Analysis Report</h1>
             <div class="meta">
                 <span><strong>ID:</strong> {{ simulation.simulation_id }}</span>
-                <span><strong>정책:</strong> {{ simulation.policy_type }}</span>
-                <span><strong>생성:</strong> {{ simulation.created_at }}</span>
+                <span><strong>Policy:</strong> {{ simulation.policy_type }}</span>
+                <span><strong>Created:</strong> {{ simulation.created_at }}</span>
             </div>
         </header>
 
-        <!-- 요약 카드 -->
+        <!-- Summary cards -->
         <div class="grid">
             <div class="card">
-                <h2>🚗 차량 통계</h2>
+                <h2>Vehicle Statistics</h2>
                 <div class="stat-grid">
                     <div class="stat">
                         <div class="stat-value">{{ "{:,}".format(trips.total_trips) }}</div>
-                        <div class="stat-label">총 차량 수</div>
+                        <div class="stat-label">Total Vehicles</div>
                     </div>
                     <div class="stat">
-                        <div class="stat-value">{{ "%.1f"|format(trips.avg_duration / 60) }}분</div>
-                        <div class="stat-label">평균 이동시간</div>
+                        <div class="stat-value">{{ "%.1f"|format(trips.avg_duration / 60) }} min</div>
+                        <div class="stat-label">Average Travel Time</div>
                     </div>
                     <div class="stat">
                         <div class="stat-value {% if trips.avg_waiting_time > 60 %}bad{% elif trips.avg_waiting_time > 30 %}warning{% else %}good{% endif %}">
-                            {{ "%.1f"|format(trips.avg_waiting_time) }}초
+                            {{ "%.1f"|format(trips.avg_waiting_time) }} s
                         </div>
-                        <div class="stat-label">평균 대기시간</div>
+                        <div class="stat-label">Average Waiting Time</div>
                     </div>
                     <div class="stat">
                         <div class="stat-value {% if trips.avg_time_loss > 120 %}bad{% elif trips.avg_time_loss > 60 %}warning{% else %}good{% endif %}">
-                            {{ "%.1f"|format(trips.avg_time_loss) }}초
+                            {{ "%.1f"|format(trips.avg_time_loss) }} s
                         </div>
-                        <div class="stat-label">평균 시간손실</div>
+                        <div class="stat-label">Average Time Loss</div>
                     </div>
                 </div>
             </div>
 
             <div class="card">
-                <h2>🛣️ 도로 통계</h2>
+                <h2>Road Statistics</h2>
                 <div class="stat-grid">
                     <div class="stat">
                         <div class="stat-value">{{ "{:,}".format(edges.total_edges) }}</div>
-                        <div class="stat-label">총 도로 구간</div>
+                        <div class="stat-label">Total Road Segments</div>
                     </div>
                     <div class="stat">
                         <div class="stat-value">{{ "%.1f"|format(edges.avg_speed * 3.6) }} km/h</div>
-                        <div class="stat-label">평균 속도</div>
+                        <div class="stat-label">Average Speed</div>
                     </div>
                     <div class="stat">
                         <div class="stat-value {% if edges.avg_density > 50 %}bad{% elif edges.avg_density > 30 %}warning{% else %}good{% endif %}">
                             {{ "%.1f"|format(edges.avg_density) }}
                         </div>
-                        <div class="stat-label">평균 밀도 (veh/km)</div>
+                        <div class="stat-label">Average Density (veh/km)</div>
                     </div>
                     <div class="stat">
                         <div class="stat-value">{{ "%.1f"|format(edges.max_density) }}</div>
-                        <div class="stat-label">최대 밀도</div>
+                        <div class="stat-label">Maximum Density</div>
                     </div>
                 </div>
             </div>
 
             <div class="card">
-                <h2>🌱 환경 영향</h2>
+                <h2>Environmental Impact</h2>
                 <div class="stat-grid">
                     <div class="stat">
                         <div class="stat-value">{{ "%.1f"|format(trips.total_co2 / 1000) }} kg</div>
-                        <div class="stat-label">총 CO2 배출</div>
+                        <div class="stat-label">Total CO2 Emissions</div>
                     </div>
                     <div class="stat">
                         <div class="stat-value">{{ "%.1f"|format(trips.avg_co2 / 1000) }} kg</div>
-                        <div class="stat-label">차량당 CO2</div>
+                        <div class="stat-label">CO2 per Vehicle</div>
                     </div>
                     <div class="stat">
                         <div class="stat-value">{{ "%.1f"|format(trips.total_fuel) }} L</div>
-                        <div class="stat-label">총 연료 소비</div>
+                        <div class="stat-label">Total Fuel Consumption</div>
                     </div>
                     <div class="stat">
                         <div class="stat-value">{{ "%.2f"|format(trips.avg_fuel) }} L</div>
-                        <div class="stat-label">차량당 연료</div>
+                        <div class="stat-label">Fuel per Vehicle</div>
                     </div>
                 </div>
             </div>
         </div>
 
         <footer>
-            <p>AgentSUMO 시뮬레이션 리포트 | 생성: {{ generated_at }}</p>
+            <p>AgentSUMO Simulation Report | Generated: {{ generated_at }}</p>
         </footer>
     </div>
 </body>

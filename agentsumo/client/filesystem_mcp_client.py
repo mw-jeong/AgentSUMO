@@ -26,7 +26,7 @@ logger = logging.getLogger("agentsumo.filesystem_mcp_client")
 
 class FilesystemMCPClient:
     """
-    Filesystem MCP Server와 통신하는 클라이언트
+    Client that communicates with the Filesystem MCP Server.
 
     npx -y @modelcontextprotocol/server-filesystem <dir1> [dir2] [dir3] ...
 
@@ -66,7 +66,7 @@ class FilesystemMCPClient:
         self._session_context_manager = None
         self._connected = False
 
-        logger.info(f"FilesystemMCPClient 초기화 (dirs: {self.allowed_directories})")
+        logger.info(f"FilesystemMCPClient initialized (dirs - {self.allowed_directories})")
 
     async def __aenter__(self):
         """Context manager entry - Connect to server"""
@@ -88,7 +88,7 @@ class FilesystemMCPClient:
             logger.warning("Already connected to Filesystem MCP Server")
             return
 
-        logger.info("Filesystem MCP Server 연결 중...")
+        logger.info("Connecting to Filesystem MCP Server")
 
         server_params = StdioServerParameters(
             command="npx",
@@ -119,19 +119,19 @@ class FilesystemMCPClient:
             )
 
             self._connected = True
-            logger.info("✅ Filesystem MCP Server 연결 완료")
+            logger.info("Filesystem MCP Server connection established")
 
         except asyncio.TimeoutError:
-            raise RuntimeError(f"Filesystem MCP Server 연결 타임아웃 ({self.connection_timeout}초)")
+            raise RuntimeError(f"Filesystem MCP Server connection timeout ({self.connection_timeout}s)")
         except Exception as e:
-            raise RuntimeError(f"Filesystem MCP Server 연결 실패: {e}")
+            raise RuntimeError(f"Filesystem MCP Server connection failed - {e}")
 
     async def _disconnect(self):
         """Disconnect from server"""
         if not self._connected:
             return
 
-        logger.info("Filesystem MCP Server 연결 종료 중...")
+        logger.info("Closing Filesystem MCP Server connection")
 
         try:
             if self._session_context_manager:
@@ -141,10 +141,10 @@ class FilesystemMCPClient:
                 await self._stdio_context_manager.__aexit__(None, None, None)
 
             self._connected = False
-            logger.info("✅ Filesystem MCP 연결 종료")
+            logger.info("Filesystem MCP connection closed")
 
         except Exception as e:
-            logger.warning(f"연결 종료 중 에러 (무시): {e}")
+            logger.warning(f"Error while closing connection (ignored) - {e}")
             self._connected = False
 
     async def list_tools(self) -> List[Any]:
@@ -160,7 +160,7 @@ class FilesystemMCPClient:
         try:
             logger.debug("Listing Filesystem tools...")
             result = await self.session.list_tools()
-            logger.info(f"✅ {len(result.tools)} Filesystem tools available")
+            logger.info(f"{len(result.tools)} Filesystem tools available")
             return result.tools
 
         except Exception as e:
@@ -190,26 +190,26 @@ class FilesystemMCPClient:
         timeout = timeout or self.tool_timeout
 
         try:
-            logger.debug(f"Filesystem tool 실행: {name}")
+            logger.debug(f"Calling Filesystem tool - {name}")
 
             if "path" in arguments:
-                logger.debug(f"  Path: {arguments['path']}")
+                logger.debug(f"  Path - {arguments['path']}")
 
             result = await asyncio.wait_for(
                 self.session.call_tool(name, arguments),
                 timeout=timeout
             )
 
-            logger.debug(f"✅ Filesystem tool 완료: {name}")
+            logger.debug(f"Filesystem tool completed - {name}")
             return result
 
         except asyncio.TimeoutError:
-            error_msg = f"Filesystem tool timeout: {name} ({timeout}초 초과)"
+            error_msg = f"Filesystem tool timeout - {name} (exceeded {timeout}s)"
             logger.error(error_msg)
             raise asyncio.TimeoutError(error_msg)
 
         except Exception as e:
-            error_msg = f"Filesystem tool 실행 실패: {name} - {e}"
+            error_msg = f"Filesystem tool execution failed - {name} - {e}"
             logger.error(error_msg)
             raise RuntimeError(error_msg)
 
