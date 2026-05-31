@@ -1,7 +1,7 @@
 """
 AgentSUMO MCP Client
 
-MCP Server와 통신하는 클라이언트
+Client that communicates with the MCP Server.
 """
 
 from .mcp_client import (

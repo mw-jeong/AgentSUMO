@@ -1,7 +1,7 @@
 """
 AgentSUMO Core
 
-공통 설정 및 유틸리티
+Shared configuration and utilities.
 """
 
 from .config import AgentSUMOConfig

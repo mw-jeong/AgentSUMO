@@ -1,7 +1,7 @@
 """
 AgentSUMO Prompt Builder
 
-Claude 공식 가이드라인 기반 동적 프롬프트 조립
+Dynamic prompt assembly based on Claude's official guidelines.
 """
 
 from pathlib import Path
@@ -13,17 +13,17 @@ logger = logging.getLogger(__name__)
 
 class PromptBuilder:
     """
-    동적 시스템 프롬프트 생성기
-    
-    Markdown 템플릿을 조합하여 task type과 context에 맞는
-    최적화된 시스템 프롬프트를 생성합니다.
-    
+    Dynamic system prompt generator.
+
+    Combines Markdown templates to produce optimized system prompts
+    that fit the task type and context.
+
     Features:
-    - Task type별 adaptive prompting
+    - Task type based adaptive prompting
     - Current state context injection
     - Template caching for performance
-    - XML-structured context (Claude 최적화)
-    
+    - XML-structured context (optimized for Claude)
+
     Example:
         >>> builder = PromptBuilder()
         >>> prompt = builder.build_system_prompt(
@@ -31,27 +31,27 @@ class PromptBuilder:
         ...     current_state={"current_network": "gangnam.net.xml"}
         ... )
     """
-    
+
     def __init__(self, templates_dir: Optional[str] = None):
         """
         Args:
-            templates_dir: 템플릿 디렉토리 경로 (기본: 현재 모듈 내 templates/)
+            templates_dir: Template directory path (default is templates/ inside the current module)
         """
         if templates_dir is None:
-            # 현재 파일 기준으로 templates 디렉토리 찾기
+            # Locate the templates directory relative to this file
             current_file = Path(__file__)
             self.templates_dir = current_file.parent / "templates"
         else:
             self.templates_dir = Path(templates_dir)
-        
-        # 템플릿 캐시 (성능 최적화)
+
+        # Template cache (performance optimization)
         self._cache: Dict[str, str] = {}
-        
-        # 프롬프트 빌드 결과 캐시 (성능 최적화)
+
+        # Prompt build result cache (performance optimization)
         self._prompt_cache: Optional[str] = None
         self._cached_state_hash: Optional[str] = None
-        
-        # 템플릿 디렉토리 존재 확인
+
+        # Verify that the templates directory exists
         if not self.templates_dir.exists():
             raise FileNotFoundError(
                 f"Templates directory not found: {self.templates_dir}"
@@ -65,22 +65,22 @@ class PromptBuilder:
         base_prompt: Optional[str] = None
     ) -> str:
         """
-        Self-Adaptive Unified System Prompt 생성 (고정 부분만)
+        Build the Self-Adaptive Unified System Prompt (static portion only).
 
-        Claude가 스스로 task complexity를 판단하고 적절한 reasoning mode를 선택.
-        state는 유저 메시지에 별도로 주입하여 Anthropic 캐싱 효과 극대화.
+        Claude judges task complexity by itself and picks the proper reasoning mode.
+        State is injected separately into the user message to maximize Anthropic caching.
 
         Args:
-            interface: 실행 환경 ("cli" or "web")
-            base_prompt: 커스텀 베이스 프롬프트 (None이면 unified_system.md 사용)
+            interface: Runtime environment ("cli" or "web")
+            base_prompt: Custom base prompt (uses unified_system.md when None)
 
         Returns:
-            완성된 unified 시스템 프롬프트 문자열 (state 제외)
+            The assembled unified system prompt string (state excluded)
         """
-        # 캐시 키
+        # Cache key
         cache_key = f"unified_{interface}_{'custom' if base_prompt else 'default'}"
 
-        # 캐시된 프롬프트가 있으면 재사용
+        # Reuse the cached prompt when available
         if self._prompt_cache is not None and self._cached_state_hash == cache_key:
             logger.debug("Using cached prompt")
             return self._prompt_cache
@@ -92,7 +92,7 @@ class PromptBuilder:
         else:
             sections = []
 
-            # 1. Unified system prompt (Self-Assessment 포함)
+            # 1. Unified system prompt (includes Self-Assessment)
             sections.append(self._load_template("unified_system_v2.md"))
 
             # 2. Interface-specific instructions
@@ -101,10 +101,10 @@ class PromptBuilder:
             else:  # web
                 sections.append(self._get_web_instructions())
 
-            # 섹션 결합
+            # Combine sections
             prompt = "\n\n".join(sections)
 
-        # 캐시에 저장
+        # Store in cache
         self._prompt_cache = prompt
         self._cached_state_hash = cache_key
 
@@ -114,16 +114,16 @@ class PromptBuilder:
 
     def _load_template(self, filename: str) -> str:
         """
-        템플릿 파일 로드 (캐싱)
-        
+        Load a template file (with caching).
+
         Args:
-            filename: 템플릿 파일명 (예: "base_system.md")
-        
+            filename: Template file name (e.g. "base_system.md")
+
         Returns:
-            템플릿 내용
-        
+            Template contents
+
         Raises:
-            FileNotFoundError: 템플릿 파일이 없는 경우
+            FileNotFoundError: When the template file does not exist
         """
         if filename not in self._cache:
             path = self.templates_dir / filename
@@ -138,24 +138,24 @@ class PromptBuilder:
     
     def format_context(self, state: Dict) -> str:
         """
-        현재 상태를 XML 형식으로 포맷 (유저 메시지에 주입용)
+        Format the current state as XML (for injection into the user message).
 
-        Claude는 XML 구조를 특히 잘 이해함 (공식 권장)
-        시스템 프롬프트가 아닌 유저 메시지에 포함하여 캐싱 효과 유지.
+        Claude understands XML structure especially well (officially recommended).
+        Including this in the user message rather than the system prompt preserves caching.
 
         Args:
-            state: 시뮬레이션 상태 딕셔너리
+            state: Simulation state dictionary
 
         Returns:
-            XML 형식의 컨텍스트 문자열
+            Context string in XML format
         """
-        # 안전한 접근 (기본값 제공)
+        # Safe access with defaults
         network = state.get('current_network', 'Not created')
         baseline = state.get('baseline_network', 'Not set')
         routes = state.get('current_routes', 'Not created')
         last_results = state.get('last_results', 'Not run')
-        
-        # last_results가 딕셔너리인 경우 상세 정보 추출
+
+        # When last_results is a dictionary, extract detailed information
         if isinstance(last_results, dict):
             duration = last_results.get('duration', 'Unknown')
             vehicles = last_results.get('vehicles', 'Unknown')
@@ -211,11 +211,11 @@ Use this context to avoid redundant operations and build upon existing work.
         return context.strip()
     
     def _get_cli_instructions(self) -> str:
-        """CLI 환경 전용 지침"""
+        """Instructions specific to the CLI environment."""
         return ""
 
     def _get_web_instructions(self) -> str:
-        """Web 환경 전용 지침"""
+        """Instructions specific to the web environment."""
         return """
 ## Web Interface Instructions
 
@@ -230,7 +230,7 @@ Rules:
 3. After user submits options, you'll receive a message with all parameters → then execute
 4. When showing [SIM_OPTIONS], ALWAYS mention that if the user has real OD data,
    they can click the "Real OD" tab to upload it. Example:
-   "실제 OD 데이터를 갖고 계시다면, 오른쪽 상단의 **Real OD** 탭을 클릭하여 업로드할 수 있습니다."
+   "If you have real OD data, click the **Real OD** tab in the top right to upload it."
 
 ### Map Visualization Markers (CRITICAL)
 
@@ -245,7 +245,7 @@ No need to call get_edge_ids_from_road_name_tool — just include the road name.
 
 Example:
 ```
-User: "테헤란로가 어디있어?"
+User: "Where is 테헤란로?"
 Response: "테헤란로 is located in the Gangnam area, running east-west.
 [HIGHLIGHT_ROAD:테헤란로]"
 ```
@@ -259,12 +259,12 @@ This works even when no network is loaded — ALWAYS use it for location questio
 
 Example:
 ```
-User: "강남역이 어디 있어?"
+User: "Where is 강남역?"
 Response: "강남역 is a major subway station in Gangnam-gu, Seoul.
 [SEARCH_LOCATION:강남역]"
 ```
 
-User: "Times Square 위치 알려줘"
+User: "Tell me where Times Square is"
 Response: "Times Square is in Midtown Manhattan, New York City.
 [SEARCH_LOCATION:Times Square, New York]"
 
@@ -437,17 +437,17 @@ Do NOT try to execute everything at once — ask clarifying questions and trigge
 
 **Example conversation:**
 ```
-User: "강남역 근처 도로 공사 영향을 분석하고 싶어"
-Agent: "어떤 지역의 네트워크를 생성할까요? 강남역 주변을 지도에서 확인해보세요.
+User: "I want to analyze the impact of road construction near 강남역"
+Agent: "Which area should I build the network for? Take a look at the map around 강남역.
        [SEARCH_LOCATION:강남역][SIM_OPTIONS]"
-→ User submits area + traffic + duration → network + baseline simulation created
-Agent: "베이스라인 시뮬레이션이 완료되었습니다. 공사가 진행되는 도로를 지도에서 선택해주세요.
+-> User submits area + traffic + duration -> network + baseline simulation created
+Agent: "The baseline simulation is complete. Please select the roads under construction on the map.
        [EDGE_SELECT]"
-→ User selects edges, chooses "Rerouter" policy, clicks Apply
-Agent: "선택하신 도로에 대해 몇 가지 확인하겠습니다:
-       1. 완전 폐쇄인가요, 차선 축소인가요?
-       2. 시뮬레이션 시작부터 적용할까요, 아니면 특정 시간대만?"
-→ User answers → Agent reads guide, creates additional file, runs simulation
+-> User selects edges, chooses "Rerouter" policy, clicks Apply
+Agent: "Let me confirm a few details about the selected roads.
+       1. Full closure or lane reduction?
+       2. Apply from the start of the simulation, or only during a specific time window?"
+-> User answers -> Agent reads guide, creates additional file, runs simulation
 ```
 
 ### Policy Routing (Edge Selection Requests)
@@ -471,14 +471,14 @@ For **rerouter** and **vss** policies:
 """
 
     def clear_cache(self):
-        """템플릿 캐시 초기화 (템플릿 수정 시 사용)"""
+        """Reset the template cache (use after modifying templates)."""
         self._cache.clear()
         self._prompt_cache = None
         self._cached_state_hash = None
         logger.info("Template cache cleared")
-    
+
     def get_template_list(self) -> list[str]:
-        """사용 가능한 템플릿 목록 반환"""
+        """Return the list of available templates."""
         if not self.templates_dir.exists():
             return []
         

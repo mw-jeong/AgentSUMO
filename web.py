@@ -2,7 +2,7 @@
 """
 AgentSUMO Web Interface
 
-웹 인터페이스 실행 스크립트
+Web interface launcher script.
 """
 
 import os

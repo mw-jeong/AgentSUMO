@@ -1,7 +1,7 @@
 """
 AgentSUMO Web Interface
 
-FastAPI + Mapbox GL JS 기반 웹 인터페이스
+Web interface built on FastAPI and Mapbox GL JS.
 """
 
 from .app import create_app

@@ -23,15 +23,15 @@ logger = logging.getLogger("agentsumo.sqlite_mcp_client")
 
 class SQLiteMCPClient:
     """
-    SQLite MCP Server와 통신하는 클라이언트
-    
-    Python 기반 SQLite MCP Server 사용:
+    Client that communicates with the SQLite MCP Server.
+
+    Uses the Python-based SQLite MCP Server.
     uv run mcp-server-sqlite --db-path <path>
-    
-    Note: Anthropic의 공식 MCP 서버 예제를 사용합니다.
-    원본 저장소: https://github.com/modelcontextprotocol/servers-archived/tree/main/src/sqlite
-    (프로젝트 내부에 sqlite-mcp-server 폴더로 포함됨)
-    
+
+    Note. Uses Anthropic's official MCP server example.
+    Original repo - https://github.com/modelcontextprotocol/servers-archived/tree/main/src/sqlite
+    (included inside the project as the sqlite-mcp-server folder)
+
     Features:
     - SQL query execution (read-only)
     - Schema inspection
@@ -61,7 +61,7 @@ class SQLiteMCPClient:
         self._session_context_manager = None
         self._connected = False
         
-        logger.info(f"SQLiteMCPClient 초기화 (DB: {db_path})")
+        logger.info(f"SQLiteMCPClient initialized (DB - {db_path})")
     
     async def __aenter__(self):
         """Context manager entry - Connect to server"""
@@ -83,11 +83,11 @@ class SQLiteMCPClient:
             logger.warning("Already connected to SQLite MCP Server")
             return
         
-        logger.info("SQLite MCP Server 연결 중...")
-        
-        # Server parameters (Python 기반 MCP 서버 사용)
-        # Anthropic의 공식 SQLite MCP 서버 예제를 프로젝트 내부에 포함
-        # 원본: https://github.com/modelcontextprotocol/servers-archived/tree/main/src/sqlite
+        logger.info("Connecting to SQLite MCP Server")
+
+        # Server parameters (using Python-based MCP server)
+        # Anthropic's official SQLite MCP server example is bundled inside the project
+        # Original - https://github.com/modelcontextprotocol/servers-archived/tree/main/src/sqlite
         sqlite_server_path = AgentSUMOConfig.PROJECT_ROOT / "sqlite-mcp-server" / "src" / "sqlite"
         
         server_params = StdioServerParameters(
@@ -122,34 +122,34 @@ class SQLiteMCPClient:
             )
             
             self._connected = True
-            logger.info("✅ SQLite MCP Server 연결 완료")
-            
+            logger.info("SQLite MCP Server connection established")
+
         except asyncio.TimeoutError:
-            raise RuntimeError(f"SQLite MCP Server 연결 타임아웃 ({self.connection_timeout}초)")
+            raise RuntimeError(f"SQLite MCP Server connection timeout ({self.connection_timeout}s)")
         except Exception as e:
-            raise RuntimeError(f"SQLite MCP Server 연결 실패: {e}")
-    
+            raise RuntimeError(f"SQLite MCP Server connection failed - {e}")
+
     async def _disconnect(self):
-        """Disconnect from server (SUMO MCP Client 방식과 동일)"""
+        """Disconnect from server (same approach as SUMO MCP Client)"""
         if not self._connected:
             return
 
-        logger.info("SQLite MCP Server 연결 종료 중...")
+        logger.info("Closing SQLite MCP Server connection")
 
         try:
-            # Session 종료
+            # Close session
             if self._session_context_manager:
                 await self._session_context_manager.__aexit__(None, None, None)
 
-            # STDIO 종료
+            # Close STDIO
             if self._stdio_context_manager:
                 await self._stdio_context_manager.__aexit__(None, None, None)
 
             self._connected = False
-            logger.info("✅ SQLite MCP 연결 종료")
+            logger.info("SQLite MCP connection closed")
 
         except Exception as e:
-            logger.warning(f"연결 종료 중 에러 (무시): {e}")
+            logger.warning(f"Error while closing connection (ignored) - {e}")
             self._connected = False
     
     async def list_tools(self) -> List[Any]:
@@ -168,7 +168,7 @@ class SQLiteMCPClient:
         try:
             logger.debug("Listing SQLite tools...")
             result = await self.session.list_tools()
-            logger.info(f"✅ {len(result.tools)} SQLite tools available")
+            logger.info(f"{len(result.tools)} SQLite tools available")
             return result.tools
             
         except Exception as e:
@@ -202,29 +202,29 @@ class SQLiteMCPClient:
         timeout = timeout or self.tool_timeout
         
         try:
-            logger.debug(f"SQLite tool 실행: {name}")
-            
+            logger.debug(f"Calling SQLite tool - {name}")
+
             # Log query for debugging
             if "query" in arguments:
                 query = arguments["query"]
-                logger.debug(f"  SQL: {query[:100]}...")
-            
+                logger.debug(f"  SQL - {query[:100]}...")
+
             # Execute with timeout
             result = await asyncio.wait_for(
                 self.session.call_tool(name, arguments),
                 timeout=timeout
             )
-            
-            logger.debug(f"✅ SQLite tool 완료: {name}")
+
+            logger.debug(f"SQLite tool completed - {name}")
             return result
-            
+
         except asyncio.TimeoutError:
-            error_msg = f"SQLite tool timeout: {name} ({timeout}초 초과)"
+            error_msg = f"SQLite tool timeout - {name} (exceeded {timeout}s)"
             logger.error(error_msg)
             raise asyncio.TimeoutError(error_msg)
-            
+
         except Exception as e:
-            error_msg = f"SQLite tool 실행 실패: {name} - {e}"
+            error_msg = f"SQLite tool execution failed - {name} - {e}"
             logger.error(error_msg)
             raise RuntimeError(error_msg)
     

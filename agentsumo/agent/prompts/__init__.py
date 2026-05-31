@@ -1,10 +1,10 @@
 """
 AgentSUMO Prompt Engineering Module
 
-Claude 공식 가이드라인 기반 Self-Adaptive Prompting
+Self-Adaptive Prompting based on Claude's official guidelines.
 
 Main Component:
-- PromptBuilder: Unified system prompt 생성
+- PromptBuilder: Builds the unified system prompt
 """
 
 from .prompt_builder import PromptBuilder

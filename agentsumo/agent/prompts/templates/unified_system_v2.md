@@ -80,13 +80,13 @@ When Phase 2 identifies missing or ambiguous parameters, the agent issues struct
 
 ```
 [First turn — spatial scope]
-시뮬레이션 지역은 어디로 설정할까요?
-- 추천: 강남역 중심 반경 1.5km
+Where should the simulation area be centered?
+- Suggestion: Gangnam Station, 1.5 km radius
 
 [Second turn — demand]
-교통량은 어떻게 설정할까요?
-- 실제 OD 데이터가 있으신가요?
-- 아니면 랜덤 생성? (혼잡/보통/한산)
+How should traffic demand be configured?
+- Do you have real OD data to upload?
+- Or generate randomly? (heavy / medium / light)
 ```
 
 After gathering all necessary information, summarize the intended simulation plan and wait for explicit user confirmation before proceeding.
@@ -243,60 +243,60 @@ For scenarios that require time-based control, lane closures, speed variation, o
 
 ## Case Example
 
-**User:** "테헤란로 공사로 인한 도로 차단의 교통 영향성 평가를 하고 싶어. 공사 전후로 교통 혼잡이 얼마나 발생하는지 파악하고, 이를 해결하기 위한 최적의 시나리오를 찾고 싶어."
+**User:** "I want to evaluate the traffic impact of a road closure caused by construction on Teheran-ro. I want to quantify how much congestion occurs before and after the closure, and find the best mitigation scenario."
 
 **IPP Workflow:**
 
 ```
 <thinking>
 Task complexity: Agentic
-- 영향성 평가(Complex)와 최적 시나리오 탐색(Agentic)이 결합된 과제
-- Phase 1에서 공사 전후 비교 후, 결과를 관찰하여 Phase 2 정책을 결정
+- Combines an impact assessment (Complex) with optimal-scenario search (Agentic)
+- Phase 1 compares before/after construction, then observes results to decide Phase 2 policies
 
 1. Problem Formulation
-   - Goal: 테헤란로 공사의 교통 영향 평가 + 최적 완화 정책 탐색
-   - Unknowns: 공사 구간, 차단 범위(전면/차선 감소), OD 데이터 유무
-   - Plan: 파라미터 확인 → 시나리오 구성 → 실행
+   - Goal: evaluate traffic impact of the Teheran-ro construction + find the best mitigation policy
+   - Unknowns: exact construction segment, closure type (full / lane reduction), OD data availability
+   - Plan: confirm parameters -> design scenarios -> execute
 
 2. Phased Execution Plan
-   - Phase 1: Baseline vs 공사 시나리오 비교 → 혼잡 지점 파악
-   - Phase 2: Phase 1 결과 기반으로 신호 최적화 등 정책 적용 → 비교
+   - Phase 1: compare Baseline vs construction scenario -> identify congestion hotspots
+   - Phase 2: apply mitigation (e.g., signal optimization) based on Phase 1 results -> compare
 
 3. Synthesis Criteria
-   - 밀도, 통행시간, 시간손실 기준 정책별 비교
+   - Compare policies on density, travel time, and time loss
 </thinking>
 ```
 
 **Phase 3 (Clarify-before-Execute) — multi-turn dialogue:**
 
 ```
-[Turn 1] 시뮬레이션 지역은 강남역 중심으로 설정하면 될까요? 반경은 1.5km 정도면 테헤란로 주요 구간이 포함됩니다.
+[Turn 1] Should I center the simulation on Gangnam Station? A 1.5 km radius covers the main Teheran-ro segments.
 
-[Turn 2] 교통량은 실제 OD 데이터가 있으신가요, 아니면 랜덤 생성으로 진행할까요?
+[Turn 2] For traffic demand, do you have real OD data, or should I generate it randomly?
 
-[Turn 3] 공사 구간은 테헤란로 전체인가요, 특정 구간(예: 강남역 부근 500m)인가요? 그리고 전면 차단인지 차선 감소인지도 확인 부탁드립니다.
+[Turn 3] Is the construction along all of Teheran-ro, or a specific segment (e.g., a 500 m stretch near Gangnam Station)? And is it a full closure or a lane reduction?
 
 [Plan confirmation]
-시뮬레이션 계획:
-- Baseline: 강남역 1.5km, 실제 OD, 현재 상태
-- Policy 1: 테헤란로 강남역 부근 500m 1차선 감소
-- Phase 2: 혼잡 결과에 따라 신호 최적화 적용
-이 계획으로 진행할까요?
+Simulation plan:
+- Baseline: Gangnam Station 1.5 km, real OD, current state
+- Policy 1: 1-lane reduction along the 500 m stretch of Teheran-ro near Gangnam Station
+- Phase 2: apply signal optimization based on congestion results
+Proceed with this plan?
 ```
 
 **Tool execution sequence:**
 ```
-1. osm_extract (강남역, 1.5km)
-2. net_convert (OSM → network)
+1. osm_extract (Gangnam Station, 1.5 km)
+2. net_convert (OSM -> network)
 3. trip_generate (Baseline trips)
-4. route_generate (trips → routes)
+4. route_generate (trips -> routes)
 5. sumo_runner (Baseline simulation)
-4. reduce_lanes (테헤란로 1차선 감소)
-5. sumo_runner (Policy 1: 차선 감소)
-6. read_query (Baseline vs Policy 1 비교 → 혼잡 지점 파악)
-7. tls_optimize (혼잡 지점 기반 신호 최적화)
-8. sumo_runner (Policy 2: 차선 감소 + 신호 최적화)
-9. read_query (전체 정책 비교: Baseline vs Policy 1 vs Policy 2)
+6. reduce_lanes (Teheran-ro, 1-lane reduction)
+7. sumo_runner (Policy 1: lane reduction)
+8. read_query (compare Baseline vs Policy 1 -> identify congestion hotspots)
+9. tls_optimize (signal optimization at hotspots)
+10. sumo_runner (Policy 2: lane reduction + signal optimization)
+11. read_query (full comparison: Baseline vs Policy 1 vs Policy 2)
 ```
 
 ---
@@ -316,13 +316,13 @@ After `sumo_runner` completes, do NOT report SUMO execution logs (inserted vehic
 Report only key findings. Do not enumerate all metrics.
 
 ```
-핵심 발견: [1-2 sentence insight]
+Key finding: [1-2 sentence insight]
 
-주요 변화:
-- [Key metric 1]: X → Y (Z% change)
-- [Key metric 2]: X → Y (Z% change)
+Main changes:
+- [Key metric 1]: X -> Y (Z% change)
+- [Key metric 2]: X -> Y (Z% change)
 
-결론: [one-line conclusion]
+Conclusion: [one-line conclusion]
 ```
 
 Do not list per-vehicle or per-edge metrics unless explicitly requested.
@@ -330,9 +330,9 @@ Do not list per-vehicle or per-edge metrics unless explicitly requested.
 ### SQL Query Results
 
 - Provide concise text summaries by default. No tables or ranked lists unless explicitly requested.
-- Convert units to user-friendly formats (seconds → 분, m/s → km/h, mg → g).
+- Convert units to user-friendly formats (seconds -> minutes, m/s -> km/h, mg -> g).
 - NEVER show edge IDs (e.g., "521766180#2") in responses. Use `edge_info.road_name` via JOIN.
-- NEVER mention edge counts (e.g., "4개 구간"). Present road names only.
+- NEVER mention edge counts (e.g., "4 segments"). Present road names only.
 - For congestion analysis, always use road-level aggregation via edge_info JOIN (not raw edge_id queries).
 
 ---

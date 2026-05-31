@@ -2,23 +2,23 @@
 """
 AgentSUMO Output Cleaner
 
-output 폴더 내 파일들을 정리.
-vehicle_types.add.xml은 보존.
+Cleans files inside the output folder.
+vehicle_types.add.xml is preserved.
 """
 
 import shutil
 from pathlib import Path
 
-# 프로젝트 루트
+# Project root
 PROJECT_ROOT = Path(__file__).parent
 OUTPUT_DIR = PROJECT_ROOT / "agentsumo" / "output"
 
-# 보존할 파일들
+# Files to preserve
 PRESERVE_FILES = {
     "vehicle_types.add.xml",
 }
 
-# 정리할 하위 폴더들
+# Subfolders to clean
 CLEAN_FOLDERS = [
     "networks",
     "trips",
@@ -30,9 +30,9 @@ CLEAN_FOLDERS = [
 
 
 def clean_output():
-    """output 폴더 정리"""
+    """Clean the output folder."""
     if not OUTPUT_DIR.exists():
-        print("output 폴더가 없습니다.")
+        print("Output folder does not exist.")
         return
 
     deleted_count = 0
@@ -46,7 +46,7 @@ def clean_output():
         for file in folder.iterdir():
             if file.name in PRESERVE_FILES:
                 preserved_count += 1
-                print(f"  보존: {folder_name}/{file.name}")
+                print(f"  Preserved {folder_name}/{file.name}")
             elif file.is_file():
                 file.unlink()
                 deleted_count += 1
@@ -54,17 +54,17 @@ def clean_output():
                 shutil.rmtree(file)
                 deleted_count += 1
 
-    print(f"\n정리 완료: {deleted_count}개 삭제, {preserved_count}개 보존")
+    print(f"\nCleanup complete. {deleted_count} deleted, {preserved_count} preserved.")
 
 
 if __name__ == "__main__":
     print("AgentSUMO Output Cleaner")
     print("=" * 40)
-    print(f"대상: {OUTPUT_DIR}")
+    print(f"Target: {OUTPUT_DIR}")
     print()
 
-    response = input("output 폴더를 정리할까요? (y/N): ").strip().lower()
+    response = input("Clean the output folder? (y/N): ").strip().lower()
     if response == "y":
         clean_output()
     else:
-        print("취소되었습니다.")
+        print("Cancelled.")
