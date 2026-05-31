@@ -2497,7 +2497,7 @@
         // ============================================
         // Location Search (Nominatim)
         // ============================================
-        let searchMarker = null;
+        let searchMarkers = [];
 
         function resizeSearchInput(el) {
             const text = el.value.trim();
@@ -2563,9 +2563,6 @@
             input.value = name;
             resizeSearchInput(input);
 
-            // Remove previous marker
-            if (searchMarker) searchMarker.remove();
-
             // Add marker with "Start simulation here" popup
             const popupHTML = `
                 <div style="font-family:'Pretendard',sans-serif; padding:4px 0;">
@@ -2587,21 +2584,22 @@
             const popup = new mapboxgl.Popup({ offset: 25, closeButton: true, maxWidth: '220px' })
                 .setHTML(popupHTML);
 
-            searchMarker = new mapboxgl.Marker({ color: '#7ab800' })
+            const marker = new mapboxgl.Marker({ color: '#7ab800' })
                 .setLngLat([lon, lat])
                 .setPopup(popup)
                 .addTo(map);
+            searchMarkers.push(marker);
 
             document.getElementById('clear-marker-btn').style.display = 'flex';
             map.flyTo({ center: [lon, lat], zoom: 15 });
 
             // Auto-open popup after flyTo
-            setTimeout(() => searchMarker.togglePopup(), 600);
+            setTimeout(() => marker.togglePopup(), 600);
         }
 
         function sendSimulationSite(name, lon, lat) {
-            // Close popup
-            if (searchMarker) searchMarker.togglePopup();
+            // Close all popups
+            searchMarkers.forEach(m => { if (m.getPopup()?.isOpen()) m.togglePopup(); });
 
             // Store site info for when user submits options
             window._pendingSimSite = { name, lon, lat };
@@ -2982,8 +2980,8 @@
                 // [MAP_SELECT]
                 const hasMapSelect = rawText.includes('[MAP_SELECT]');
 
-                // [SEARCH_LOCATION:name]
-                const locMatch = rawText.match(/\[SEARCH_LOCATION:([^\]]+)\]/);
+                // [SEARCH_LOCATION:name] — supports multiple
+                const locMatches = [...rawText.matchAll(/\[SEARCH_LOCATION:([^\]]+)\]/g)];
 
                 // [SHOW_ROUTE:ids|color|net_file]
                 const routeMatches = [...rawText.matchAll(/\[SHOW_ROUTE:([^\]]+)\]/g)];
@@ -3055,8 +3053,10 @@
                     messageDiv.appendChild(createSimOptionsUI(preselect));
                 }
 
-                if (locMatch) {
-                    setTimeout(() => searchLocationFromChat(locMatch[1].trim()), 300);
+                if (locMatches.length > 0) {
+                    locMatches.forEach((m, i) => {
+                        setTimeout(() => searchLocationFromChat(m[1].trim()), 300 + i * 400);
+                    });
                 }
 
                 if (routes.length > 0) {
@@ -3507,6 +3507,12 @@
             if (map.getLayer('selection-box')) map.removeLayer('selection-box');
             if (map.getSource('selection-box')) map.removeSource('selection-box');
             selectedBbox = null;
+
+            // Clear network bounding box
+            if (map.getLayer('network-bbox-layer')) {
+                map.removeLayer('network-bbox-layer');
+                map.removeSource('network-bbox-source');
+            }
         }
 
         function showThinking() {
@@ -3893,7 +3899,8 @@
         }
 
         function clearSearchMarker() {
-            if (searchMarker) { searchMarker.remove(); searchMarker = null; }
+            searchMarkers.forEach(m => m.remove());
+            searchMarkers = [];
             document.getElementById('clear-marker-btn').style.display = 'none';
         }
 
@@ -4276,6 +4283,12 @@
             odPairs = [];
             odNextIndex = 1;
             document.getElementById('od-selection-panel').classList.remove('active');
+
+            // Clear network bounding box
+            if (map.getLayer('network-bbox-layer')) {
+                map.removeLayer('network-bbox-layer');
+                map.removeSource('network-bbox-source');
+            }
         }
 
         // Populate OD panel from agent-suggested data
@@ -4582,7 +4595,7 @@
                 if (data.status === 'success') {
                     // Clear map
                     clearMap();
-                    if (searchMarker) { searchMarker.remove(); searchMarker = null; }
+                    searchMarkers.forEach(m => m.remove()); searchMarkers = [];
                     currentLoadedNetwork = null;
 
                     // Clear chat messages (keep only welcome)
