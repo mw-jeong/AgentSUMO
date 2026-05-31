@@ -1,116 +1,271 @@
+<div align="center">
+
 # AgentSUMO
 
+**An LLM-guided agentic framework for interactive SUMO traffic simulation**
+
+[![PyPI](https://img.shields.io/pypi/v/agentsumo-mcp.svg)](https://pypi.org/project/agentsumo-mcp/)
+[![arXiv](https://img.shields.io/badge/arXiv-2511.06804-b31b1b.svg)](https://arxiv.org/abs/2511.06804)
 [![Docs](https://readthedocs.org/projects/agentsumo/badge/?version=latest)](https://agentsumo.readthedocs.io/en/latest/?badge=latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![MCP Registry](https://img.shields.io/badge/MCP%20Registry-agentsumo--mcp-purple.svg)](https://registry.modelcontextprotocol.io/v0/servers?search=agentsumo)
 
-AI-Powered SUMO Traffic Simulation Platform
-
-Claude LLM과 Model Context Protocol(MCP)을 결합한 대화형 교통 시뮬레이션 자동화 플랫폼
+<img src="assets/hero_overview.png" alt="AgentSUMO overview" width="850"/>
 
 **[Documentation](https://agentsumo.readthedocs.io)** ·
-[Installation](https://agentsumo.readthedocs.io/en/latest/installation.html) ·
+[Installation](#installation) ·
 [Tools](https://agentsumo.readthedocs.io/en/latest/mcp_servers/agentsumo/index.html) ·
 [Schema](https://agentsumo.readthedocs.io/en/latest/database/index.html) ·
 [Tutorials](https://agentsumo.readthedocs.io/en/latest/tutorials/index.html)
 
-## 개요
+</div>
 
-AgentSUMO는 자연어로 교통 시뮬레이션을 제어할 수 있는 AI 에이전트입니다.
+---
 
-- 대화형 인터페이스로 시뮬레이션 설정 및 실행
-- 도로 차단, 신호 최적화 등 정책 실험
-- 시뮬레이션 결과 분석 및 비교
+## Overview
 
-## 아키텍처
+**AgentSUMO** lets non-expert stakeholders design, execute, and analyze [SUMO](https://eclipse.dev/sumo/) traffic simulations through natural-language interaction. The Planner Agent translates abstract policy questions into executable simulation plans, drives them via the Model Context Protocol (MCP), and surfaces results through a web dashboard.
+
+- **Conversational scenario design** — describe a policy question, get a runnable simulation
+- **Policy experiments** — road closures, lane reductions, signal optimization, demand changes
+- **Cross-scenario analysis** — SQL-based comparison across runs, with auto-generated HTML reports
+- **Web dashboard** — geospatial visualization, time-series charts, and trip replay
+
+## Demo
+
+<div align="center">
+
+<img src="assets/demo_web_interface.png" alt="Web interface" width="800"/>
+
+*Web interface: conversational planning panel, scenario list, and live simulation status.*
+
+<br/><br/>
+
+<img src="assets/demo_geospatial.png" alt="Geospatial visualization" width="800"/>
+
+*Geospatial visualization: per-edge metrics, congestion overlays, and trip replay on the 2.5D basemap.*
+
+</div>
+
+## Architecture
 
 ```
-User (자연어 입력)
+User (natural language)
     |
     v
-AgentSUMO (Claude LLM)
+Planner Agent (Claude LLM, Interactive Planning Protocol)
     |
-    +---> SUMO MCP Client ---> SUMO MCP Server ---> SUMO Tools
+    +--> AgentSUMO MCP Client --> AgentSUMO MCP Server (PyPI: agentsumo-mcp) --> SUMO
     |
-    +---> SQLite MCP Client ---> SQLite MCP Server ---> DB
+    +--> SQLite MCP Client    --> SQLite MCP Server (Anthropic, open source)  --> simulations.db
+    |
+    +--> Filesystem MCP Client --> Filesystem MCP Server (Anthropic, open source) --> additional XML files
 ```
 
-## 프로젝트 구조
+The reasoning layer (Planner Agent) lives in this repository. The execution layer (`agentsumo-mcp`) is published to PyPI and installed automatically as a dependency.
+
+## Tool Layer
+
+The AgentSUMO MCP Server exposes a curated set of tools grouped into five capability categories. Full reference at [agentsumo.readthedocs.io/.../tools](https://agentsumo.readthedocs.io/en/latest/mcp_servers/agentsumo/index.html).
+
+| Category | Purpose | Representative tools |
+|---|---|---|
+| **Network** | Build SUMO road networks from OSM or bounding boxes | `net_generate`, `net_from_bbox` |
+| **Demand** | Synthesize trips, routes, and OD matrices | `trips_generate`, `routes_from_trips` |
+| **Scenario** | Apply policy interventions (closures, lane changes, signal edits) | `scenario_apply_closure`, `scenario_signal_edit` |
+| **Simulation** | Configure and execute SUMO runs, collect outputs | `simulate_run`, `simulate_with_tripinfo` |
+| **Analysis** | Aggregate results, write to SQLite, render HTML reports | `results_summarize`, `report_render` |
+
+## Installation
+
+### Requirements
+
+- Python 3.10 or later
+- [SUMO](https://eclipse.dev/sumo/) 1.24 or later (locally installed, with `SUMO_HOME` set)
+- Anthropic Claude API key (bring-your-own-key)
+- Mapbox access token (used by the web map renderer)
+
+### 1. Install SUMO
+
+**macOS**
+```bash
+brew install --cask sumo-gui
+```
+Or download the installer from the [Eclipse SUMO downloads page](https://sumo.dlr.de/docs/Downloads.php).
+
+**Windows** — Download the installer from the [Eclipse SUMO downloads page](https://sumo.dlr.de/docs/Downloads.php).
+
+**Linux (Ubuntu/Debian)**
+```bash
+sudo add-apt-repository ppa:sumo/stable
+sudo apt-get update
+sudo apt-get install sumo sumo-tools sumo-doc
+```
+
+### 2. Set up the Python environment
+
+Install [`uv`](https://docs.astral.sh/uv/):
+```bash
+# macOS / Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Windows (PowerShell)
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+Clone the repository, create a virtual environment, and install AgentSUMO:
+```bash
+git clone https://github.com/mw-jeong/AgentSUMO
+cd AgentSUMO
+
+# Create a Python 3.12 venv
+uv venv --python 3.12
+
+# Activate the venv
+source .venv/bin/activate              # macOS / Linux
+# .venv\Scripts\activate               # Windows
+
+# Install AgentSUMO and all dependencies
+# (this also pulls agentsumo-mcp from PyPI as a dependency)
+uv pip install -e .
+```
+
+### 3. Configure environment variables
+
+AgentSUMO reads API keys and the SUMO path from environment variables. The easiest way is a `.env` file at the project root:
+```bash
+cp .env.example .env
+```
+
+Open `.env` in your editor and fill in:
+
+**`ANTHROPIC_API_KEY`** (required) — Claude API key that drives the Planner Agent. Get one at the [Anthropic Console](https://console.anthropic.com/settings/keys).
+```
+ANTHROPIC_API_KEY=sk-ant-api03-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+**`MAPBOX_TOKEN`** (required for the web UI) — used to render the basemap. Get one at the [Mapbox access tokens page](https://account.mapbox.com/access-tokens/).
+```
+MAPBOX_TOKEN=pk.eyJ1Ijoixxxxxxxxxxxxxxxxxx
+```
+
+**`SUMO_HOME`** (required) — absolute path to your local SUMO installation. The directory must contain `bin/sumo` (or `bin/sumo.exe` on Windows).
+```
+# macOS (Homebrew)
+SUMO_HOME=/opt/homebrew/share/sumo
+
+# macOS (Eclipse SUMO installer)
+SUMO_HOME=/Library/Frameworks/EclipseSUMO.framework/Versions/1.24.0/EclipseSUMO
+
+# Windows
+SUMO_HOME=C:\Program Files (x86)\Eclipse\Sumo
+
+# Linux
+SUMO_HOME=/usr/share/sumo
+```
+
+**`AGENTSUMO_MCP_OUTPUT_BASE`** (optional) — override the base directory where the MCP server writes simulation outputs (networks, trips, results). Defaults to the current working directory.
+```
+AGENTSUMO_MCP_OUTPUT_BASE=/path/to/your/output/dir
+```
+
+### 4. Run
+
+```bash
+# Web interface (opens at http://localhost:8000)
+python web.py
+
+# CLI mode
+python chat.py
+
+# Clean up simulation outputs
+python clean.py
+```
+
+## Project Structure
 
 ```
 AgentSUMO/
 ├── agentsumo/
-│   ├── agent/           # AI Agent (Claude orchestrator)
-│   ├── client/          # MCP Client (SUMO, SQLite)
-│   ├── server/          # SUMO MCP Server
-│   │   ├── baseline/    # 네트워크/트립 생성, 시뮬레이션 실행
-│   │   ├── customization/  # 도로 편집, 신호 제어
-│   │   ├── analysis/    # 결과 분석, 리포트 생성
-│   │   └── visualization/  # 시각화
-│   └── core/            # 설정
-├── web/                 # 웹 인터페이스
-├── sqlite-mcp-server/   # SQLite MCP Server
-├── chat.py              # CLI 실행
-├── web.py               # 웹 서버 실행
-└── clean.py             # Output 정리
+│   ├── agent/        # Planner Agent (Claude orchestrator + prompts)
+│   ├── client/       # MCP clients (AgentSUMO, SQLite, Filesystem)
+│   └── core/         # Configuration
+├── agentsumo_mcp/    # AgentSUMO MCP Server source (also published to PyPI)
+├── packaging/mcp/    # PyPI build configuration for agentsumo-mcp
+├── web/              # Web interface (FastAPI + Jinja2 templates)
+├── docs/             # Sphinx documentation source
+├── tests/            # Unit tests
+├── assets/           # README images
+├── chat.py           # CLI entry point
+├── web.py            # Web server entry point
+└── .env.example      # Environment variable template
 ```
 
-## 주요 기능
+## Use the MCP Server Standalone
 
-### 시뮬레이션 기본
-- 네트워크 생성 (OpenStreetMap 기반)
-- 트립 생성 (RandomOD / RealOD)
-- 시뮬레이션 실행
+The AgentSUMO MCP Server can be used independently from this framework with any MCP-compatible LLM client (Claude Desktop, OpenAI tool clients, Gemini, local LLMs):
 
-### 정책 실험
-- 도로 차단
-- 차선 축소
-- 신호 오프셋 최적화
-- 신호 주기 적응
+```bash
+pip install agentsumo-mcp
+```
 
-### 결과 분석
-- SQL 쿼리 기반 상세 분석
-- 시나리오 비교
-- HTML 리포트 생성
+Or via [`uvx`](https://docs.astral.sh/uv/guides/tools/) without installing:
+
+```bash
+uvx agentsumo-mcp
+```
+
+The server is registered in the official [MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=agentsumo) under `io.github.mw-jeong/agentsumo-mcp`.
+
+## Troubleshooting
+
+**SUMO path error** — Verify `SUMO_HOME` in your `.env`. The directory must contain `bin/sumo` (or `bin/sumo.exe` on Windows).
+
+**API key error** — Verify `ANTHROPIC_API_KEY` in your `.env` is set to a valid Claude API key. The Planner Agent will refuse to start without it.
+
+**Dependency error** — Re-resolve dependencies:
+```bash
+uv pip install -e . --upgrade
+```
+
+**Legacy token files** — For backward compatibility AgentSUMO still reads `claude_api.txt` and `mapbox_token.txt` at the project root if the corresponding environment variables are not set. New installations should prefer the `.env` workflow.
 
 ## Documentation
 
-전체 문서는 **[agentsumo.readthedocs.io](https://agentsumo.readthedocs.io)** 에서 확인하실 수 있습니다.
+Full documentation lives at **[agentsumo.readthedocs.io](https://agentsumo.readthedocs.io)**.
 
-- [Installation](https://agentsumo.readthedocs.io/en/latest/installation.html) — SUMO, Python 3.12, 환경 설정
-- [Tools](https://agentsumo.readthedocs.io/en/latest/mcp_servers/agentsumo/index.html) — 24개 도구 상세 reference
-- [Schema](https://agentsumo.readthedocs.io/en/latest/database/index.html) — `simulations.db` ER 다이어그램과 컬럼 표
-- [Tutorials](https://agentsumo.readthedocs.io/en/latest/tutorials/index.html) — 페이퍼 케이스 스터디 walkthrough
+- [Installation](https://agentsumo.readthedocs.io/en/latest/installation.html) — SUMO, Python 3.10+, environment setup
+- [Tools](https://agentsumo.readthedocs.io/en/latest/mcp_servers/agentsumo/index.html) — reference for all MCP tools
+- [Schema](https://agentsumo.readthedocs.io/en/latest/database/index.html) — `simulations.db` ER diagram and column reference
+- [Tutorials](https://agentsumo.readthedocs.io/en/latest/tutorials/index.html) — walkthroughs of the paper case studies
 
-## 빠른 시작
+## Citation
 
-```bash
-# 1. 의존성 설치
-uv venv --python 3.12
-source .venv/bin/activate
-uv pip install -e .
+If you use AgentSUMO in academic work, please cite:
 
-# 2. 설정 파일 생성
-echo "your-api-key" > claude_api.txt
-echo "/path/to/sumo" > sumo_home.txt
-
-# 3. 실행
-# 웹
-python web.py
-uv run web.py
-# cli
-python chat.py
-uv run chat.py
+```bibtex
+@article{jeong2025agentsumo,
+  title         = {AgentSUMO: An Agentic Framework for Interactive Simulation Scenario Generation in SUMO via Large Language Models},
+  author        = {Jeong, Minwoo and Chang, Jeeyun and Yoon, Yoonjin},
+  journal       = {arXiv preprint arXiv:2511.06804},
+  year          = {2025},
+  url           = {https://arxiv.org/abs/2511.06804}
+}
 ```
 
-자세한 설치 방법은 [INSTALL.md](INSTALL.md) 참조
+## License
 
-## 요구사항
+MIT. See [LICENSE](LICENSE).
 
-- Python 3.12
-- SUMO 1.24+
-- Claude API 키
+---
 
-## 라이선스
+<div align="center">
 
-MIT License
+<sub>Developed at</sub>
+
+<img src="assets/logo_kaist.png" alt="KAIST" height="55"/> &nbsp;&nbsp;&nbsp;&nbsp;
+<img src="assets/logo_caus.png" alt="CAUS" height="55"/> &nbsp;&nbsp;&nbsp;&nbsp;
+<img src="assets/logo_stil.png" alt="Spatial Tech Innovation Lab" height="55"/>
+
+</div>
