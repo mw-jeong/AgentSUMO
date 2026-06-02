@@ -12,7 +12,7 @@ servers run alongside the Planner Agent, each with a distinct responsibility.
 :link-type: doc
 :class-card: sd-text-center
 
-**Owner:** This project · **Tools:** 24
+**Owner:** This project · **Tools:** 26
 
 Our own server. Wraps every SUMO utility AgentSUMO needs: network
 generation, demand modeling, policy edits, result parsing, and

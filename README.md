@@ -2,7 +2,7 @@
 
 # AgentSUMO
 
-**An LLM-guided agentic framework for interactive SUMO traffic simulation**
+**An Agentic Framework for Interactive Simulation Scenario Generation in SUMO via Large Language Models**
 
 [![PyPI](https://img.shields.io/pypi/v/agentsumo-mcp.svg)](https://pypi.org/project/agentsumo-mcp/)
 [![arXiv](https://img.shields.io/badge/arXiv-2511.06804-b31b1b.svg)](https://arxiv.org/abs/2511.06804)
@@ -67,15 +67,15 @@ The reasoning layer (Planner Agent) lives in this repository. The execution laye
 
 ## Tool Layer
 
-The AgentSUMO MCP Server exposes a curated set of tools grouped into five capability categories. Full reference at [agentsumo.readthedocs.io/.../tools](https://agentsumo.readthedocs.io/en/latest/mcp_servers/agentsumo/index.html).
+The AgentSUMO MCP Server exposes **26 tools** grouped into five capability categories that follow the simulation workflow. Full reference at [agentsumo.readthedocs.io/.../tools](https://agentsumo.readthedocs.io/en/latest/mcp_servers/agentsumo/index.html).
 
 | Category | Purpose | Representative tools |
 |---|---|---|
-| **Network** | Build SUMO road networks from OSM or bounding boxes | `net_generate`, `net_from_bbox` |
-| **Demand** | Synthesize trips, routes, and OD matrices | `trips_generate`, `routes_from_trips` |
-| **Scenario** | Apply policy interventions (closures, lane changes, signal edits) | `scenario_apply_closure`, `scenario_signal_edit` |
-| **Simulation** | Configure and execute SUMO runs, collect outputs | `simulate_run`, `simulate_with_tripinfo` |
-| **Analysis** | Aggregate results, write to SQLite, render HTML reports | `results_summarize`, `report_render` |
+| **Scenario Generation** | Build a baseline SUMO simulation: OSM → network → trips → routes → run | `osm_extract`, `net_convert`, `trip_generate`, `route_generate`, `sumo_runner` |
+| **Policy Experimentation** | Apply infrastructure, demand, and signal-control interventions | `edge_edit_tool`, `reduce_lanes_tool`, `vehicle_generation_tool`, `flow_generation_tool`, `tls_offset_tool`, `tls_adaptation_tool` |
+| **Result Analysis** | Convert SUMO XML output to SQLite and render HTML reports | `xml_to_sqlite_tool`, `simulation_report_tool` |
+| **Visualization** | Render networks, highlighted edges, and per-edge metric heatmaps | `visualize_net_tool`, `visualize_edge_tool`, `visualize_policy_target_tool`, `visualize_edgedata_tool` |
+| **Utility Functions** | Network statistics, routing, road-name ↔ edge-id resolution, OD-coordinate validation, web-search grounding | `network_summary_tool`, `route_analysis_tool`, `validate_od_coordinates_tool`, `web_search_tool` |
 
 ## Installation
 

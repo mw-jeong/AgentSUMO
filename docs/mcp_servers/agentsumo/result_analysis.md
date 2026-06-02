@@ -58,7 +58,7 @@ See [Database](../../database/index.md) for the full schema.
 
 ---
 
-## `db_based_simulation_report_tool`
+## `simulation_report_tool`
 
 Generate a comprehensive standalone HTML report from the SQLite database.
 This is the **final deliverable** of a simulation analysis session. The
@@ -67,7 +67,7 @@ comparison tables, top congested roads, trip-duration distributions, and an
 inline SVG of the study-area network.
 
 ```python
-def db_based_simulation_report_tool(
+def simulation_report_tool(
     db_path: str,
     executive_summary: str = "",
     output_dir: str = "output/reports",

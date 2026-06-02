@@ -1,6 +1,6 @@
 # AgentSUMO MCP Server
 
-Twenty-four tools that drive every SUMO operation in AgentSUMO — from
+Twenty-six tools that drive every SUMO operation in AgentSUMO — from
 downloading an OSM extract to ingesting simulation results into SQLite.
 The tools are grouped into five categories that follow the simulation
 workflow.
@@ -45,8 +45,8 @@ heatmaps.
 :link: utility
 :link-type: doc
 
-**5 tools** — network statistics, route analysis, road-name ↔ edge-id
-translation.
+**7 tools** — network statistics, route analysis, road-name ↔ edge-id
+translation, OD-coordinate validation, web-search grounding.
 :::
 
 ::::

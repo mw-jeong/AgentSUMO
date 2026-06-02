@@ -6,21 +6,35 @@ representation of simulation results. This page documents that schema so
 custom SQL workflows can sit alongside the agent's natural-language access.
 
 The schema is defined in
-[`agentsumo/server/analysis/xml_to_sqlite.py`](https://github.com/mw-jeong/AgentSUMO/blob/main/agentsumo/server/analysis/xml_to_sqlite.py#L180-L286)
-(`_create_schema`). Every table is keyed by a `simulation_id` so multiple
-runs coexist in the same file and can be compared through ordinary SQL
-`JOIN`.
+[`agentsumo_mcp/analysis/xml_to_sqlite.py`](https://github.com/mw-jeong/AgentSUMO/blob/main/agentsumo_mcp/analysis/xml_to_sqlite.py)
+(`_create_schema`). All six tables are keyed by a `simulation_id` so
+multiple runs coexist in the same file and can be compared through
+ordinary SQL `JOIN`.
+
+```{figure} ../_static/CEUS_fig2_sqlite.png
+:alt: SQLite integration pipeline and 6-table schema
+:width: 100%
+:align: center
+
+SQLite integration pipeline of AgentSUMO. The `xml_to_sqlite_tool`
+converts SUMO XML outputs into a structured database of six linked
+tables keyed by `simulation_id`. The SQLite MCP Server then exposes
+query, schema inspection, and analysis tools, enabling the Planner
+Agent to answer natural-language questions about simulation results
+through SQL.
+```
 
 ## Entity-relationship diagram
 
 ```{mermaid}
 erDiagram
-    simulations  ||--o{ trips        : "simulation_id"
-    simulations  ||--o{ vehicle_info : "simulation_id"
-    simulations  ||--o{ edge_info    : "simulation_id"
-    simulations  ||--o{ edge_metrics : "simulation_id"
-    vehicle_info }o--|| trips        : "vehicle_id = trip_id"
-    edge_info    ||--o{ edge_metrics : "edge_id"
+    simulations  ||--o{ trips         : "simulation_id"
+    simulations  ||--o{ vehicle_info  : "simulation_id"
+    simulations  ||--o{ edge_info     : "simulation_id"
+    simulations  ||--o{ edge_metrics  : "simulation_id"
+    simulations  ||--o{ network_state : "simulation_id"
+    vehicle_info }o--|| trips         : "vehicle_id = trip_id"
+    edge_info    ||--o{ edge_metrics  : "edge_id"
 
     simulations {
         TEXT    simulation_id PK
@@ -64,17 +78,27 @@ erDiagram
         REAL waitingTime
         REAL CO2_abs
     }
+    network_state {
+        TEXT    simulation_id PK
+        REAL    time          PK
+        INTEGER running
+        INTEGER halting
+        REAL    meanSpeed
+        REAL    meanTravelTime
+        REAL    meanWaitingTime
+    }
 ```
 
 ## Tables at a glance
 
 | Table | Granularity | Source | Rows per simulation |
 |---|---|---|---|
-| `simulations` | Run | xml_to_sqlite metadata | 1 |
+| `simulations` | Run | `xml_to_sqlite` metadata | 1 |
 | `trips` | Vehicle trip | `tripinfo.xml` | ~ vehicle count |
 | `vehicle_info` | Vehicle | `tripinfo.xml` + vType lookup | ~ vehicle count |
 | `edge_info` | Road segment | SUMO `net_file` via `sumolib` | ~ edge count |
 | `edge_metrics` | Edge × time interval | `edgeData.xml` + `edgeData_emission.xml` | ~ edges × intervals |
+| `network_state` | Simulation time step | `summary.xml` | ~ duration / step |
 
 ---
 
@@ -218,13 +242,44 @@ emission columns come in three normalizations:
 
 ---
 
+### `network_state`
+
+Network-wide per-step state extracted from `summary.xml`. Records cumulative
+vehicle counts (loaded, inserted, running, waiting, ended, arrived, halting)
+together with mean speed, travel time, and waiting time across all active
+vehicles at each simulation step. Supports temporal analyses such as
+congestion-onset detection and peak-halting comparison that vehicle-level
+aggregates cannot resolve.
+
+| Column | Type | Description |
+|---|---|---|
+| `simulation_id` | TEXT | FK → `simulations.simulation_id`. |
+| `time` | REAL | Simulation time step (s). |
+| `loaded` | INTEGER | Cumulative vehicles parsed from the route file. |
+| `inserted` | INTEGER | Cumulative vehicles that entered the network. |
+| `running` | INTEGER | Vehicles currently in the network at time *t*. |
+| `waiting` | INTEGER | Vehicles waiting to be inserted at time *t*. |
+| `ended` | INTEGER | Cumulative vehicles that left the network (arrived + vaporized). |
+| `arrived` | INTEGER | Cumulative vehicles that reached their destination. |
+| `halting` | INTEGER | Vehicles currently stopped (speed = 0). |
+| `meanSpeed` | REAL | Mean speed of running vehicles (m/s). |
+| `meanSpeedRelative` | REAL | Mean of `speed / speed_limit` ∈ [0, 1]. |
+| `meanTravelTime` | REAL | Mean travel time of running vehicles (s). |
+| `meanWaitingTime` | REAL | Mean waiting time of running vehicles (s). |
+| `teleports` | INTEGER | Cumulative SUMO teleport events. |
+| `collisions` | INTEGER | Cumulative collision events. |
+
+**Primary key:** `(simulation_id, time)`.
+
+---
+
 ## Indexes
 
 The schema creates indexes on the most common access patterns:
-`(simulation_id, edge_id)` on `edge_metrics`, `road_name` and `length` on
-`edge_info`, and `fuel_type`, `origin_road`, `destination_road` on
-`vehicle_info`. These keep cross-scenario joins responsive even with tens of
-millions of rows.
+`(simulation_id, edge_id)` on `edge_metrics`; `road_name` and `length` on
+`edge_info`; `fuel_type`, `origin_road`, `destination_road` on
+`vehicle_info`; and `simulation_id` on `network_state`. These keep
+cross-scenario joins responsive even with tens of millions of rows.
 
 ---
 
@@ -375,7 +430,7 @@ LIMIT (SELECT COUNT(*) / 20 FROM per_edge);
 
 ```{seealso}
 - [Result Analysis Tools](../mcp_servers/agentsumo/result_analysis.md) —
-  `xml_to_sqlite_tool` populates this schema; `db_based_simulation_report_tool`
+  `xml_to_sqlite_tool` populates this schema; `simulation_report_tool`
   renders an HTML report from it.
 - [SQLite MCP Server](../mcp_servers/sqlite.md) — how the Planner Agent
   queries this database in natural language.
