@@ -154,7 +154,7 @@ segments on the map.
 ## Automated HTML report
 
 The dashboard's {guilabel}`Export Report` button calls
-`db_based_simulation_report_tool`, which renders a self-contained HTML
+`simulation_report_tool`, which renders a self-contained HTML
 report from the database. The report includes the full KPI tables, the
 trip-duration histograms, the top congested roads, an inline SVG of the
 study area with the busiest edges highlighted, and cross-scenario
@@ -180,18 +180,22 @@ in the database.
 ::::{grid} 1 1 2 2
 :gutter: 3
 
-:::{grid-item-card} Seoul Lane Closure
+:::{grid-item-card} Seoul Lane-Closure Timing
 :link: seoul_lane_closure
 :link-type: doc
 
-Close lanes on Teheran-ro near Gangnam Station and quantify the impact.
+**Complex** task. Schedule a one-lane Teheran-ro closure during one of
+two candidate 30-min windows and compare disruption at vehicle, edge,
+and network levels.
 :::
 
 :::{grid-item-card} Manhattan Post-Event Management
 :link: manhattan_post_event
 :link-type: doc
 
-Mitigate post-event traffic surges around Madison Square Garden.
+**Agentic** task. From an open-ended congestion goal, build the MSG
+post-event surge from public NYC TLC records and compare Green Wave vs
+Webster signal policies.
 :::
 
 :::{grid-item-card} EV Emission Scenario
