@@ -33,7 +33,7 @@ natural-language → SQL translation against `simulations.db`.
 
 The server is configured for **read-only** access to `outputs/simulations.db`.
 Write access is reserved to AgentSUMO's own `xml_to_sqlite_tool` and
-`db_based_simulation_report_tool`, so the analytical agent cannot accidentally
+`simulation_report_tool`, so the analytical agent cannot accidentally
 mutate simulation results during a session.
 
 Three concrete patterns:

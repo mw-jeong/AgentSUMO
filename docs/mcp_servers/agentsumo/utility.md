@@ -1,9 +1,10 @@
 # Utility Tools
 
-Five utility tools support network statistics retrieval, route analysis, and
-road-name ↔ edge-ID translation. These do not modify the network or
-simulation — they are reasoning aids the Planner Agent uses when constructing
-scenarios or interpreting results.
+Seven utility tools support network statistics retrieval, route analysis,
+road-name ↔ edge-ID translation, OD-coordinate validation, and web-search
+grounding. These do not modify the network or simulation — they are
+reasoning aids the Planner Agent uses when constructing scenarios or
+interpreting results.
 
 ---
 
@@ -115,3 +116,56 @@ def get_edge_ids_from_road_name_tool(road_name: str, net_file: str)
 ```
 
 **Returns** — `[edge_id_1, edge_id_2, ...]`.
+
+---
+
+## `validate_od_coordinates_tool`
+
+Validate a list of origin-destination coordinates against the SUMO network.
+Used **before** generating flows to confirm each coordinate falls inside the
+network bounding box and to resolve the nearest valid edge — essential for
+agentic OD planning so destinations are checked for reachability before being
+proposed to the user.
+
+```python
+def validate_od_coordinates_tool(
+    net_file: str,
+    coordinates: list,
+    search_radius: float = 0.5,
+)
+```
+
+**Parameters**
+
+- `net_file` *(str)* — Path to the SUMO network file.
+- `coordinates` *(list)* — List of dicts, each with `lat`, `lon`, and an
+  optional `label` (e.g., `"Lincoln Tunnel"`).
+- `search_radius` *(float)* — Search radius in km when locating the nearest
+  edge. Default: `0.5`.
+
+**Returns** — `{network_bbox, results}`. Each `results` entry reports the
+input label, `in_network`, `nearest_edge`, `distance_m`, and a `status` of
+`"ok" | "out_of_network" | "no_edge_found"`.
+
+---
+
+## `web_search_tool`
+
+Search the public web via DuckDuckGo for real-world facts that inform
+simulation parameter choices — venue capacities, exit/entry infrastructure,
+road specifications, event schedules. Used by the agent during scenario
+planning (e.g., the Manhattan post-event case study calls it to retrieve
+MSG parking facilities and Manhattan crossings).
+
+```python
+def web_search_tool(query: str, max_results: int = 5)
+```
+
+**Parameters**
+
+- `query` *(str)* — Search query string.
+- `max_results` *(int)* — Number of results to return. Default `5`,
+  maximum `10`.
+
+**Returns** — `{status, query, results}` where each result entry contains
+`title`, `url`, and `snippet`.

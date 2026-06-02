@@ -7,7 +7,7 @@
 
 # AgentSUMO Documentation
 
-> An LLM-guided agentic framework for SUMO traffic simulation as a decision-support system in urban environments.
+> An Agentic Framework for Interactive Simulation Scenario Generation in SUMO via Large Language Models
 
 Welcome to the official documentation for **AgentSUMO**.
 
@@ -15,14 +15,30 @@ Welcome to the official documentation for **AgentSUMO**.
 
 Urban stakeholders such as planners, policymakers, and city officials need
 evidence-based traffic-simulation tools, but SUMO's XML-based workflow has
-historically required domain expertise. AgentSUMO bridges that gap by adding
-an adaptive reasoning layer (the **Planner Agent** and its **Interactive
-Planning Protocol**) on top of SUMO, plus a tool layer (the **AgentSUMO MCP
-Server** with 24 tools, alongside Anthropic's Filesystem and SQLite MCP
-servers) that translates natural-language intents into executable simulation
-plans. The full pipeline — network generation, demand modeling, policy
-experimentation, and result analysis — runs through an interactive web
-interface backed by a queryable SQLite database.
+historically required domain expertise. AgentSUMO bridges that gap by
+organizing simulation into three layers: a **reasoning layer** with the
+**Planner Agent** and its **Interactive Planning Protocol** that translates
+underspecified policy objectives into validated simulation plans through
+dialogue; an **execution layer** built on the **AgentSUMO MCP Server**
+(26 tools across scenario generation, policy experimentation, result
+analysis, visualization, and utilities) alongside Anthropic's Filesystem
+and SQLite MCP servers; and an **interaction layer** delivering a web-based
+interface for geospatial visualization, simulation replay, and
+database-driven analysis across scenarios.
+
+```{figure} _static/CEUS_fig5_system_architecture.png
+:alt: Software architecture of the AgentSUMO web interface
+:width: 100%
+:align: center
+
+Software architecture of the web interface. The frontend (file explorer,
+geospatial visualizer, chat panel) communicates with the FastAPI backend
+over a REST API for static-file serving and data retrieval and a WebSocket
+channel for real-time chat and tool-execution progress. The backend
+invokes the Planner Agent asynchronously, which drives the MCP tool layer
+and the SUMO engine to generate GeoJSON, replay JSON, and HTML reports
+served back to the frontend.
+```
 
 ## Key features
 
@@ -68,7 +84,7 @@ Reproduce the paper case studies and tour the web interface.
 :link: mcp_servers/index
 :link-type: doc
 
-Reference for the 24 AgentSUMO MCP tools and the two upstream MCP servers.
+Reference for the 26 AgentSUMO MCP tools and the two upstream MCP servers.
 :::
 
 :::{grid-item-card} Schema
