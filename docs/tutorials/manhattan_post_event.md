@@ -1,96 +1,218 @@
 # Tutorial — Manhattan Post-Event Traffic Management
 
-This tutorial reproduces the Manhattan case study from the paper: managing the
-post-event traffic surge after a large gathering at Madison Square Garden
-(7th Avenue, Manhattan). It exercises the **Agentic** task classification —
-the agent decomposes an open-ended policy problem into multiple steps.
+This walkthrough reproduces the **Manhattan post-event case study** from
+the paper (Section 5.3.2): a city operator faces a concentrated departure
+surge from Madison Square Garden (MSG) into the surrounding network and
+asks AgentSUMO to compare two signal-control policies for mitigating it.
 
-## Step 1 — Generate the Times Square baseline
+Unlike the [Seoul tutorial](seoul_lane_closure.md), the user does **not**
+specify the intervention. The request only states the goal — "find where
+congestion builds up and how to clear it faster" — leaving the agent to
+formulate the problem, decompose it, and choose policies to compare. The
+IPP classifies this as an **Agentic** task, one step above Complex.
+
+```{figure} ../_static/CEUS_fig11_exp2_scenario.png
+:alt: AgentSUMO workflow for the MSG post-event traffic case
+:width: 100%
+:align: center
+
+AgentSUMO workflow for the MSG post-event traffic management scenario.
+The IPP classifies the request as Agentic and the agent first asks
+clarification questions about the venue, parking origins, exits, and
+demand. In **Phase 1** it generates the baseline, models the event flows
+with `web_search_tool` for parking and crossing lookups, and identifies
+the bottleneck around MSG. In **Phase 2** it applies two signal-control
+policies through `tls_offset_tool` and `tls_adaptation_tool` and compares
+the four conditions.
+```
+
+## Scenario design
+
+Following the paper:
+
+- **Study area** — Manhattan south of Central Park (64.3 km², 24 576
+  edges, 18 152 junctions).
+- **Background demand** — 32 480 weekday-morning trips between 07:00
+  and 09:00 drawn from the **publicly released [NYC TLC yellow-taxi
+  records](https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page)**.
+  Each record's pickup/dropoff coordinates form one OD pair.
+- **Event demand** — 1 800 vehicles leaving MSG over a 30-minute window
+  at the start of the simulation, distributed across two parking
+  facilities and four major Manhattan crossings:
+  - **Origins** — New Garden Garage (1 500 veh) on W. 33rd St and
+    Herald Square Garage (300 veh).
+  - **Destinations** — Lincoln Tunnel, Holland Tunnel,
+    Queens-Midtown Tunnel, Brooklyn Bridge (450 veh each).
+- **Simulation duration** — 3 hours so trips entering near the end of
+  the surge can complete.
+- **Conditions** —
+  - **Baseline** — background demand only, default signal timings.
+  - **Post-Event** — background + 1 800 event vehicles, default signals.
+  - **Green Wave** — Post-Event + offset coordination via
+    `tls_offset_tool`.
+  - **Webster** — Post-Event + cycle-length adaptation via
+    `tls_adaptation_tool`.
+- **Reporting levels** — vehicle (restricted to the 1 800 event
+  vehicles), edge (length-weighted speed and density on the MSG corridor
+  along 7th, 8th, 9th Avenues and W. 28th–36th St — 423 edges,
+  23.7 km), and network (system-wide average travel time and peak
+  halting vehicles).
+
+## Step 1 — Generate the Manhattan baseline
 
 ```text
-Simulate traffic around Madison Square Garden, New York within a 1.5 km radius
-for one hour under heavy traffic conditions.
+Build a baseline for Manhattan south of Central Park. Run a 3-hour morning
+simulation between 07:00 and 09:00 using the NYC TLC taxi records I have
+locally as the OD source.
 ```
 
-The agent generates a Manhattan / Times Square / Penn Station network and a
-baseline simulation. Save this run as `simulation_id = "msg_baseline"` when
-prompted.
+The IPP classifies this as **Simple** because the parameters are all
+present once the OD source is provided. The agent runs the Scenario
+Generation pipeline (`osm_extract` → `net_convert` →
+`trip_generate` in *Real OD* mode reading the TLC CSV → `route_generate` →
+`sumo_runner`) and ingests the run as `simulation_id = "msg_baseline"`.
 
-## Step 2 — Inject a post-event surge
+## Step 2 — Add the MSG post-event surge
 
-The paper models a post-event surge by significantly increasing the vehicle
-count departing from the venue area. Paste:
+Paste:
 
 ```text
-Test strategies to mitigate post-event traffic flow near Madison Square
-Garden. Generate a continuous flow of 600 vehicles per hour leaving from
-7th Avenue at MSG between 18:00 and 19:00, then run the simulation and store
-it as "msg_surge".
+After an event at Madison Square Garden, spectator traffic spreads toward
+major bridges and tunnels in the west, east, and south directions. I'd
+like to find where congestion builds up and how to clear it faster.
 ```
 
-The agent will:
+The IPP classifies this as **Agentic** — the request is open-ended ("find
+where congestion builds up and how to clear it faster") and the response
+requires both planning across phases and external knowledge the network
+does not contain. The agent asks clarification questions about the venue
+capacity, the parking facilities, the per-origin vehicle counts, the
+crossings to target, and whether OD data is available, and proposes a
+two-phase plan. Once you confirm the plan:
 
-1. Classify this as **Agentic** — multi-step planning with policy intent.
-2. Call `flow_generation_tool` with `source_location = "Madison Square Garden,
-   New York"`, `destination_location` (a downtown sink), `begin = 64800`,
-   `end = 68400`, `vehs_per_hour = 600`, `use_geocoding = True`.
-3. Re-run the simulation, ingest into SQLite as `msg_surge`.
+1. The agent calls `web_search_tool` to retrieve approximate coordinates
+   for the two MSG parking facilities and the four crossings.
+2. It calls `validate_od_coordinates_tool` to confirm each coordinate
+   falls inside the network and to resolve the nearest valid edge.
+3. It calls `flow_generation_tool` once per origin-destination pair
+   (2 origins × 4 destinations = 8 flows), each appending a flow to the
+   route file with `vehs_per_hour` chosen so the total over 30 minutes
+   matches the 1 800-vehicle budget.
+4. It re-runs `sumo_runner` with the combined demand and ingests the
+   result as `simulation_id = "msg_post_event"`.
 
-## Step 3 — Ask the agent to propose mitigations
+## Step 3 — Apply the Green Wave signal policy
 
 ```text
-Recommend at least two mitigation strategies. For each, apply it as a separate
-scenario (msg_strategy_A, msg_strategy_B) and compare them against
-msg_surge.
+Apply Green Wave coordination on the corridors around MSG and rerun the
+post-event scenario. Save it as "msg_green_wave".
 ```
 
-The agent decomposes the problem:
+The agent invokes `tls_offset_tool`, which wraps SUMO's
+`tlsCoordinator.py`. The tool writes a supplementary XML file containing
+offset adjustments for the affected intersections. The agent passes this
+file to `sumo_runner` via `additional_files` against the same Post-Event
+demand, then ingests the run.
 
-- Strategy A: optimize traffic light offsets on the corridors near MSG
-  (`tls_offset_tool`).
-- Strategy B: adapt traffic light cycle lengths on the same corridors
-  (`tls_adaptation_tool`).
-
-Each strategy runs through `sumo_runner` + `xml_to_sqlite_tool`. The agent
-then queries the database for total density, waiting time, and average speed
-on the targeted corridors across the three scenarios.
-
-```{note}
-You can intervene at any step. If you'd rather try a third strategy (e.g.,
-closing a specific street to general traffic with `edge_edit_tool`), simply
-type the request in the chat.
-```
-
-## Step 4 — Use the spatial heatmap
-
-Switch the center panel to **Difference Heatmap** mode and compare
-`msg_strategy_A` against `msg_surge`. Edges where density dropped relative to
-the surge are shaded blue; edges where density rose are red. This gives a
-visual diagnosis the aggregate KPIs cannot:
+## Step 4 — Apply the Webster signal policy
 
 ```text
-Compare strategy A and strategy B visually. Which strategy reduced density
-most near Madison Square Garden?
+Now try Webster-style cycle adaptation on the same corridors. Save it as
+"msg_webster".
 ```
 
-The agent answers with a road-name-resolved summary
-(`get_road_names_tool`) and a length-weighted density aggregation.
+The agent invokes `tls_adaptation_tool`, which wraps SUMO's
+`tlsCycleAdaptation.py`. The procedure mirrors Step 3: write a
+supplementary XML with adapted cycle lengths, run the simulation against
+the Post-Event demand, ingest the result.
 
-## Step 5 — Export the comparative report
+## Step 5 — Compare the four conditions
+
+Paste:
 
 ```text
-Generate an HTML report comparing msg_surge, msg_strategy_A, and
-msg_strategy_B.
+Compare the four conditions across three levels:
+1. Vehicle level — average duration and reroute count for the 1,800 event
+   vehicles only.
+2. Edge level — length-weighted speed and density on the MSG corridor
+   (7th, 8th, 9th Avenues + W. 28th to 36th St).
+3. Network level — average travel time and peak halting vehicles
+   system-wide.
 ```
 
-The resulting report includes a cross-scenario comparison table with
-percentage changes for every KPI, the top congested roads in each scenario,
-and an inline SVG of the study area.
+The agent identifies the 1 800 event vehicles by the `flow_`-prefixed
+trip IDs generated in Step 2, length-weights the corridor metrics across
+the 23.7 km / 423 edges, and aggregates the network metrics over all
+3 hours. The paper observed the following pattern (Table 7):
+
+| Level | Metric | Baseline | Post-Event | Green Wave | Webster |
+|---|---|---:|---:|---:|---:|
+| Vehicle | Avg. duration (s) | — | 987 | **726** | 935 |
+| Vehicle | Avg. reroute count | — | 1.468 | **1.314** | 1.464 |
+| Edge | Avg. speed (m/s) | 7.56 | 7.38 | **8.35** | 6.81 |
+| Edge | Avg. density (veh/km) | 7.51 | 9.15 | **5.81** | 9.32 |
+| Network | Avg. travel time (s) | 574.7 | 588.0 | **361.4** | 505.3 |
+| Network | Peak halting vehicles | 2 872 | 3 072 | **955** | 2 027 |
+
+Three patterns emerge. First, the network absorbs the surge well overall
+(+2 % travel time over baseline), but the corridor signature is sharp
+(+22 % density, −2 % speed) — the network mean **hides** the local
+redistribution that operators most care about. Second, **Green Wave**
+improves all three levels at once: corridor speed rises 10 % above
+baseline, corridor density falls 23 %, and peak halting drops 67 %
+network-wide. Third, **Webster** improves the network mean (travel time
+−12 %, peak halting −29 %) but raises corridor density to 24 % above
+baseline — the largest of any condition. Webster improves the system
+mean while shifting congestion onto the corridor most exposed to the
+event.
+
+```{figure} ../_static/CEUS_fig12_exp2_heatmap.png
+:alt: Per-edge density difference between Post-Event and each signal policy
+:width: 100%
+:align: center
+
+Difference heatmap of per-edge density between Post-Event and each
+signal policy, rendered on the AgentSUMO web interface's 3D Mapbox base.
+**Left:** Post-Event vs Green Wave — avenues near MSG shift consistently
+toward blue, indicating reduced density. **Right:** Post-Event vs
+Webster — the effect is weaker and mixed, with some segments still blue
+but others shifting toward red.
+```
+
+## Step 6 — Generate a report
+
+```text
+Generate an HTML report comparing the baseline, the post-event surge,
+Green Wave, and Webster.
+```
+
+The agent invokes `simulation_report_tool`, which writes a self-contained
+HTML report with the four-way KPI comparison, the top congested roads
+under each condition, and an inline SVG of the study area with the MSG
+corridor highlighted.
 
 ## What you've practiced
 
-- Continuous-flow demand injection (`flow_generation_tool`).
-- Agentic decomposition: the agent proposed multiple strategies and applied
-  each independently.
-- Visual difference comparison on the map.
-- Three-way scenario comparison through the HTML report.
+- An **Agentic** task driven through the IPP — the agent formulated the
+  problem from an open-ended goal, asked the right clarification
+  questions, and decomposed the work into two phases.
+- **`web_search_tool` as a reasoning aid** — the agent grounded
+  scenario parameters in real-world facts (venue capacity, parking
+  locations, Manhattan crossings) the network alone could not supply.
+- **Coordinate validation before flow generation** — the agent verified
+  each origin and destination resolved to a valid edge before committing
+  to the OD plan.
+- **Trade-offs across reporting levels** — the comparison surfaced a
+  network-vs-corridor trade-off (Webster) that single aggregate metrics
+  would obscure.
+- **Difference heatmaps** as the spatial counterpart of the cross-scenario
+  KPI table.
+
+```{seealso}
+- The [Seoul Lane-Closure Timing](seoul_lane_closure.md) tutorial for the
+  Complex case with structured timing alternatives.
+- The [AgentSUMO MCP Server reference](../mcp_servers/agentsumo/index.md)
+  for every tool the agent invoked.
+- The [Schema](../database/index.md) page for the column-level structure
+  of the queries used in Step 5.
+```
