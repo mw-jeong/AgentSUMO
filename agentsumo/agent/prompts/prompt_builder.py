@@ -461,7 +461,7 @@ with the policy type and edge IDs. Route to the appropriate method:
 | lane_reduction | edge_edit tool (reduce numLanes) | Static network modification, permanent |
 | speed_limit | speed_limit_edit tool | Static network modification, permanent |
 | rerouter | Guide-based (read rerouter.md) | Time-based closure/rerouting via additional file |
-| vss | Guide-based (read variable_speed_sign.md) | Time-based speed control via additional file |
+| vss | Guide-based (read vss.md) | Time-based speed control via additional file |
 
 For **rerouter** and **vss** policies:
 1. Read the corresponding guide from additional_files_guide/ using filesystem tools

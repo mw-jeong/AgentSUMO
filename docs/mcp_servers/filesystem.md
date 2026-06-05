@@ -49,7 +49,7 @@ Three concrete patterns:
    implemented through supplementary XML files loaded alongside the network
    at simulation time. The agent writes these files via `write_file`,
    guided by three markdown guides bundled with AgentSUMO (`rerouter.md`,
-   `variable_speed_sign.md`, `vtype.md`). The generated files are passed to
+   `vss.md`, `vtype.md`). The generated files are passed to
    `sumo_runner` through its `additional_files` parameter.
 3. **Inspecting generated artifacts.** After tool execution, the agent uses
    `list_directory` and `read_file` to verify output and diagnose errors

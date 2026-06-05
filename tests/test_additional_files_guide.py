@@ -327,7 +327,7 @@ def test_guide_files_exist():
     """All three guide files should exist."""
     guide_dir = Path(__file__).parent.parent / "agentsumo" / "agent" / "additional_files_guide"
 
-    expected = ["rerouter.md", "variable_speed_sign.md", "vtype.md"]
+    expected = ["rerouter.md", "vss.md", "vtype.md"]
     for fname in expected:
         path = guide_dir / fname
         assert path.exists(), f"FAIL: {fname} not found at {path}"

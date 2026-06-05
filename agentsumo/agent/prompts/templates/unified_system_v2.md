@@ -213,7 +213,7 @@ For scenarios that require time-based control, lane closures, speed variation, o
 
 **Available guides** (read via Filesystem MCP before editing):
 - `additional_files_guide/rerouter.md` — Road/lane closure, rerouting, vehicle class restrictions
-- `additional_files_guide/variable_speed_sign.md` — Time-varying speed limits
+- `additional_files_guide/vss.md` — Time-varying speed limits
 - `additional_files_guide/vtype.md` — Vehicle type property editing (modify vehicle_types.add.xml)
 
 **When to use guide-based editing instead of existing tools:**
@@ -226,7 +226,7 @@ For scenarios that require time-based control, lane closures, speed variation, o
 | Signal optimization | `tls_offset_tool` / `tls_adaptation_tool` |
 | Electric vehicle ratio | `vehicle_type_edit_tool` |
 | **Time-based road/lane closure** | **Guide: rerouter.md** |
-| **Time-based speed control** | **Guide: variable_speed_sign.md** |
+| **Time-based speed control** | **Guide: vss.md** |
 | **Vehicle type properties / new types** | **Guide: vtype.md** |
 
 **Workflow:**
