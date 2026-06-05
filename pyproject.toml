@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     # AgentSUMO MCP server (published separately on PyPI)
-    "agentsumo-mcp>=0.1.1",
+    "agentsumo-mcp>=0.1.2",
     # Reasoning backend
     "anthropic>=0.39.0",
     # Configuration loading

@@ -162,7 +162,20 @@ class AgentSUMO:
 
         logger.info("AgentSUMO starting...")
 
-        # 0. Restore state from previous session (B: JSON -> A: file scan)
+        # 0a. Make sure the default vehicle_types.add.xml exists in the
+        # simulation directory before any tool runs. This covers the case
+        # where the user issues a vType-edit request *before* their first
+        # simulation — the agent's read_text_file call would otherwise fail.
+        # The PyPI helper is idempotent: it leaves any existing (user-edited)
+        # file untouched.
+        try:
+            from agentsumo_mcp.utils.defaults import ensure_vehicle_types_default
+            from agentsumo.core import AgentSUMOConfig
+            ensure_vehicle_types_default(AgentSUMOConfig.OUTPUT_DIR / "simulations")
+        except Exception as e:
+            logger.warning(f"Could not seed default vehicle_types.add.xml: {e}")
+
+        # 0b. Restore state from previous session (B: JSON -> A: file scan)
         self._restore_state()
 
         # 1. Connect SUMO MCP (only when enable_sumo_mcp=True)
