@@ -37,19 +37,19 @@ logger = logging.getLogger("agentsumo.web")
 
 def get_output_dir() -> Optional[Path]:
     """Get output directory path"""
-    output_dir = AgentSUMOConfig.PROJECT_ROOT / "agentsumo" / "output"
+    output_dir = AgentSUMOConfig.OUTPUT_DIR
     return output_dir if output_dir.exists() else None
 
 
 def get_networks_dir() -> Optional[Path]:
     """Get networks directory path"""
-    networks_dir = AgentSUMOConfig.PROJECT_ROOT / "agentsumo" / "output" / "networks"
+    networks_dir = AgentSUMOConfig.OUTPUT_DIR / "networks"
     return networks_dir if networks_dir.exists() else None
 
 
 def get_simulations_dir() -> Optional[Path]:
     """Get simulations directory path"""
-    sims_dir = AgentSUMOConfig.PROJECT_ROOT / "agentsumo" / "output" / "simulations"
+    sims_dir = AgentSUMOConfig.OUTPUT_DIR / "simulations"
     return sims_dir if sims_dir.exists() else None
 
 
@@ -100,7 +100,7 @@ async def get_agent() -> AgentSUMO:
                 enable_filesystem_mcp=True,
                 filesystem_directories=[
                     str(AgentSUMOConfig.PROJECT_ROOT / "agentsumo" / "agent" / "additional_files_guide"),
-                    str(AgentSUMOConfig.PROJECT_ROOT / "agentsumo" / "output")
+                    str(AgentSUMOConfig.OUTPUT_DIR)
                 ]
             )
             await _agent.start()
@@ -1370,7 +1370,7 @@ def create_app() -> FastAPI:
     async def upload_od_file(file: UploadFile = File(...)):
         """Upload OD data CSV file"""
         try:
-            upload_dir = AgentSUMOConfig.PROJECT_ROOT / "agentsumo" / "output" / "uploads" / "od"
+            upload_dir = AgentSUMOConfig.OUTPUT_DIR / "uploads" / "od"
             upload_dir.mkdir(parents=True, exist_ok=True)
 
             dest = upload_dir / file.filename
@@ -1392,7 +1392,7 @@ def create_app() -> FastAPI:
     async def upload_shapefile(files: list[UploadFile] = File(...)):
         """Upload shapefile (multiple files: .shp, .shx, .dbf, .prj, etc.)"""
         try:
-            upload_dir = AgentSUMOConfig.PROJECT_ROOT / "agentsumo" / "output" / "uploads" / "shp"
+            upload_dir = AgentSUMOConfig.OUTPUT_DIR / "uploads" / "shp"
             upload_dir.mkdir(parents=True, exist_ok=True)
 
             uploaded = []
