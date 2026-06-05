@@ -7,10 +7,7 @@ from __future__ import annotations
 
 project = "AgentSUMO"
 author = "Minwoo Jeong, Jeeyun Chang, Yoonjin Yoon"
-copyright = (
-    "2026, KAIST Graduate School of Data Science · "
-    "AgentSUMO Documentation"
-)
+copyright = "2026, AgentSUMO Documentation"
 release = "0.1.0"
 version = "0.1"
 
@@ -86,7 +83,7 @@ html_theme_options = {
     "navbar_center": ["navbar-nav"],
     "navbar_end": ["theme-switcher", "navbar-icon-links"],
     "secondary_sidebar_items": ["page-toc"],
-    "footer_start": ["copyright"],
+    "footer_start": ["copyright", "affiliations"],
     "footer_end": ["sphinx-version", "theme-version"],
     "pygments_light_style": "tango",
     "pygments_dark_style": "github-dark",
