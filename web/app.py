@@ -145,6 +145,11 @@ def create_app() -> FastAPI:
     # Routes
     # ============================================
 
+    @app.get("/favicon.ico", include_in_schema=False)
+    async def favicon():
+        from fastapi.responses import FileResponse
+        return FileResponse(web_dir / "static" / "favicon.ico")
+
     @app.get("/")
     async def index(request: Request):
         """Main page"""
