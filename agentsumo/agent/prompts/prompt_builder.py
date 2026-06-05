@@ -203,7 +203,7 @@ class PromptBuilder:
 - `current_network`: Most recent network (may include policy modifications)
 - For policy experiments (reduce_lanes, edge_edit, speed_limit_edit), ALWAYS use `baseline_network` as input!
 
-**If analysis_database is enabled, use SQLite MCP tools (read_query, list_tables) for detailed analysis.**
+**If analysis_database is enabled, use SQLite MCP tools for detailed analysis: `read_query` / `list_tables` / `describe_table` for inspection, `write_query` / `create_table` for ad-hoc data shaping when needed, and `append_insight` to record intermediate findings.**
 
 Use this context to avoid redundant operations and build upon existing work.
 """

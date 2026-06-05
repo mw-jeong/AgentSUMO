@@ -36,10 +36,11 @@ artifacts.
 :link-type: doc
 :class-card: sd-text-center
 
-**Owner:** Anthropic · **Tools:** 5 in use
+**Owner:** Anthropic · **Tools:** 6 (Query / Schema / Analysis)
 
-Anthropic's reference server. AgentSUMO uses it for read-only natural
-language querying of `simulations.db` after `xml_to_sqlite_tool` ingest.
+Anthropic's reference server. AgentSUMO uses it for natural-language
+querying of `simulations.db` after `xml_to_sqlite_tool` ingest, with a
+read-driven workflow by default.
 :::
 
 ::::
