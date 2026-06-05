@@ -35,13 +35,6 @@ in Figure 2 of the paper.
 
 ## How AgentSUMO uses it
 
-AgentSUMO's analytical workflow is **read-driven by default**. The curated
-simulation pipeline ingests results through `xml_to_sqlite_tool` and renders
-reports through `simulation_report_tool`, both of which manage their own
-write paths so the SQLite MCP server's `write_query` and `create_table`
-remain available for ad-hoc data shaping during a session without being
-the primary ingest path.
-
 Four concrete patterns:
 
 1. **Natural-language analytics.** Questions like *"Which road had the worst
@@ -51,10 +44,10 @@ Four concrete patterns:
    `describe_table` let the agent inspect the database before constructing a
    query — useful when it has been a few turns since the last
    `xml_to_sqlite_tool` call.
-3. **Ad-hoc data shaping.** `write_query` and `create_table` let the agent
-   materialize a scratch table (e.g., a per-corridor aggregate or a
-   pre-joined view) when a follow-up question would otherwise require
-   re-running a heavy join multiple times.
+3. **Materializing derived tables.** `write_query` and `create_table` let
+   the agent persist a per-corridor aggregate, a pre-joined view, or any
+   other derived structure that subsequent questions reuse without
+   rerunning the underlying joins.
 4. **Session-level memos.** `append_insight` lets the agent record
    intermediate findings that survive across tool calls within the same
    conversation.
