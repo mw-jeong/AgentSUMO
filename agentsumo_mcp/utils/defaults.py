@@ -35,7 +35,15 @@ def ensure_vehicle_types_default(sim_dir: Path | str) -> Path:
         Absolute path to the ensured file.
     """
     sim_dir = Path(sim_dir)
-    sim_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        sim_dir.mkdir(parents=True, exist_ok=True)
+    except PermissionError as exc:
+        raise PermissionError(
+            f"Cannot create simulation directory {sim_dir}: {exc}. "
+            f"Set AGENTSUMO_MCP_OUTPUT_BASE in your environment to a "
+            f"writable directory and re-run."
+        ) from exc
+
     target = sim_dir / _VEHICLE_TYPES_FILENAME
 
     if not target.exists():

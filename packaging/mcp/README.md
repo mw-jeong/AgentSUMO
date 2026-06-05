@@ -47,6 +47,15 @@ On macOS with the official SUMO installer this is usually `/Library/Frameworks/E
 
 ## Usage with Claude Desktop
 
+This package exposes the **MCP tool layer** (Section 3.3 of the paper). The
+Planner Agent and the Interactive Planning Protocol described in Section 3.2
+are part of the AgentSUMO framework
+([github.com/mw-jeong/AgentSUMO](https://github.com/mw-jeong/AgentSUMO))
+and are not bundled here. To reproduce the manuscript's case studies end to
+end, clone the repository and run `python web.py`; the standalone snippet
+below is the right starting point for using the SUMO tool surface from a
+different MCP client.
+
 Add to your `claude_desktop_config.json`:
 
 ```json

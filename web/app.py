@@ -121,6 +121,29 @@ def create_app() -> FastAPI:
             format='%(asctime)s [%(levelname)s] %(name)s: %(message)s'
         )
         logger.info("AgentSUMO Web starting...")
+
+        # Fail-fast environment check. Surface missing/broken configuration
+        # at startup rather than letting the first chat message hit a
+        # cryptic "MCP connection failed" further down the stack.
+        required = ["ANTHROPIC_API_KEY", "MAPBOX_TOKEN", "SUMO_HOME"]
+        missing = [k for k in required if not os.environ.get(k)]
+        if missing:
+            logger.error(
+                "Missing required environment variables: %s. "
+                "Copy .env.example to .env and fill them in (README §3).",
+                ", ".join(missing),
+            )
+
+        sumo_home = os.environ.get("SUMO_HOME")
+        if sumo_home:
+            sumo_bin = Path(sumo_home) / "bin" / "sumo"
+            if not sumo_bin.exists():
+                logger.error(
+                    "SUMO_HOME=%s does not contain bin/sumo. "
+                    "Check the value against your local SUMO installation.",
+                    sumo_home,
+                )
+
         yield
         # Shutdown
         global _agent
@@ -1529,6 +1552,8 @@ def create_app() -> FastAPI:
         """
         try:
             try:
+                # dev-ko branch ships the live source under agentsumo/server/;
+                # main branch uses the published agentsumo-mcp package.
                 from agentsumo.server.settings.settings import sumo_environment
             except ImportError:
                 from agentsumo_mcp.settings.settings import sumo_environment

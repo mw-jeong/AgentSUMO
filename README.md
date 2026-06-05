@@ -157,7 +157,7 @@ MAPBOX_TOKEN=pk.eyJ1Ijoixxxxxxxxxxxxxxxxxx
 SUMO_HOME=/opt/homebrew/share/sumo
 
 # macOS (Eclipse SUMO installer)
-SUMO_HOME=/Library/Frameworks/EclipseSUMO.framework/Versions/1.24.0/EclipseSUMO
+SUMO_HOME=/Library/Frameworks/EclipseSUMO.framework/Versions/<version>/EclipseSUMO  # e.g. 1.24.0; use the directory name installed under Versions/
 
 # Windows
 SUMO_HOME=C:\Program Files (x86)\Eclipse\Sumo
@@ -234,7 +234,7 @@ The server is registered in the official [MCP Registry](https://registry.modelco
 uv pip install -e . --upgrade
 ```
 
-**Legacy token files** — For backward compatibility AgentSUMO still reads `claude_api.txt` and `mapbox_token.txt` at the project root if the corresponding environment variables are not set. New installations should prefer the `.env` workflow.
+**Legacy token files (deprecated, scheduled for removal in 0.2.0)** — AgentSUMO still falls back to `claude_api.txt` and `mapbox_token.txt` at the project root when the corresponding environment variables are missing, but those code paths now emit a `DeprecationWarning` at import time. Use the `.env` workflow for new installations.
 
 ## Documentation
 
