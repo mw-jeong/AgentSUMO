@@ -157,7 +157,7 @@ class SQLiteMCPClient:
         List available SQLite tools.
         
         Returns:
-            List of tools (query, read_query, list_tables, describe_table, etc.)
+            List of tools (read_query, write_query, create_table, list_tables, describe_table, append_insight)
         
         Raises:
             RuntimeError: If not connected

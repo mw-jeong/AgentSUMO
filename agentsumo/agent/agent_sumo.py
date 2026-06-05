@@ -500,7 +500,7 @@ class AgentSUMO:
                     result_content = str(result.content[0].text)
 
                     # Check SQLite tool error messages (Database error, Error. etc.)
-                    sqlite_tool_names = ["query", "read_query", "list_tables", "describe_table", "append_insight"]
+                    sqlite_tool_names = ["read_query", "write_query", "create_table", "list_tables", "describe_table", "append_insight"]
                     if content.name in sqlite_tool_names:
                         # SQLite tools return errors in the form "Database error. ..." or "Error. ..."
                         if result_content.startswith("Database error:") or result_content.startswith("Error:"):
@@ -625,7 +625,7 @@ class AgentSUMO:
             Tool execution result
         """
         # SQLite MCP tools
-        sqlite_tool_names = ["query", "read_query", "list_tables", "describe_table", "append_insight"]
+        sqlite_tool_names = ["read_query", "write_query", "create_table", "list_tables", "describe_table", "append_insight"]
 
         if tool_name in sqlite_tool_names:
             if not self.mcp_clients.get("sqlite") or not self.mcp_clients["sqlite"].is_connected:
