@@ -205,6 +205,9 @@ class AgentSUMO:
                 # Auto-detect DB file from default path
                 try:
                     try:
+                        # dev-ko branch ships the live source under
+                        # agentsumo/server/; main branch uses the published
+                        # agentsumo-mcp package as the fallback path.
                         from agentsumo.server.utils.path_utils import get_output_path
                     except ImportError:
                         from agentsumo_mcp.utils.path_utils import get_output_path
@@ -788,6 +791,8 @@ class AgentSUMO:
     def _get_state_file_path(self):
         """Get path to state persistence file"""
         try:
+            # dev-ko branch ships the live source under agentsumo/server/;
+            # main branch uses the published agentsumo-mcp package.
             from agentsumo.server.utils.path_utils import get_output_path
         except ImportError:
             from agentsumo_mcp.utils.path_utils import get_output_path
@@ -840,6 +845,8 @@ class AgentSUMO:
         logger.info("State JSON not found, scanning output files...")
         try:
             try:
+                # dev-ko branch ships the live source under agentsumo/server/;
+                # main branch uses the published agentsumo-mcp package.
                 from agentsumo.server.utils.path_utils import get_output_path
             except ImportError:
                 from agentsumo_mcp.utils.path_utils import get_output_path

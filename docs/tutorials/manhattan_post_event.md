@@ -69,7 +69,9 @@ locally as the OD source.
 The IPP classifies this as **Simple** because the parameters are all
 present once the OD source is provided. The agent runs the Scenario
 Generation pipeline (`osm_extract` → `net_convert` →
-`trip_generate` in *Real OD* mode reading the TLC CSV → `route_generate` →
+`trip_generate` in *Real OD* mode (`trip_type="real"` — reads
+coordinate-based OD pairs from a CSV rather than synthesizing random
+trips) reading the TLC CSV → `route_generate` →
 `sumo_runner`) and ingests the run as `simulation_id = "msg_baseline"`.
 
 ## Step 2 — Add the MSG post-event surge

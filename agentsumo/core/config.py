@@ -53,6 +53,14 @@ class AgentSUMOConfig:
             with open(cls.CLAUDE_API_KEY_FILE, "r") as f:
                 key = f.read().strip()
                 if key:
+                    import warnings
+                    warnings.warn(
+                        "Reading the Claude API key from claude_api.txt is "
+                        "deprecated and will be removed in 0.2.0. Move the "
+                        "key into ANTHROPIC_API_KEY in your .env instead.",
+                        DeprecationWarning,
+                        stacklevel=2,
+                    )
                     return key
 
         raise RuntimeError(
@@ -77,6 +85,14 @@ class AgentSUMOConfig:
             with open(cls.MAPBOX_TOKEN_FILE, "r") as f:
                 token = f.read().strip()
                 if token:
+                    import warnings
+                    warnings.warn(
+                        "Reading the Mapbox token from mapbox_token.txt is "
+                        "deprecated and will be removed in 0.2.0. Move the "
+                        "token into MAPBOX_TOKEN in your .env instead.",
+                        DeprecationWarning,
+                        stacklevel=2,
+                    )
                     return token
 
         raise RuntimeError(
