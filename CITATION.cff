@@ -1,0 +1,52 @@
+cff-version: 1.2.0
+message: "If you use AgentSUMO in academic work, please cite the paper listed under `preferred-citation`."
+title: "AgentSUMO: An Agentic Framework for Interactive Simulation Scenario Generation in SUMO via Large Language Models"
+abstract: >-
+  AgentSUMO is an LLM-guided agentic framework that lets non-expert
+  stakeholders design, execute, and analyze SUMO traffic simulations
+  through natural-language interaction. A Planner Agent governed by
+  an Interactive Planning Protocol translates underspecified policy
+  objectives into validated simulation plans, drives them via the
+  Model Context Protocol (MCP), and surfaces results through a web
+  dashboard backed by a queryable SQLite store.
+type: software
+authors:
+  - given-names: Minwoo
+    family-names: Jeong
+    affiliation: "KAIST Urban AI Institute"
+    orcid: "https://orcid.org/0009-0005-1025-0294"
+  - given-names: Jeeyun
+    family-names: Chang
+    affiliation: "KAIST Urban AI Institute"
+    orcid: "https://orcid.org/0009-0002-1706-5946"
+  - given-names: Yoonjin
+    family-names: Yoon
+    affiliation: "KAIST Spacetime Intelligence Lab"
+    orcid: "https://orcid.org/0000-0002-3550-4431"
+version: "0.1.2"
+date-released: "2026-06-05"
+license: MIT
+repository-code: "https://github.com/mw-jeong/AgentSUMO"
+url: "https://agentsumo.readthedocs.io"
+keywords:
+  - traffic-simulation
+  - sumo
+  - large-language-models
+  - agentic-framework
+  - model-context-protocol
+  - decision-support
+  - urban-mobility
+  - open-source
+preferred-citation:
+  type: article
+  title: "AgentSUMO: An Agentic Framework for Interactive Simulation Scenario Generation in SUMO via Large Language Models"
+  authors:
+    - given-names: Minwoo
+      family-names: Jeong
+    - given-names: Jeeyun
+      family-names: Chang
+    - given-names: Yoonjin
+      family-names: Yoon
+  year: 2025
+  journal: "arXiv preprint arXiv:2511.06804"
+  url: "https://arxiv.org/abs/2511.06804"

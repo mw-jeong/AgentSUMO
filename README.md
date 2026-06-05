@@ -5,6 +5,7 @@
 **An Agentic Framework for Interactive Simulation Scenario Generation in SUMO via Large Language Models**
 
 [![PyPI](https://img.shields.io/pypi/v/agentsumo-mcp.svg)](https://pypi.org/project/agentsumo-mcp/)
+[![tests](https://github.com/mw-jeong/AgentSUMO/actions/workflows/tests.yml/badge.svg)](https://github.com/mw-jeong/AgentSUMO/actions/workflows/tests.yml)
 [![arXiv](https://img.shields.io/badge/arXiv-2511.06804-b31b1b.svg)](https://arxiv.org/abs/2511.06804)
 [![Docs](https://readthedocs.org/projects/agentsumo/badge/?version=latest)](https://agentsumo.readthedocs.io/en/latest/?badge=latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -90,7 +91,7 @@ The AgentSUMO MCP Server exposes **26 tools** grouped into five capability categ
 
 **macOS**
 ```bash
-brew install --cask sumo-gui
+brew install sumo
 ```
 Or download the installer from the [Eclipse SUMO downloads page](https://sumo.dlr.de/docs/Downloads.php).
 
