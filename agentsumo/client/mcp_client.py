@@ -95,10 +95,22 @@ class SUMOMCPClient:
         # Prefer an in-repo development copy at agentsumo/server/main.py if it
         # exists (dev-ko branch). Otherwise fall back to the packaged release
         # `agentsumo_mcp` (main branch / `pip install agentsumo-mcp`).
+        #
+        # NB: importlib.util.find_spec raises ModuleNotFoundError when the
+        # *parent* package is missing (e.g., 'agentsumo.server.main' on main,
+        # which has no agentsumo/server/ at all). The try/except below normalizes
+        # the absent-parent case into a False result so the fallback can fire.
         import importlib.util
-        if importlib.util.find_spec("agentsumo.server.main") is not None:
+
+        def _has_module(name: str) -> bool:
+            try:
+                return importlib.util.find_spec(name) is not None
+            except (ImportError, ModuleNotFoundError, ValueError):
+                return False
+
+        if _has_module("agentsumo.server.main"):
             self.server_module = "agentsumo.server.main"
-        elif importlib.util.find_spec("agentsumo_mcp.main") is not None:
+        elif _has_module("agentsumo_mcp.main"):
             self.server_module = "agentsumo_mcp.main"
         else:
             raise ModuleNotFoundError(
