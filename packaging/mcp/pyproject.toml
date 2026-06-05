@@ -1,6 +1,6 @@
 [project]
 name = "agentsumo-mcp"
-version = "0.1.1"
+version = "0.1.2"
 description = "MCP server for SUMO traffic simulation: orchestrate networks, trips, simulations, and analysis from LLM agents."
 readme = "README.md"
 license = { file = "LICENSE" }

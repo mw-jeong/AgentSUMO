@@ -19,7 +19,17 @@ ENV/
 
 # Output files (simulation results)
 agentsumo/output/
-output/
+# Keep the output/ folder layout on the repo (8 categories with .gitkeep)
+# so new users discover the structure on clone, but ignore the generated
+# artifacts inside. The PyPI agentsumo-mcp package seeds
+# vehicle_types.add.xml at runtime, so it is not tracked here either.
+# Note: subdirectories must be explicitly un-ignored so .gitkeep inside
+# them stays visible to git (negation cannot rescue a child of an
+# ignored parent).
+output/**
+!output/
+!output/*/
+!output/**/.gitkeep
 
 # Sphinx documentation build
 docs/_build/

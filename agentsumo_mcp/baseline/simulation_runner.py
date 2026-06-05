@@ -15,6 +15,7 @@ from typing import Optional, Dict, Any, List
 from xml.etree.ElementTree import Element, SubElement, ElementTree
 
 from agentsumo_mcp.settings.settings import sumo_environment, simulation_settings
+from agentsumo_mcp.utils.defaults import ensure_vehicle_types_default
 from agentsumo_mcp.utils.file_utils import copy_to_workdir, copy_additional_files
 from agentsumo_mcp.utils.path_utils import get_output_path, get_working_directory
 
@@ -57,6 +58,12 @@ class SimulationRunner:
             # Setup working directory and paths
             base_dir = get_working_directory()
             output_path = get_output_path(output_dir)
+
+            # SUMO loads vehicle_types.add.xml as an additional file (see the
+            # additional_files_list assembled in _generate_config_file). Make
+            # sure a default copy exists in the simulation directory so a
+            # fresh install can run end-to-end without manual setup.
+            ensure_vehicle_types_default(output_path)
 
             if not Path(net_file).is_absolute():
                 net_file = str(base_dir / net_file)
