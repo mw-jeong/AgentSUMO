@@ -3,7 +3,8 @@ name = "agentsumo-mcp"
 version = "0.1.2"
 description = "MCP server for SUMO traffic simulation: orchestrate networks, trips, simulations, and analysis from LLM agents."
 readme = "README.md"
-license = { file = "LICENSE" }
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 authors = [
     { name = "Minwoo Jeong" },
@@ -15,7 +16,6 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
@@ -46,7 +46,9 @@ Issues = "https://github.com/mw-jeong/AgentSUMO/issues"
 agentsumo-mcp = "agentsumo_mcp.main:main"
 
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+# setuptools >= 77 is required for the PEP 639 ``license`` SPDX expression
+# and ``license-files`` field used above.
+requires = ["setuptools>=77.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
