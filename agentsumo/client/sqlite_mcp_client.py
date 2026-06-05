@@ -33,8 +33,9 @@ class SQLiteMCPClient:
     (included inside the project as the sqlite-mcp-server folder)
 
     Features:
-    - SQL query execution (read-only)
-    - Schema inspection
+    - SQL query execution (read_query / write_query / create_table)
+    - Schema inspection (list_tables / describe_table)
+    - Analytical memo recording (append_insight)
     - Multi-simulation support (simulation_id based)
     """
     
