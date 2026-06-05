@@ -16,6 +16,7 @@ MCP server for [SUMO](https://eclipse.dev/sumo/) (Simulation of Urban MObility) 
 - **Result analysis**: ingest tripinfo / edgedata / summary XML into SQLite for natural-language SQL queries
 - **Visualization**: network plots, edge data heatmaps, policy-target visualizations
 - **Geocoding**: place name -> coordinate -> nearest edge resolution
+- **Bundled defaults**: ships a default `vehicle_types.add.xml` (passenger / electric / gasoline) that is auto-seeded into the simulation directory on the first `sumo_runner` call, so the SUMO additional-file dependency works without any manual setup
 
 ## Requirements
 
@@ -72,16 +73,15 @@ agentsumo-mcp
 
 ## Tools
 
-The server exposes ~25 tools across five categories:
+The server exposes 26 tools across five categories (aligned with Table 3 of the paper):
 
 | Category | Examples |
 |----------|----------|
-| Network | `osm_extract`, `net_convert`, `network_summary_tool` |
-| Trips & routes | `trip_generate`, `route_generate`, `vehicle_generation_tool`, `flow_generation_tool` |
-| Customization | `edge_edit_tool`, `reduce_lanes_tool`, `speed_limit_edit_tool`, `tls_offset_tool`, `tls_adaptation_tool` |
-| Simulation | `sumo_runner` |
-| Analysis | `xml_to_sqlite_tool`, `simulation_report_tool`, `route_analysis_tool`, `analyze_road_details_tool` |
-| Visualization | `visualize_net_tool`, `visualize_edge_tool`, `visualize_edgedata_tool` |
+| Scenario Generation | `osm_extract`, `net_convert`, `trip_generate`, `route_generate`, `sumo_runner` |
+| Policy Experimentation | `edge_edit_tool`, `reduce_lanes_tool`, `speed_limit_edit_tool`, `vehicle_generation_tool`, `flow_generation_tool`, `tls_offset_tool`, `tls_adaptation_tool` |
+| Result Analysis | `xml_to_sqlite_tool`, `simulation_report_tool` |
+| Visualization | `visualize_net_tool`, `visualize_edge_tool`, `visualize_policy_target_tool`, `visualize_edgedata_tool` |
+| Utility Functions | `network_summary_tool`, `route_analysis_tool`, `analyze_road_details_tool`, `get_road_names_tool`, `validate_od_coordinates_tool`, `web_search_tool` |
 
 Each tool returns structured JSON suitable for downstream LLM reasoning.
 

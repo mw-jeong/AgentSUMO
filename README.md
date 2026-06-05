@@ -192,11 +192,15 @@ AgentSUMO/
 │   ├── client/       # MCP clients (AgentSUMO, SQLite, Filesystem)
 │   └── core/         # Configuration
 ├── agentsumo_mcp/    # AgentSUMO MCP Server source (also published to PyPI)
+│   └── defaults/     # Packaged fixtures (e.g., vehicle_types.add.xml)
 ├── packaging/mcp/    # PyPI build configuration for agentsumo-mcp
 ├── web/              # Web interface (FastAPI + Jinja2 templates)
 ├── docs/             # Sphinx documentation source
 ├── tests/            # Unit tests
 ├── assets/           # README images
+├── output/           # Runtime artifacts (auto-populated; 8 categories tracked
+│                     #   via .gitkeep — simulations/, networks/, trips/,
+│                     #   analysis/, reports/, uploads/, visualizations/, additional/)
 ├── chat.py           # CLI entry point
 ├── web.py            # Web server entry point
 └── .env.example      # Environment variable template

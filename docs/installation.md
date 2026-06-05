@@ -176,6 +176,12 @@ python web.py
 The web server should start on `http://localhost:8000`. A missing or invalid
 `ANTHROPIC_API_KEY` or `SUMO_HOME` aborts startup with a descriptive error.
 
+On first start, AgentSUMO seeds the default
+`output/simulations/vehicle_types.add.xml` from the packaged
+`agentsumo-mcp` fixture so SUMO's additional-file dependency is in place
+without manual setup. If you later edit that file via the vType guide
+workflow, the seeded copy is left untouched on subsequent runs.
+
 ## Next steps
 
 - [Tutorials](tutorials/index.md) — issue your first natural-language
