@@ -8,7 +8,7 @@ Usage:
     # Single directory
     async with FilesystemMCPClient(allowed_directories="/path/to/dir") as client:
         tools = await client.list_tools()
-        result = await client.call_tool("read_file", {"path": "/path/to/file.xml"})
+        result = await client.call_tool("read_text_file", {"path": "/path/to/file.xml"})
 
     # Multiple directories
     async with FilesystemMCPClient(allowed_directories=["/path/to/guides", "/path/to/output"]) as client:
@@ -30,14 +30,12 @@ class FilesystemMCPClient:
 
     npx -y @modelcontextprotocol/server-filesystem <dir1> [dir2] [dir3] ...
 
-    Tools provided:
-    - read_file: Read file contents
-    - write_file: Write content to a file
-    - read_multiple_files: Read multiple files at once
-    - list_directory: List directory contents
-    - search_files: Search for files by pattern
-    - get_file_info: Get file metadata
-    - create_directory: Create a new directory
+    Tools provided (13 total, grouped Read / Write / Manage):
+    - Read: read_text_file, read_media_file, read_multiple_files,
+            list_directory, list_directory_with_sizes, directory_tree,
+            search_files, get_file_info, list_allowed_directories
+    - Write: write_file, edit_file, create_directory
+    - Manage: move_file
     """
 
     def __init__(
@@ -152,7 +150,7 @@ class FilesystemMCPClient:
         List available Filesystem tools.
 
         Returns:
-            List of tools (read_file, list_directory, etc.)
+            List of tools (read_text_file, list_directory, write_file, etc.)
         """
         if not self._connected or not self.session:
             raise RuntimeError("Not connected to Filesystem MCP Server")
@@ -177,7 +175,7 @@ class FilesystemMCPClient:
         Execute a Filesystem tool.
 
         Args:
-            name: Tool name (e.g., "read_file", "list_directory")
+            name: Tool name (e.g., "read_text_file", "list_directory")
             arguments: Tool arguments (e.g., {"path": "/path/to/file"})
             timeout: Execution timeout (None = use default)
 

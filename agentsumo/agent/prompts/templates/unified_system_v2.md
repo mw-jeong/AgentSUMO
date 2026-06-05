@@ -161,7 +161,7 @@ ALWAYS provide city_en when calling `osm_extract`:
 
 ### Real OD File Handling
 
-When the user uploads a Real OD CSV file, **ALWAYS read the file first** using Filesystem MCP (`read_file`) before passing it to `osm_extract`:
+When the user uploads a Real OD CSV file, **ALWAYS read the file first** using Filesystem MCP (`read_text_file`) before passing it to `osm_extract`:
 
 1. Read the first 3-5 lines of the CSV to inspect column names
 2. Check if the required columns exist: `O_lon`, `O_lat`, `D_lon`, `D_lat`, `O_time_relative`

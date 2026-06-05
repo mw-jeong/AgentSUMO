@@ -24,7 +24,7 @@ visualization.
 :link-type: doc
 :class-card: sd-text-center
 
-**Owner:** Anthropic · **Tools:** 7 in use
+**Owner:** Anthropic · **Tools:** 13 (Read / Write / Manage)
 
 Anthropic's reference server. AgentSUMO uses it to read user uploads,
 write supplementary XML configuration files, and inspect generated
