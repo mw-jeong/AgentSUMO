@@ -3,6 +3,8 @@ name = "agentsumo"
 version = "0.1.0"
 description = "AgentSUMO: AI-Powered SUMO Traffic Simulation Platform with Claude and MCP"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.12,<3.13"
 dependencies = [
     # AgentSUMO MCP server (published separately on PyPI)
@@ -41,7 +43,9 @@ dependencies = [
 ]
 
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+# setuptools >= 77 is required for the PEP 639 ``license`` SPDX expression
+# and ``license-files`` field used above.
+requires = ["setuptools>=77.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
