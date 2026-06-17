@@ -2,8 +2,8 @@
 OSM data extraction functionality for SUMO MCP Server.
 
 Extracts OpenStreetMap road network data for a given area using:
-1. Local .pbf file + osmium (fast, preferred)
-2. osmGet.py online download (fallback)
+1. Local .pbf file + osmium (fast, preferred when PBF is present)
+2. Direct HTTP via Overpass interpreter (online fallback, replaces osmGet.py)
 """
 
 import os
@@ -21,6 +21,11 @@ from geopy.distance import distance
 
 from agentsumo_mcp.settings.settings import sumo_environment, network_settings
 from agentsumo_mcp.utils.path_utils import get_output_path
+from agentsumo_mcp.baseline.osm_http import (
+    extract_osm_via_http,
+    download_pbf_for_region,
+    identify_region,
+)
 
 logger = logging.getLogger("agentsumo_mcp.osm_extractor")
 
@@ -173,48 +178,92 @@ class OsmExtractor:
 
     def _extract_osm_data(self, bbox: List[float], tag: str, output_path: Path) -> str:
         """
-        Extract OSM data using hybrid strategy:
-        1. Try osmium with local .pbf (fast)
-        2. Fallback to osmGet.py (slow, universal)
+        Extract OSM data using three-stage fallback chain:
+          1. Overpass HTTP — fast for small/medium bbox, no local data required.
+          2. Local PBF cache + osmium — if HTTP fails and PBF already on disk.
+          3. Download Geofabrik PBF + osmium — last resort, large one-time fetch.
         """
         logger.info("Starting OSM data extraction...")
 
-        pbf_file = self._find_local_pbf(bbox)
+        # Stage 1: Overpass HTTP
+        try:
+            logger.info("Stage 1/3: Overpass interpreter (HTTP)")
+            return extract_osm_via_http(bbox, tag, output_path)
+        except Exception as e:
+            logger.warning(f"Overpass HTTP failed: {e}. Trying local PBF...")
 
+        # Stage 2: Local PBF (cached)
+        pbf_file = self._find_local_pbf(bbox)
         if pbf_file:
-            logger.info(f"Local .pbf found: {Path(pbf_file).name}")
+            logger.info(f"Stage 2/3: Local PBF + osmium ({Path(pbf_file).name})")
             try:
                 return self._extract_with_osmium(bbox, pbf_file, tag, output_path)
             except Exception as e:
-                logger.warning(f"osmium failed: {e}. Trying osmGet.py...")
+                logger.warning(f"osmium on cached PBF failed: {e}. "
+                               f"Trying Geofabrik download...")
+        else:
+            logger.info("Stage 2/3: no cached PBF found; proceeding to download.")
 
-        logger.info("Downloading from OSM API (osmGet.py)...")
+        # Stage 3: Download PBF from Geofabrik
+        if identify_region(bbox) is None:
+            raise RuntimeError(
+                f"OSM extraction failed. Overpass unavailable and bbox center "
+                f"is not covered by any known Geofabrik region "
+                f"(supported regions in osm_http.REGIONS)."
+            )
+
         try:
-            return self._extract_with_osmget(bbox, tag, output_path)
+            logger.info("Stage 3/3: Geofabrik PBF download + osmium")
+            downloaded_pbf = download_pbf_for_region(bbox)
+            return self._extract_with_osmium(bbox, str(downloaded_pbf), tag, output_path)
         except Exception as e:
-            logger.error(f"osmGet.py also failed: {e}")
-            raise RuntimeError("OSM extraction failed. Check osmium or osmGet.py.") from e
+            logger.error(f"Geofabrik download path failed: {e}")
+            raise RuntimeError(
+                "OSM extraction failed across all three stages "
+                "(Overpass HTTP, local PBF, Geofabrik download)."
+            ) from e
 
     def _find_local_pbf(self, bbox: List[float]) -> Optional[str]:
-        """Find local .pbf file matching the bbox center."""
-        center_lon = (bbox[0] + bbox[2]) / 2
-        center_lat = (bbox[1] + bbox[3]) / 2
+        """
+        Look up a cached Geofabrik PBF that covers bbox.
 
-        data_dir = self.environment.BASE_DIR.parent / "data"
+        Search order:
+          1. default_data_dir() — primary cache (~/.agentsumo/data/ or
+             $AGENTSUMO_DATA_DIR). This is where Stage 3 downloads are saved,
+             so cache hits are stable across sessions and reused on later runs.
+          2. BASE_DIR/data — repo-relative fallback. Lets developers and
+             existing local installs reuse PBFs they already keep with the
+             source tree without copying them.
 
-        if 33 < center_lat < 39 and 124 < center_lon < 132:
-            pbf = data_dir / "south-korea-latest.osm.pbf"
-            if pbf.exists():
-                logger.info("Using local Korea OSM data")
-                return str(pbf)
+        Region identification is delegated to osm_http.identify_region so the
+        single REGIONS table is the only place to add new countries/states.
+        """
+        from agentsumo_mcp.baseline.osm_http import default_data_dir
 
-        elif 40 < center_lat < 41.5 and -75 < center_lon < -73:
-            pbf = data_dir / "new-york-latest.osm.pbf"
-            if pbf.exists():
-                logger.info("Using local New York OSM data")
-                return str(pbf)
+        region = identify_region(bbox)
+        if region is None:
+            logger.info(
+                "No PBF region covers this bbox (Stage 3 download will not be "
+                "possible if Overpass also fails)."
+            )
+            return None
 
-        logger.info("No local .pbf file found (online download needed)")
+        filename = f"{region['name']}-latest.osm.pbf"
+
+        primary = default_data_dir() / filename
+        if primary.exists():
+            logger.info(f"PBF cache hit (user dir): {primary}")
+            return str(primary)
+
+        legacy = self.environment.BASE_DIR / "data" / filename
+        if legacy.exists():
+            logger.info(f"PBF cache hit (repo-relative): {legacy}")
+            return str(legacy)
+
+        logger.info(
+            f"No cached PBF for region '{region['name']}' "
+            f"(checked {primary} and {legacy})."
+        )
         return None
 
     def _extract_with_osmium(
@@ -235,24 +284,3 @@ class OsmExtractor:
         logger.info(f"OSM extraction complete: {osm_file.name}")
         return str(osm_file)
 
-    def _extract_with_osmget(
-        self, bbox: List[float], tag: str, output_path: Path
-    ) -> str:
-        """Download OSM data using osmGet.py (slow, universal fallback)."""
-        osmget_path = self.environment.get_tool_path("osmGet.py")
-        if not os.path.exists(osmget_path):
-            raise FileNotFoundError(f"osmGet.py not found: {osmget_path}")
-
-        bbox_str = f"{bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}"
-        logger.info("Downloading via osmGet.py (this may take a while)...")
-
-        subprocess.run([
-            "python3", osmget_path,
-            f"--bbox={bbox_str}",
-            "--prefix", tag,
-            "--output-dir", str(output_path)
-        ], check=True, capture_output=True)
-
-        osm_file = output_path / f"{tag}_bbox.osm.xml"
-        logger.info(f"OSM download complete: {osm_file.name}")
-        return str(osm_file)
